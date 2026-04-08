@@ -1,0 +1,511 @@
+.dashboardShell {
+  min-height: 100vh;
+  padding: 1.5rem;
+  display: grid;
+  gap: 1.5rem;
+}
+
+.hero {
+  display: grid;
+  gap: 1.5rem;
+  padding: 1.75rem;
+  border-radius: 34px;
+  color: #fff8ef;
+  background:
+    radial-gradient(circle at top right, rgba(242, 198, 109, 0.28), transparent 30%),
+    linear-gradient(135deg, rgba(19, 77, 67, 0.98), rgba(16, 53, 59, 0.94));
+  box-shadow: var(--shadow);
+}
+
+.heroTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.kicker {
+  margin: 0 0 0.6rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 240, 222, 0.76);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 3.8rem);
+  line-height: 0.98;
+  font-family: var(--font-serif), serif;
+}
+
+.heroText {
+  max-width: 60ch;
+  margin: 1rem 0 0;
+  line-height: 1.8;
+  color: rgba(255, 244, 229, 0.84);
+}
+
+.actions {
+  display: grid;
+  justify-items: end;
+  gap: 0.8rem;
+}
+
+.roleBadge,
+.logoutButton {
+  border-radius: 999px;
+  min-height: 2.7rem;
+  padding: 0 1rem;
+  font-weight: 700;
+}
+
+.roleBadge {
+  display: inline-flex;
+  align-items: center;
+  background: #f5d8ac;
+  color: #173b35;
+}
+
+.logoutButton {
+  border: 1px solid rgba(255, 248, 239, 0.18);
+  background: rgba(255, 248, 239, 0.12);
+  color: #fff8ef;
+}
+
+.logoutButtonDark {
+  margin-top: 1rem;
+  border: none;
+  border-radius: 999px;
+  min-height: 2.8rem;
+  padding: 0 1rem;
+  background: var(--primary-dark);
+  color: #fff8ef;
+  font-weight: 700;
+}
+
+.heroMeta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.profileCard {
+  display: grid;
+  gap: 0.3rem;
+  padding: 1rem 1.1rem;
+  border-radius: 22px;
+  background: rgba(255, 248, 239, 0.08);
+  border: 1px solid rgba(255, 248, 239, 0.14);
+}
+
+.profileLabel {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 240, 222, 0.72);
+}
+
+.profileCard strong {
+  font-size: 1.08rem;
+}
+
+.profileCard span:last-child {
+  color: rgba(255, 244, 229, 0.82);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(18rem, 0.8fr);
+  gap: 1.5rem;
+}
+
+.primaryColumn,
+.sideColumn {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.card,
+.cardAccent {
+  border-radius: 28px;
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+.card {
+  background: rgba(255, 251, 245, 0.88);
+}
+
+.cardAccent {
+  background:
+    linear-gradient(180deg, rgba(244, 223, 189, 0.92), rgba(250, 242, 229, 0.92));
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.sectionLabel {
+  margin: 0 0 0.35rem;
+  color: var(--secondary);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+
+.sectionHeader h2,
+.card h2,
+.cardAccent h2 {
+  margin: 0;
+  color: var(--primary-dark);
+  font-size: 1.6rem;
+  font-family: var(--font-serif), serif;
+}
+
+.sectionHint {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.statsRow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.statCard {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1rem;
+  border-radius: 20px;
+  background: rgba(29, 111, 95, 0.06);
+}
+
+.statCard span,
+.insightCard span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.statCard strong,
+.insightCard strong {
+  color: var(--primary-dark);
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.statCard small {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.courseList,
+.teacherCourseGrid,
+.insightGrid,
+.timeline {
+  display: grid;
+  gap: 1rem;
+}
+
+.courseCard,
+.teacherCourseCard,
+.timelineItem,
+.insightCard {
+  padding: 1rem;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid rgba(29, 111, 95, 0.1);
+}
+
+.courseHead,
+.teacherMeta,
+.timelineItem {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.courseHead h3,
+.teacherCourseCard h3 {
+  margin: 0;
+  color: var(--primary-dark);
+  font-size: 1.08rem;
+}
+
+.courseHead p,
+.teacherCourseCard p,
+.timelineItem p,
+.insightCard p,
+.paragraph {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.courseHead span,
+.teacherMeta strong {
+  color: var(--secondary);
+  font-weight: 800;
+}
+
+.progressTrack {
+  margin: 0.9rem 0 0.6rem;
+  height: 0.7rem;
+  border-radius: 999px;
+  background: rgba(29, 111, 95, 0.08);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--secondary), #e2a450);
+}
+
+.courseCard small,
+.timelineItem span,
+.teacherMeta span {
+  color: var(--muted);
+}
+
+.simpleList {
+  margin: 1rem 0 0;
+  padding-left: 1.15rem;
+  color: var(--foreground);
+  display: grid;
+  gap: 0.75rem;
+  line-height: 1.7;
+}
+
+.teacherForm {
+  display: grid;
+  gap: 1rem;
+}
+
+.moduleList,
+.subsection {
+  display: grid;
+  gap: 1rem;
+}
+
+.moduleCard,
+.nestedCard,
+.nestedMiniCard {
+  border-radius: 20px;
+  border: 1px solid rgba(29, 111, 95, 0.12);
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.moduleCard {
+  padding: 1rem;
+}
+
+.nestedCard,
+.nestedMiniCard {
+  padding: 0.9rem;
+}
+
+.moduleHeader,
+.subsectionHeader,
+.nestedHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+}
+
+.moduleHeader h3,
+.subsectionHeader h4,
+.nestedHeader strong {
+  margin: 0;
+  color: var(--primary-dark);
+}
+
+.metaFields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.formField {
+  display: grid;
+  gap: 0.5rem;
+  color: var(--primary-dark);
+  font-weight: 700;
+}
+
+.formField input,
+.formTextarea {
+  border-radius: 16px;
+  border: 1px solid rgba(29, 111, 95, 0.18);
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--foreground);
+  outline: none;
+}
+
+.formField input {
+  min-height: 3.2rem;
+  padding: 0 1rem;
+}
+
+.formTextarea {
+  min-height: 7rem;
+  padding: 0.9rem 1rem;
+  resize: vertical;
+}
+
+.formField input:focus,
+.formTextarea:focus {
+  border-color: rgba(29, 111, 95, 0.55);
+  box-shadow: 0 0 0 4px rgba(29, 111, 95, 0.1);
+}
+
+.submitButton {
+  min-height: 3.2rem;
+  border: none;
+  border-radius: 18px;
+  background: linear-gradient(135deg, var(--secondary), #a85f18);
+  color: #fff8ef;
+  font-weight: 800;
+}
+
+.submitButton:disabled {
+  opacity: 0.75;
+  cursor: wait;
+}
+
+.secondaryButton,
+.linkButton {
+  border: none;
+  background: rgba(29, 111, 95, 0.08);
+  color: var(--primary-dark);
+  font-weight: 700;
+}
+
+.secondaryButton {
+  min-height: 2.6rem;
+  padding: 0 0.9rem;
+  border-radius: 999px;
+}
+
+.linkButton {
+  min-height: auto;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+}
+
+.inlineMessage {
+  margin: 0;
+  color: var(--primary-dark);
+  line-height: 1.6;
+}
+
+.courseMetaGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.courseMetaGrid span {
+  padding: 0.7rem 0.8rem;
+  border-radius: 14px;
+  background: rgba(29, 111, 95, 0.06);
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.revenueGrid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 1rem 0;
+}
+
+.revenueCard {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1rem;
+  border-radius: 20px;
+  background: rgba(29, 111, 95, 0.06);
+}
+
+.revenueCard span,
+.revenueCard small {
+  color: var(--muted);
+}
+
+.revenueCard strong {
+  color: var(--primary-dark);
+  font-size: 1.35rem;
+}
+
+.teacherCourseGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.teacherCourseCard {
+  background: rgba(255, 250, 243, 0.82);
+}
+
+.teacherMeta {
+  margin-bottom: 1rem;
+  align-items: center;
+}
+
+.insightGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 1100px) {
+  .grid,
+  .teacherCourseGrid,
+  .statsRow,
+  .heroMeta,
+  .insightGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 860px) {
+  .dashboardShell {
+    padding: 1rem;
+  }
+
+  .heroTop,
+  .sectionHeader,
+  .courseHead,
+  .teacherMeta,
+  .timelineItem {
+    flex-direction: column;
+  }
+
+  .actions {
+    justify-items: stretch;
+  }
+  
+  .revenueGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .metaFields,
+  .courseMetaGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .moduleHeader,
+  .subsectionHeader,
+  .nestedHeader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+}
