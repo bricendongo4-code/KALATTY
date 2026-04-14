@@ -5,7 +5,7 @@ type RegisterBody = {
   email: string;
   password: string;
   fullname: string;
-  role?: 'student' | 'teacher';
+  role?: 'student' | 'teacher' | 'institution';
   country?: string;
   level?: string;
   school_name?: string;

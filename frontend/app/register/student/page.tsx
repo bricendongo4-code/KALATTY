@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { startTransition, useState } from "react";
@@ -67,11 +68,22 @@ export default function StudentRegisterPage() {
   return (
     <main className={styles.shell}>
       <section className={styles.hero}>
+        <div className={styles.brandBlock}>
+          <Image
+            src="/kalatty-logo.png"
+            alt="Logo Kalatty"
+            width={148}
+            height={148}
+            className={styles.brandLogo}
+            priority
+          />
+          <span className={styles.brandLine}>Kalatty</span>
+        </div>
         <span className={styles.badge}>Parcours etudiant</span>
         <h1 className={styles.title}>Commence ton parcours d&apos;apprentissage.</h1>
         <p className={styles.subtitle}>
           Cree ton espace pour suivre tes cours, reprendre tes revisions et garder
-          une progression claire sur Kallaty.
+          une progression claire sur Kalatty.
         </p>
       </section>
 

@@ -12,6 +12,10 @@ export class DashboardService {
       return this.getTeacherDashboard(profile);
     }
 
+    if (profile.role === 'institution') {
+      return this.getInstitutionDashboard(profile);
+    }
+
     return this.getStudentDashboard(profile);
   }
 
@@ -211,6 +215,30 @@ export class DashboardService {
     return {
       totalRevenue,
       monthRevenue,
+    };
+  }
+
+  private getInstitutionDashboard(profile: Record<string, unknown>) {
+    const institutionName =
+      (profile.fullname as string | undefined) ||
+      (profile.school_name as string | undefined) ||
+      'Etablissement';
+
+    return {
+      role: 'institution',
+      profile,
+      stats: {
+        activeStudents: 0,
+        activeRooms: 0,
+        assignedCourses: 0,
+        pendingExercises: 0,
+      },
+      courses: [],
+      tasks: [
+        `Configurer les premieres salles de ${institutionName}.`,
+        "Inviter des etudiants ou eleves avec des codes de groupe.",
+        'Associer des cours et programmer les premiers exercices.',
+      ],
     };
   }
 }

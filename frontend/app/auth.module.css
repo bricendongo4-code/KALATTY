@@ -32,6 +32,29 @@
   background: radial-gradient(circle, rgba(242, 198, 109, 0.45), transparent 68%);
 }
 
+.brandBlock {
+  display: grid;
+  gap: 0.55rem;
+  justify-items: start;
+}
+
+.brandLogo {
+  width: clamp(5.5rem, 10vw, 8rem);
+  height: auto;
+  filter: drop-shadow(0 14px 28px rgba(16, 53, 59, 0.22));
+}
+
+.brandLine {
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  background: rgba(255, 247, 235, 0.12);
+  border: 1px solid rgba(255, 247, 235, 0.18);
+  font-size: 0.84rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .badge {
   width: fit-content;
   padding: 0.55rem 1rem;

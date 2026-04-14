@@ -1,5 +1,16 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Post,
+  Req,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { CoursesService } from './courses.service';
 
 type RequestUser = {
@@ -7,6 +18,13 @@ type RequestUser = {
     id: string;
     role?: string;
   };
+};
+
+type UploadedAsset = {
+  buffer: Buffer;
+  mimetype: string;
+  size: number;
+  originalname: string;
 };
 
 @Controller('courses')
@@ -22,8 +40,38 @@ export class CoursesController {
   @Post()
   create(
     @Req() req: RequestUser,
-    @Body() body: { title: string; description?: string },
+    @Body()
+    body: Record<string, unknown>,
   ) {
-    return this.coursesService.createCourse(req.user, body);
+    return this.coursesService.createCourse(
+      req.user,
+      body as Parameters<CoursesService['createCourse']>[1],
+    );
+  }
+
+  @Post('upload-thumbnail')
+  @UseInterceptors(FileInterceptor('file'))
+  uploadThumbnail(
+    @Req() req: RequestUser,
+    @UploadedFile() file?: UploadedAsset,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Aucun fichier miniature recu.');
+    }
+
+    return this.coursesService.uploadCourseAsset(req.user, file, 'thumbnail');
+  }
+
+  @Post('upload-video')
+  @UseInterceptors(FileInterceptor('file'))
+  uploadVideo(
+    @Req() req: RequestUser,
+    @UploadedFile() file?: UploadedAsset,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Aucun fichier video recu.');
+    }
+
+    return this.coursesService.uploadCourseAsset(req.user, file, 'video');
   }
 }

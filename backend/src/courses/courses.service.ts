@@ -48,12 +48,68 @@ type CreateCoursePayload = {
   modules?: ModulePayload[];
 };
 
+type UploadCategory = 'thumbnail' | 'video';
+
+type UploadedAsset = {
+  buffer: Buffer;
+  mimetype: string;
+  size: number;
+  originalname: string;
+};
+
 @Injectable()
 export class CoursesService {
   constructor(private readonly supabaseService: SupabaseService) {}
 
+  async uploadCourseAsset(
+    user: AuthUser,
+    file: UploadedAsset,
+    category: UploadCategory,
+  ) {
+    await this.assertTeacher(user);
+
+    if (!file.buffer?.length) {
+      throw new BadRequestException('Le fichier envoye est vide.');
+    }
+
+    if (category === 'thumbnail' && !file.mimetype.startsWith('image/')) {
+      throw new BadRequestException(
+        'La miniature doit etre une image valide.',
+      );
+    }
+
+    if (category === 'video' && !file.mimetype.startsWith('video/')) {
+      throw new BadRequestException('La ressource envoyee doit etre une video.');
+    }
+
+    const bucket = category === 'thumbnail' ? 'course-thumbnails' : 'course-videos';
+    const safeName = this.sanitizeFilename(file.originalname || `${category}.bin`);
+    const filePath = `${user.id}/${Date.now()}-${safeName}`;
+
+    const { error } = await this.supabaseService.client.storage
+      .from(bucket)
+      .upload(filePath, file.buffer, {
+        contentType: file.mimetype,
+        upsert: false,
+      });
+
+    if (error) {
+      throw new BadRequestException(
+        error.message ??
+          "L'upload du fichier a echoue. Verifie la configuration Storage Supabase.",
+      );
+    }
+
+    return {
+      bucket,
+      path: filePath,
+      mimetype: file.mimetype,
+      size: file.size,
+    };
+  }
+
   async getTeacherCourses(user: AuthUser) {
-    this.assertTeacher(user);
+    await this.assertTeacher(user);
 
     const { data, error } = await this.supabaseService.client
       .from('courses')
@@ -95,9 +151,10 @@ export class CoursesService {
   }
 
   async createCourse(user: AuthUser, payload: CreateCoursePayload) {
-    this.assertTeacher(user);
+    await this.assertTeacher(user);
 
-    const title = payload.title.trim();
+    const title =
+      typeof payload.title === 'string' ? payload.title.trim() : '';
     const description = payload.description?.trim() || null;
     const shortDescription = payload.short_description?.trim() || null;
     const thumbnailPath = payload.thumbnail_path?.trim() || null;
@@ -280,11 +337,45 @@ export class CoursesService {
     };
   }
 
-  private assertTeacher(user: AuthUser) {
-    if (user.role !== 'teacher' && user.role !== 'admin') {
+  private async assertTeacher(user: AuthUser) {
+    const role = await this.resolveRole(user);
+
+    if (role !== 'teacher' && role !== 'admin') {
       throw new ForbiddenException(
         'Cette action est reservee aux enseignants.',
       );
     }
+  }
+
+  private async resolveRole(user: AuthUser) {
+    if (user.role === 'teacher' || user.role === 'admin') {
+      return user.role;
+    }
+
+    const { data, error } = await this.supabaseService.client
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (error) {
+      throw new BadRequestException(
+        error.message ?? "Impossible de verifier le role de l'utilisateur.",
+      );
+    }
+
+    return data?.role ?? user.role ?? null;
+  }
+
+  private sanitizeFilename(value: string) {
+    return value
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9._-]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 120);
   }
 }

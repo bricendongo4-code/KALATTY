@@ -6,13 +6,13 @@ import { useRouter } from "next/navigation";
 import { startTransition, useState } from "react";
 import styles from "../../auth.module.css";
 
-export default function TeacherRegisterPage() {
+export default function InstitutionRegisterPage() {
   const router = useRouter();
-  const [fullname, setFullname] = useState("");
+  const [institutionName, setInstitutionName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [expertise, setExpertise] = useState("");
-  const [bio, setBio] = useState("");
+  const [institutionType, setInstitutionType] = useState("");
+  const [description, setDescription] = useState("");
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -29,20 +29,21 @@ export default function TeacherRegisterPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          fullname,
+          fullname: institutionName,
           email,
           password,
-          role: "teacher",
+          role: "institution",
           country: "Cameroun",
-          expertise,
-          bio,
+          school_name: institutionName,
+          expertise: institutionType,
+          bio: description,
         }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        setMessage(data.message ?? "Impossible de creer le compte enseignant.");
+        setMessage(data.message ?? "Impossible de creer l'espace etablissement.");
         return;
       }
 
@@ -55,7 +56,7 @@ export default function TeacherRegisterPage() {
         return;
       }
 
-      setMessage(data.message ?? "Compte enseignant cree avec succes.");
+      setMessage(data.message ?? "Espace etablissement cree avec succes.");
     } catch {
       setMessage(
         "Le serveur est inaccessible. Verifie que le backend tourne sur le port 4000.",
@@ -79,38 +80,39 @@ export default function TeacherRegisterPage() {
           />
           <span className={styles.brandLine}>Kalatty</span>
         </div>
-        <span className={styles.badge}>Parcours enseignant</span>
-        <h1 className={styles.title}>Partage ton savoir avec une vraie interface formateur.</h1>
+        <span className={styles.badge}>Parcours etablissement</span>
+        <h1 className={styles.title}>Cree un campus digital pour tes classes et tes filieres.</h1>
         <p className={styles.subtitle}>
-          Cree ton espace enseignant pour publier des cours, accompagner des
-          apprenants et suivre les performances de tes contenus.
+          Ouvre un espace institutionnel pour regrouper les apprenants, creer des
+          salles, attribuer des cours et suivre les exercices comme dans un hub
+          de travail educatif.
         </p>
       </section>
 
       <section className={styles.panel}>
         <div className={styles.panelHeader}>
-          <p className={styles.eyebrow}>Inscription enseignant</p>
-          <h2>Ouvre ton espace formateur</h2>
-          <p>Renseigne ton profil pour preparer la mise en ligne de tes cours.</p>
+          <p className={styles.eyebrow}>Inscription etablissement</p>
+          <h2>Ouvre ton espace institutionnel</h2>
+          <p>Quelques informations suffisent pour preparer ton campus sur Kalatty.</p>
         </div>
 
         <form onSubmit={handleRegister} className={styles.form}>
           <label className={styles.field}>
-            <span>Nom complet</span>
+            <span>Nom de l&apos;etablissement</span>
             <input
               type="text"
-              placeholder="Ex: M. Ndzi"
-              value={fullname}
-              onChange={(e) => setFullname(e.target.value)}
+              placeholder="Ex: Institut Horizon"
+              value={institutionName}
+              onChange={(e) => setInstitutionName(e.target.value)}
               required
             />
           </label>
 
           <label className={styles.field}>
-            <span>Email</span>
+            <span>Email principal</span>
             <input
               type="email"
-              placeholder="exemple@formation.cm"
+              placeholder="contact@etablissement.cm"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -118,22 +120,22 @@ export default function TeacherRegisterPage() {
           </label>
 
           <label className={styles.field}>
-            <span>Domaine principal</span>
+            <span>Type d&apos;etablissement</span>
             <input
               type="text"
-              placeholder="Ex: Mathematiques, Anglais, Bureautique"
-              value={expertise}
-              onChange={(e) => setExpertise(e.target.value)}
+              placeholder="Ex: Lycee, universite, centre de formation"
+              value={institutionType}
+              onChange={(e) => setInstitutionType(e.target.value)}
             />
           </label>
 
           <label className={styles.field}>
-            <span>Presentation rapide</span>
+            <span>Description rapide</span>
             <textarea
               className={styles.textarea}
-              placeholder="Decris ton experience ou les cours que tu veux publier"
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
+              placeholder="Parle de tes classes, filieres ou besoins pedagogiques"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
               rows={4}
             />
           </label>
@@ -150,14 +152,14 @@ export default function TeacherRegisterPage() {
           </label>
 
           <button className={styles.primaryButton} type="submit" disabled={isLoading}>
-            {isLoading ? "Creation..." : "Creer mon compte enseignant"}
+            {isLoading ? "Creation..." : "Creer mon espace etablissement"}
           </button>
 
           {message ? <p className={styles.feedback}>{message}</p> : null}
         </form>
 
         <p className={styles.switchText}>
-          Je cherche a apprendre ? <Link href="/register/student">Espace etudiant</Link>
+          Je cherche un autre profil ? <Link href="/register">Choisir un autre espace</Link>
         </p>
       </section>
     </main>

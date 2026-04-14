@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import styles from "../auth.module.css";
 
@@ -16,15 +17,33 @@ const options = [
     description:
       "Mettre en ligne des modules, suivre les apprenants, partager des ressources et construire une academie locale.",
   },
+  {
+    href: "/register/institution",
+    label: "Je suis un etablissement",
+    title: "Ouvrir un campus digital",
+    description:
+      "Regrouper des classes, suivre les eleves, attribuer des cours, creer des salles et organiser les exercices.",
+  },
 ];
 
 export default function RegisterChoicePage() {
   return (
     <main className={styles.shell}>
       <section className={styles.hero}>
+        <div className={styles.brandBlock}>
+          <Image
+            src="/kalatty-logo.png"
+            alt="Logo Kalatty"
+            width={160}
+            height={160}
+            className={styles.brandLogo}
+            priority
+          />
+          <span className={styles.brandLine}>Kalatty</span>
+        </div>
         <span className={styles.badge}>Choix du parcours</span>
         <h1 className={styles.title}>
-          Kallaty accueille les apprenants comme les createurs de cours.
+          Kalatty accueille les apprenants comme les createurs de cours.
         </h1>
         <p className={styles.subtitle}>
           Choisis le parcours qui correspond a ton besoin aujourd&apos;hui. Tu pourras

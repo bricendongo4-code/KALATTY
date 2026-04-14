@@ -10,7 +10,7 @@ type RegisterPayload = {
   email: string;
   password: string;
   fullname: string;
-  role?: 'student' | 'teacher';
+  role?: 'student' | 'teacher' | 'institution';
   country?: string;
   level?: string;
   school_name?: string;
@@ -29,7 +29,12 @@ export class AuthService {
     const email = data.email.trim().toLowerCase();
     const password = data.password;
     const fullname = data.fullname.trim();
-    const role = data.role === 'teacher' ? 'teacher' : 'student';
+    const role =
+      data.role === 'teacher'
+        ? 'teacher'
+        : data.role === 'institution'
+          ? 'institution'
+          : 'student';
     const country = data.country?.trim() || 'Cameroun';
     const level = data.level?.trim() || null;
     const schoolName = data.school_name?.trim() || null;

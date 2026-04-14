@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { startTransition, useState } from "react";
@@ -56,9 +57,20 @@ export default function LoginPage() {
   return (
     <main className={styles.shell}>
       <section className={styles.hero}>
-        <span className={styles.badge}>Kallaty</span>
+        <div className={styles.brandBlock}>
+          <Image
+            src="/kalatty-logo.png"
+            alt="Logo Kalatty"
+            width={160}
+            height={160}
+            className={styles.brandLogo}
+            priority
+          />
+          <span className={styles.brandLine}>Kalatty</span>
+        </div>
+        <span className={styles.badge}>Plateforme Kalatty</span>
         <h1 className={styles.title}>
-          Etudier, progresser, reussir avec des parcours pensés pour l&apos;Afrique.
+          Etudier, progresser, reussir avec des parcours penses pour l&apos;Afrique.
         </h1>
         <p className={styles.subtitle}>
           Une plateforme d&apos;apprentissage qui parle concret: revision mobile,
@@ -84,7 +96,7 @@ export default function LoginPage() {
           <p className={styles.eyebrow}>Connexion</p>
           <h2>Heureux de te revoir</h2>
           <p>
-            Entre dans ton espace Kallaty pour reprendre tes cours et tes
+            Entre dans ton espace Kalatty pour reprendre tes cours et tes
             exercices.
           </p>
         </div>
