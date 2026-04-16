@@ -15,12 +15,16 @@ export class DashboardService {
 
   async getDashboard(userId: string) {
     const profile = await this.getProfile(userId);
+    const effectiveRole = await this.resolveDashboardRole(
+      userId,
+      String(profile.role ?? ''),
+    );
 
-    if (profile.role === 'teacher') {
+    if (effectiveRole === 'teacher') {
       return this.getTeacherDashboard(profile);
     }
 
-    if (profile.role === 'institution') {
+    if (effectiveRole === 'institution') {
       return this.getInstitutionDashboard(profile);
     }
 
@@ -308,6 +312,55 @@ export class DashboardService {
         'Suivre les inscriptions des derniers apprenants.',
       ],
     };
+  }
+
+  private async resolveDashboardRole(userId: string, profileRole: string) {
+    if (profileRole === 'teacher' || profileRole === 'institution') {
+      return profileRole;
+    }
+
+    const ownsInstitution = await this.userOwnsInstitution(userId);
+    if (ownsInstitution) {
+      return 'institution';
+    }
+
+    const managesInstitution = await this.userManagesInstitution(userId);
+    if (managesInstitution) {
+      return 'institution';
+    }
+
+    return 'student';
+  }
+
+  private async userOwnsInstitution(userId: string) {
+    const { data, error } = await this.supabaseService.client
+      .from('institutions')
+      .select('id')
+      .eq('owner_user_id', userId)
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      return false;
+    }
+
+    return Boolean(data?.id);
+  }
+
+  private async userManagesInstitution(userId: string) {
+    const { data, error } = await this.supabaseService.client
+      .from('institution_members')
+      .select('id')
+      .eq('user_id', userId)
+      .in('role', ['owner', 'admin'])
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      return false;
+    }
+
+    return Boolean(data?.id);
   }
 
   private async getTeacherRevenue(teacherId: string) {
