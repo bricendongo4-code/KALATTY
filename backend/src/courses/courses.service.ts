@@ -62,6 +62,25 @@ type ReviewPayload = {
   comment?: string;
 };
 
+type ProgressPayload = {
+  status?: 'started' | 'completed';
+};
+
+type DiscoveryCourse = {
+  id: string;
+  title: string;
+  description: string;
+  shortDescription: string;
+  priceFcfa: number;
+  thumbnailUrl: string;
+  teacherName: string;
+  teacherExpertise: string;
+  courseRatingAverage: number;
+  teacherRatingAverage: number;
+  totalReviews: number;
+  lessonsCount: number;
+};
+
 @Injectable()
 export class CoursesService {
   constructor(private readonly supabaseService: SupabaseService) {}
@@ -155,6 +174,135 @@ export class CoursesService {
     }));
   }
 
+  async getPublicDiscovery() {
+    const { data: courses, error } = await this.supabaseService.client
+      .from('courses')
+      .select(
+        `
+          id,
+          title,
+          description,
+          short_description,
+          price_fcfa,
+          thumbnail_url,
+          teacher_id,
+          profiles:teacher_id (
+            fullname,
+            expertise
+          ),
+          lessons ( id )
+        `,
+      )
+      .eq('status', 'published')
+      .order('created_at', { ascending: false })
+      .limit(12);
+
+    if (error) {
+      throw new BadRequestException(
+        error.message ?? 'Impossible de charger la vitrine des cours.',
+      );
+    }
+
+    const courseIds = (courses ?? []).map((course: any) => course.id);
+    const teacherIds = (courses ?? []).map((course: any) => course.teacher_id);
+
+    const { data: courseReviews } = courseIds.length
+      ? await this.supabaseService.client
+          .from('course_reviews')
+          .select('course_id, rating')
+          .in('course_id', courseIds)
+      : { data: [] as Array<Record<string, unknown>> };
+
+    const { data: teacherReviews } = teacherIds.length
+      ? await this.supabaseService.client
+          .from('teacher_reviews')
+          .select('teacher_id, rating')
+          .in('teacher_id', teacherIds)
+      : { data: [] as Array<Record<string, unknown>> };
+
+    const discoveryCourses = (courses ?? []).map((course: any) => {
+      const courseReviewRows = (courseReviews ?? []).filter(
+        (review: any) => review.course_id === course.id,
+      );
+      const teacherReviewRows = (teacherReviews ?? []).filter(
+        (review: any) => review.teacher_id === course.teacher_id,
+      );
+
+      return {
+        id: course.id,
+        title: course.title ?? 'Cours sans titre',
+        description: course.description ?? '',
+        shortDescription: course.short_description ?? '',
+        priceFcfa: Number(course.price_fcfa ?? 0),
+        thumbnailUrl: course.thumbnail_url ?? '',
+        teacherName: course.profiles?.fullname ?? 'Formateur Kalatty',
+        teacherExpertise: course.profiles?.expertise ?? '',
+        courseRatingAverage: this.getAverageRating(
+          courseReviewRows.map((review: any) => ({
+            rating: Number(review.rating ?? 0),
+          })),
+        ),
+        teacherRatingAverage: this.getAverageRating(
+          teacherReviewRows.map((review: any) => ({
+            rating: Number(review.rating ?? 0),
+          })),
+        ),
+        totalReviews: courseReviewRows.length,
+        lessonsCount: course.lessons?.length ?? 0,
+      } satisfies DiscoveryCourse;
+    });
+
+    const topRated = discoveryCourses
+      .slice()
+      .sort((a, b) => {
+        if (b.courseRatingAverage !== a.courseRatingAverage) {
+          return b.courseRatingAverage - a.courseRatingAverage;
+        }
+
+        return b.totalReviews - a.totalReviews;
+      })
+      .slice(0, 6);
+
+    return {
+      featuredCourses: discoveryCourses.slice(0, 6),
+      topRatedCourses: topRated,
+      guides: [
+        {
+          id: 'guide-student',
+          title: 'Commencer un cours',
+          description:
+            "Inscris-toi, ouvre la fiche du cours, lance la premiere video et suis tes modules depuis l'espace etudiant.",
+        },
+        {
+          id: 'guide-teacher',
+          title: 'Publier comme formateur',
+          description:
+            'Charge ta miniature, ajoute tes videos directement sur Kalatty puis publie ton programme module par module.',
+        },
+        {
+          id: 'guide-campus',
+          title: 'Brancher un etablissement',
+          description:
+            'Cree des salles, invite etudiants et professeurs par lien puis distribue les exercices dans chaque groupe.',
+        },
+      ],
+      promos: [
+        {
+          id: 'promo-campus',
+          title: 'Offre campus',
+          description:
+            'Regroupe tes apprenants dans des salles Kalatty et suis leur progression depuis un seul espace.',
+        },
+        {
+          id: 'promo-teacher',
+          title: 'Studio formateur',
+          description:
+            'Diffuse tes cours video, collecte les avis et developpe ta visibilite sur la vitrine Kalatty.',
+        },
+      ],
+    };
+  }
+
   async getCourseDetail(user: AuthUser, courseId: string) {
     const role = await this.resolveRole(user);
 
@@ -183,6 +331,7 @@ export class CoursesService {
               id,
               title,
               content,
+              video_path,
               duration_seconds,
               is_preview,
               order_index
@@ -207,6 +356,14 @@ export class CoursesService {
       throw new ForbiddenException("Ce cours n'est pas accessible.");
     }
 
+    const lessonIds = (course.course_modules ?? []).flatMap((module: any) =>
+      (module.lessons ?? []).map((lesson: any) => lesson.id),
+    );
+    const progressMap =
+      role === 'student' && lessonIds.length > 0
+        ? await this.getLessonProgressMap(user.id, lessonIds)
+        : new Map<string, string>();
+
     const modules = (course.course_modules ?? [])
       .slice()
       .sort((a: any, b: any) => Number(a.order_index ?? 0) - Number(b.order_index ?? 0))
@@ -224,10 +381,23 @@ export class CoursesService {
             id: lesson.id,
             title: lesson.title ?? 'Lecon',
             content: lesson.content ?? '',
+            videoPath: lesson.video_path ?? '',
             durationSeconds: Number(lesson.duration_seconds ?? 0),
             isPreview: Boolean(lesson.is_preview),
+            progressStatus: progressMap.get(lesson.id) ?? 'not_started',
           })),
       }));
+
+    const totalLessons = modules.reduce(
+      (sum: number, module: { lessons: Array<unknown> }) => sum + module.lessons.length,
+      0,
+    );
+    const completedLessons = Array.from(progressMap.values()).filter(
+      (status) => status === 'completed',
+    ).length;
+    const startedLessons = Array.from(progressMap.values()).filter(
+      (status) => status === 'started' || status === 'completed',
+    ).length;
 
     const courseReviews = await this.getCourseReviews(course.id);
     const teacherReviews = await this.getTeacherReviews(
@@ -250,11 +420,11 @@ export class CoursesService {
       teacherReviews,
       courseRatingAverage: this.getAverageRating(courseReviews),
       teacherRatingAverage: this.getAverageRating(teacherReviews),
-      lessonsCount: modules.reduce(
-        (sum: number, module: { lessons: Array<unknown> }) =>
-          sum + module.lessons.length,
-        0,
-      ),
+      lessonsCount: totalLessons,
+      completedLessons,
+      startedLessons,
+      progressPercentage:
+        totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0,
       enrolled:
         role === 'student'
           ? await this.isUserEnrolled(user.id, course.id)
@@ -398,6 +568,120 @@ export class CoursesService {
     };
   }
 
+  async updateLessonProgress(
+    user: AuthUser,
+    courseId: string,
+    lessonId: string,
+    payload: ProgressPayload,
+  ) {
+    const role = await this.resolveRole(user);
+    const nextStatus = payload.status === 'completed' ? 'completed' : 'started';
+
+    if (role !== 'student' && role !== 'teacher' && role !== 'admin') {
+      throw new ForbiddenException(
+        "Cette progression n'est accessible qu'aux comptes lies au cours.",
+      );
+    }
+
+    const { data: lesson, error: lessonError } = await this.supabaseService.client
+      .from('lessons')
+      .select('id, course_id, is_preview')
+      .eq('id', lessonId)
+      .eq('course_id', courseId)
+      .maybeSingle();
+
+    if (lessonError || !lesson) {
+      throw new BadRequestException(
+        lessonError?.message ?? 'Lecon introuvable pour ce cours.',
+      );
+    }
+
+    const { data: course, error: courseError } = await this.supabaseService.client
+      .from('courses')
+      .select('id, teacher_id, status')
+      .eq('id', courseId)
+      .maybeSingle();
+
+    if (courseError || !course) {
+      throw new BadRequestException(
+        courseError?.message ?? 'Cours introuvable pour la progression.',
+      );
+    }
+
+    const isTeacherOwner = role === 'teacher' && course.teacher_id === user.id;
+    const isAdmin = role === 'admin';
+    const isStudent = role === 'student';
+
+    if (isStudent) {
+      const enrolled = await this.isUserEnrolled(user.id, courseId);
+      if (!enrolled && !lesson.is_preview) {
+        throw new ForbiddenException(
+          "Inscris-toi au cours pour enregistrer ta progression sur cette lecon.",
+        );
+      }
+    } else if (!isTeacherOwner && !isAdmin) {
+      throw new ForbiddenException(
+        "Tu n'as pas acces a cette progression de lecon.",
+      );
+    }
+
+    const { data: existingProgress, error: progressLookupError } =
+      await this.supabaseService.client
+        .from('progress')
+        .select('id, status')
+        .eq('user_id', user.id)
+        .eq('lesson_id', lessonId)
+        .maybeSingle();
+
+    if (progressLookupError) {
+      throw new BadRequestException(
+        progressLookupError.message ??
+          'Impossible de verifier la progression existante.',
+      );
+    }
+
+    if (existingProgress?.id) {
+      const currentStatus = existingProgress.status ?? 'started';
+      const finalStatus =
+        currentStatus === 'completed' ? 'completed' : nextStatus;
+
+      const { error: updateError } = await this.supabaseService.client
+        .from('progress')
+        .update({
+          status: finalStatus,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existingProgress.id);
+
+      if (updateError) {
+        throw new BadRequestException(
+          updateError.message ?? 'Impossible de mettre a jour la progression.',
+        );
+      }
+    } else {
+      const { error: insertError } = await this.supabaseService.client
+        .from('progress')
+        .insert({
+          user_id: user.id,
+          lesson_id: lessonId,
+          status: nextStatus,
+          updated_at: new Date().toISOString(),
+        });
+
+      if (insertError) {
+        throw new BadRequestException(
+          insertError.message ?? "Impossible d'enregistrer la progression.",
+        );
+      }
+    }
+
+    return {
+      lessonId,
+      courseId,
+      status: existingProgress?.status === 'completed' ? 'completed' : nextStatus,
+    };
+  }
+
   private async isUserEnrolled(userId: string, courseId: string) {
     const { data, error } = await this.supabaseService.client
       .from('enrollments')
@@ -413,6 +697,31 @@ export class CoursesService {
     }
 
     return Boolean(data?.id);
+  }
+
+  private async getLessonProgressMap(userId: string, lessonIds: string[]) {
+    const { data, error } = await this.supabaseService.client
+      .from('progress')
+      .select('lesson_id, status, updated_at')
+      .eq('user_id', userId)
+      .in('lesson_id', lessonIds)
+      .order('updated_at', { ascending: false });
+
+    if (error) {
+      throw new BadRequestException(
+        error.message ?? 'Impossible de charger la progression des lecons.',
+      );
+    }
+
+    const progressMap = new Map<string, string>();
+
+    for (const row of data ?? []) {
+      if (!progressMap.has(row.lesson_id)) {
+        progressMap.set(row.lesson_id, row.status ?? 'started');
+      }
+    }
+
+    return progressMap;
   }
 
   private async getCourseReviews(courseId: string) {

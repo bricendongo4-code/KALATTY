@@ -32,6 +32,7 @@ type InstitutionDetail = {
   members: Array<{
     id: string;
     role: string;
+    joinedAt?: string;
     profile?: {
       id?: string;
       fullname?: string | null;
@@ -91,6 +92,9 @@ type RoomDetail = {
     status: string;
     due_at?: string | null;
     max_score?: number | null;
+    submissionCount?: number;
+    reviewedCount?: number;
+    pendingCount?: number;
   }>;
   invites: Array<{
     id: string;
@@ -101,6 +105,36 @@ type RoomDetail = {
     used_count: number;
     is_active: boolean;
   }>;
+  submissionSummary?: {
+    total: number;
+    reviewed: number;
+    pending: number;
+  };
+  recentSubmissions?: Array<{
+    id: string;
+    status: string;
+    submittedAt?: string | null;
+    score?: number | null;
+    assignmentTitle: string;
+    studentName: string;
+  }>;
+};
+
+type DiscoveryCourse = {
+  id: string;
+  title: string;
+  description: string;
+  shortDescription: string;
+  priceFcfa: number;
+  teacherName: string;
+  teacherExpertise: string;
+  lessonsCount: number;
+  courseRatingAverage: number;
+};
+
+type DiscoveryPayload = {
+  featuredCourses: DiscoveryCourse[];
+  topRatedCourses: DiscoveryCourse[];
 };
 
 type Props = {
@@ -108,12 +142,22 @@ type Props = {
 };
 
 const formatRoleLabel = (role: string) => {
-  if (role === "student") return "Eleve / etudiant";
+  if (role === "student") return "Etudiant";
   if (role === "teacher") return "Professeur";
   if (role === "assistant") return "Assistant";
   if (role === "owner") return "Proprietaire";
   if (role === "admin") return "Administrateur";
   return role;
+};
+
+const formatDate = (value?: string | null) => {
+  if (!value) return "Date non definie";
+
+  return new Intl.DateTimeFormat("fr-FR", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(value));
 };
 
 export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
@@ -122,6 +166,7 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
   const [selectedRoomId, setSelectedRoomId] = useState("");
   const [detail, setDetail] = useState<InstitutionDetail | null>(null);
   const [roomDetail, setRoomDetail] = useState<RoomDetail | null>(null);
+  const [catalogCourses, setCatalogCourses] = useState<DiscoveryCourse[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [query, setQuery] = useState("");
@@ -130,11 +175,13 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
   const [roomName, setRoomName] = useState("");
   const [roomDescription, setRoomDescription] = useState("");
   const [assignmentRoomId, setAssignmentRoomId] = useState("");
+  const [assignmentCourseId, setAssignmentCourseId] = useState("");
   const [assignmentTitle, setAssignmentTitle] = useState("");
   const [assignmentInstructions, setAssignmentInstructions] = useState("");
   const [inviteRoomId, setInviteRoomId] = useState("");
   const [inviteRole, setInviteRole] = useState<"student" | "teacher" | "assistant">("student");
   const [generatedLink, setGeneratedLink] = useState("");
+  const [assignedCourseId, setAssignedCourseId] = useState("");
 
   const token =
     typeof window !== "undefined" ? localStorage.getItem("kalatty_token") : null;
@@ -144,126 +191,197 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
     [institutions, selectedInstitutionId],
   );
 
+  const roomLookup = useMemo(
+    () => new Map((detail?.rooms ?? []).map((room) => [room.id, room.name])),
+    [detail],
+  );
+
+  const normalizedQuery = query.trim().toLowerCase();
+
   const filteredRooms = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
     if (!detail) return [];
     return detail.rooms.filter((room) =>
       [room.name, room.description, room.slug]
         .map((value) => String(value ?? ""))
         .join(" ")
         .toLowerCase()
-        .includes(normalized),
+        .includes(normalizedQuery),
     );
-  }, [detail, query]);
+  }, [detail, normalizedQuery]);
 
-  const filteredInvites = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
+  const filteredAssignments = useMemo(() => {
     if (!detail) return [];
-    return detail.invites.filter((invite) =>
-      [invite.invite_role, invite.token, invite.room_id]
+    return detail.assignments.filter((assignment) =>
+      [assignment.title, assignment.status, roomLookup.get(assignment.room_id)]
         .map((value) => String(value ?? ""))
         .join(" ")
         .toLowerCase()
-        .includes(normalized),
+        .includes(normalizedQuery),
     );
-  }, [detail, query]);
+  }, [detail, normalizedQuery, roomLookup]);
 
-  const roomLookup = useMemo(() => {
-    return new Map((detail?.rooms ?? []).map((room) => [room.id, room.name]));
+  const filteredInvites = useMemo(() => {
+    if (!detail) return [];
+    return detail.invites.filter((invite) =>
+      [invite.invite_role, invite.token, roomLookup.get(invite.room_id)]
+        .map((value) => String(value ?? ""))
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedQuery),
+    );
+  }, [detail, normalizedQuery, roomLookup]);
+
+  const institutionCounts = useMemo(() => {
+    const members = detail?.members ?? [];
+    return {
+      owners: members.filter((member) => member.role === "owner").length,
+      admins: members.filter((member) => member.role === "admin").length,
+      teachers: members.filter((member) => member.role === "teacher").length,
+      students: members.filter((member) => member.role === "student").length,
+    };
   }, [detail]);
 
-  useEffect(() => {
-    if (!token) {
-      return;
-    }
-
-    const loadInstitutions = async () => {
-      try {
-        const res = await fetch(`${apiBaseUrl}/institutions/mine`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        const data = (await res.json()) as InstitutionSummary[];
-        if (!res.ok) {
-          setMessage("Impossible de charger les etablissements.");
-          return;
-        }
-
-        setInstitutions(data);
-        if (data[0]?.id) {
-          setSelectedInstitutionId((current) => current || data[0].id);
-        }
-      } catch {
-        setMessage("Le chargement des etablissements a echoue.");
-      } finally {
-        setLoading(false);
-      }
+  const roomCounts = useMemo(() => {
+    const members = roomDetail?.members ?? [];
+    return {
+      teachers: members.filter((member) => member.role === "teacher").length,
+      students: members.filter((member) => member.role === "student").length,
+      assistants: members.filter((member) => member.role === "assistant").length,
     };
+  }, [roomDetail]);
 
-    void loadInstitutions();
-  }, [apiBaseUrl, token]);
+  const unassignedCatalogCourses = useMemo(() => {
+    const assignedIds = new Set(
+      (roomDetail?.courses ?? []).map((entry) => String(entry.course?.id ?? "")),
+    );
 
-  useEffect(() => {
-    if (!token || !selectedInstitutionId) {
-      return;
-    }
+    return catalogCourses.filter((course) => !assignedIds.has(course.id));
+  }, [catalogCourses, roomDetail]);
 
-    const loadDetails = async () => {
-      try {
-        const res = await fetch(`${apiBaseUrl}/institutions/${selectedInstitutionId}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        const data = (await res.json()) as InstitutionDetail;
+  const selectedCourseForAssignment = useMemo(
+    () =>
+      catalogCourses.find((course) => course.id === assignmentCourseId) ??
+      roomDetail?.courses.find((entry) => entry.course?.id === assignmentCourseId)?.course ??
+      null,
+    [assignmentCourseId, catalogCourses, roomDetail],
+  );
 
-        if (!res.ok) {
-          setMessage("Impossible de charger le detail de l'etablissement.");
-          return;
-        }
+  const loadInstitutions = async () => {
+    if (!token) return;
 
-        setDetail(data);
-        setAssignmentRoomId((current) => current || data.rooms[0]?.id || "");
-        setInviteRoomId((current) => current || data.rooms[0]?.id || "");
-        setSelectedRoomId((current) => current || data.rooms[0]?.id || "");
-      } catch {
-        setMessage("Le detail de l'etablissement n'a pas pu etre charge.");
+    try {
+      const res = await fetch(`${apiBaseUrl}/institutions/mine`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = (await res.json()) as InstitutionSummary[];
+      if (!res.ok) {
+        setMessage("Impossible de charger les etablissements.");
+        return;
       }
-    };
 
-    void loadDetails();
-  }, [apiBaseUrl, selectedInstitutionId, token]);
+      setInstitutions(data);
+      if (data[0]?.id) {
+        setSelectedInstitutionId((current) => current || data[0].id);
+      }
+    } catch {
+      setMessage("Le chargement des etablissements a echoue.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  useEffect(() => {
-    if (!token || !selectedRoomId) {
+  const loadInstitutionDetails = async (institutionId: string) => {
+    if (!token || !institutionId) return;
+
+    try {
+      const res = await fetch(`${apiBaseUrl}/institutions/${institutionId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = (await res.json()) as InstitutionDetail;
+
+      if (!res.ok) {
+        setMessage("Impossible de charger le detail de l'etablissement.");
+        return;
+      }
+
+      setDetail(data);
+      const defaultRoomId = data.rooms[0]?.id || "";
+      setAssignmentRoomId((current) => current || defaultRoomId);
+      setInviteRoomId((current) => current || defaultRoomId);
+      setSelectedRoomId((current) => current || defaultRoomId);
+    } catch {
+      setMessage("Le detail de l'etablissement n'a pas pu etre charge.");
+    }
+  };
+
+  const loadRoomDetails = async (roomId: string) => {
+    if (!token || !roomId) {
       setRoomDetail(null);
       return;
     }
 
-    const loadRoomDetails = async () => {
-      try {
-        const res = await fetch(`${apiBaseUrl}/institutions/rooms/${selectedRoomId}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        const data = (await res.json()) as RoomDetail;
+    try {
+      const res = await fetch(`${apiBaseUrl}/institutions/rooms/${roomId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = (await res.json()) as RoomDetail;
 
+      if (!res.ok) {
+        setMessage("Impossible de charger le detail de la classe.");
+        return;
+      }
+
+      setRoomDetail(data);
+    } catch {
+      setMessage("Le detail de la classe n'a pas pu etre charge.");
+    }
+  };
+
+  useEffect(() => {
+    void loadInstitutions();
+  }, [apiBaseUrl, token]);
+
+  useEffect(() => {
+    if (!selectedInstitutionId) return;
+    void loadInstitutionDetails(selectedInstitutionId);
+  }, [apiBaseUrl, selectedInstitutionId, token]);
+
+  useEffect(() => {
+    if (!selectedRoomId) {
+      setRoomDetail(null);
+      return;
+    }
+    void loadRoomDetails(selectedRoomId);
+  }, [apiBaseUrl, selectedRoomId, token]);
+
+  useEffect(() => {
+    const loadCatalog = async () => {
+      try {
+        const res = await fetch(`${apiBaseUrl}/courses/discover`);
+        const data = (await res.json()) as DiscoveryPayload;
         if (!res.ok) {
-          setMessage("Impossible de charger le detail de la salle.");
           return;
         }
 
-        setRoomDetail(data);
+        const merged = [...(data.featuredCourses ?? []), ...(data.topRatedCourses ?? [])];
+        const uniqueCourses = merged.filter(
+          (course, index, array) => array.findIndex((item) => item.id === course.id) === index,
+        );
+        setCatalogCourses(uniqueCourses);
       } catch {
-        setMessage("Le detail de la salle n'a pas pu etre charge.");
+        setCatalogCourses([]);
       }
     };
 
-    void loadRoomDetails();
-  }, [apiBaseUrl, selectedRoomId, token]);
+    void loadCatalog();
+  }, [apiBaseUrl]);
 
   const handleCreateInstitution = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -317,19 +435,47 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
       const data = await res.json();
 
       if (!res.ok) {
-        setMessage(data.message ?? "Creation de salle impossible.");
+        setMessage(data.message ?? "Creation de classe impossible.");
         return;
       }
 
-      setDetail((current) =>
-        current ? { ...current, rooms: [data, ...current.rooms] } : current,
-      );
-      setSelectedRoomId(String(data.id));
       setRoomName("");
       setRoomDescription("");
-      setMessage("Salle creee.");
+      setMessage("Classe creee.");
+      await loadInstitutionDetails(selectedInstitutionId);
+      setSelectedRoomId(String(data.id));
     } catch {
-      setMessage("La creation de la salle a echoue.");
+      setMessage("La creation de la classe a echoue.");
+    }
+  };
+
+  const handleAssignCourseToRoom = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!token || !selectedRoomId || !assignedCourseId) return;
+
+    try {
+      const res = await fetch(`${apiBaseUrl}/institutions/rooms/${selectedRoomId}/courses`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          course_id: assignedCourseId,
+        }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMessage(data.message ?? "Affectation du cours impossible.");
+        return;
+      }
+
+      setAssignedCourseId("");
+      setMessage("Cours affecte a la classe.");
+      await loadRoomDetails(selectedRoomId);
+    } catch {
+      setMessage("L'affectation du cours a echoue.");
     }
   };
 
@@ -345,6 +491,7 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
+          course_id: assignmentCourseId || undefined,
           title: assignmentTitle,
           instructions: assignmentInstructions,
         }),
@@ -352,23 +499,20 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
       const data = await res.json();
 
       if (!res.ok) {
-        setMessage(data.message ?? "Creation de l'exercice impossible.");
+        setMessage(data.message ?? "Creation du devoir impossible.");
         return;
       }
 
-      setDetail((current) =>
-        current ? { ...current, assignments: [data, ...current.assignments] } : current,
-      );
-      setRoomDetail((current) =>
-        current && current.id === assignmentRoomId
-          ? { ...current, assignments: [data, ...current.assignments] }
-          : current,
-      );
       setAssignmentTitle("");
       setAssignmentInstructions("");
-      setMessage("Exercice publie.");
+      setAssignmentCourseId("");
+      setMessage("Devoir publie dans la classe.");
+      await loadInstitutionDetails(selectedInstitutionId);
+      if (assignmentRoomId === selectedRoomId) {
+        await loadRoomDetails(selectedRoomId);
+      }
     } catch {
-      setMessage("La creation de l'exercice a echoue.");
+      setMessage("La creation du devoir a echoue.");
     }
   };
 
@@ -401,15 +545,11 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
           : data.token;
 
       setGeneratedLink(inviteUrl);
-      setDetail((current) =>
-        current ? { ...current, invites: [data, ...current.invites] } : current,
-      );
-      setRoomDetail((current) =>
-        current && current.id === inviteRoomId
-          ? { ...current, invites: [data, ...current.invites] }
-          : current,
-      );
       setMessage("Lien d'invitation genere.");
+      await loadInstitutionDetails(selectedInstitutionId);
+      if (inviteRoomId === selectedRoomId) {
+        await loadRoomDetails(selectedRoomId);
+      }
     } catch {
       setMessage("La creation du lien a echoue.");
     }
@@ -429,29 +569,39 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
     <section className={styles.grid}>
       <div className={styles.primaryColumn}>
         <section className={styles.card}>
-          <div className={styles.institutionHero}>
-            <div>
-              <p className={styles.sectionLabel}>Campus workspace</p>
-              <h2>{selectedInstitution?.name || "Pilotage de l'etablissement"}</h2>
+          <div className={styles.institutionHeroV2}>
+            <div className={styles.institutionHeroLead}>
+              <p className={styles.sectionLabel}>Campus command center</p>
+              <h2>{selectedInstitution?.name || "Espace etablissement"}</h2>
               <p className={styles.paragraph}>
-                Gere les salles, les invitations, les professeurs et les devoirs
-                depuis un espace plus detaille et mieux structure.
+                Un cockpit complet pour gerer les classes, les professeurs, les
+                etudiants, les cours affectes et les devoirs, avec une logique
+                plus proche de Teams que d&apos;un simple dashboard etudiant.
               </p>
             </div>
 
-            <div className={styles.institutionHeroMeta}>
-              <span>{selectedInstitution?.plan_name || "Starter"}</span>
-              <span>{selectedInstitution?.subscription_status || "trial"}</span>
-              <span>{selectedInstitution?.institution_type || "Etablissement"}</span>
+            <div className={styles.institutionHeroStack}>
+              <article className={styles.institutionHeroBadge}>
+                <span>Plan</span>
+                <strong>{selectedInstitution?.plan_name || "Starter"}</strong>
+              </article>
+              <article className={styles.institutionHeroBadge}>
+                <span>Statut</span>
+                <strong>{selectedInstitution?.subscription_status || "trial"}</strong>
+              </article>
+              <article className={styles.institutionHeroBadge}>
+                <span>Type</span>
+                <strong>{selectedInstitution?.institution_type || "Etablissement"}</strong>
+              </article>
             </div>
           </div>
 
-          <div className={styles.institutionToolbar}>
+          <div className={styles.institutionToolbarExpanded}>
             <label className={styles.searchBar}>
-              <span>Recherche interne</span>
+              <span>Recherche campus</span>
               <input
                 type="search"
-                placeholder="Salles, invitations, organisation"
+                placeholder="Classes, devoirs, liens, organisation"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
               />
@@ -474,7 +624,7 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
             </label>
 
             <label className={styles.formField}>
-              <span>Salle active</span>
+              <span>Classe active</span>
               <select
                 className={styles.selectField}
                 value={selectedRoomId}
@@ -490,25 +640,42 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
             </label>
           </div>
 
-          <div className={styles.statsRow}>
-            <article className={styles.statCard}>
-              <span>Salles</span>
+          <div className={styles.institutionStatsGrid}>
+            <article className={styles.institutionStatCard}>
+              <span>Classes</span>
               <strong>{detail?.rooms.length ?? 0}</strong>
-              <small>Limite plan: {detail?.max_rooms ?? 0}</small>
+              <small>Capacite plan: {detail?.max_rooms ?? 0}</small>
             </article>
-            <article className={styles.statCard}>
-              <span>Membres</span>
-              <strong>{detail?.members.length ?? 0}</strong>
-              <small>Capacite apprenants: {detail?.max_students ?? 0}</small>
+            <article className={styles.institutionStatCard}>
+              <span>Professeurs</span>
+              <strong>{institutionCounts.teachers}</strong>
+              <small>{institutionCounts.admins + institutionCounts.owners} admin / owner</small>
             </article>
-            <article className={styles.statCard}>
-              <span>Exercices</span>
+            <article className={styles.institutionStatCard}>
+              <span>Etudiants</span>
+              <strong>{institutionCounts.students}</strong>
+              <small>Capacite plan: {detail?.max_students ?? 0}</small>
+            </article>
+            <article className={styles.institutionStatCard}>
+              <span>Devoirs</span>
               <strong>{detail?.assignments.length ?? 0}</strong>
-              <small>Travaux diffuses a tes salles</small>
+              <small>Travaux diffuses aux classes</small>
             </article>
           </div>
+        </section>
 
-          <div className={styles.institutionGridWide}>
+        <section className={styles.card}>
+          <div className={styles.sectionHeader}>
+            <div>
+              <p className={styles.sectionLabel}>Classes du campus</p>
+              <h2>Hub des classes et filieres</h2>
+            </div>
+            <span className={styles.sectionHint}>
+              Chaque classe peut recevoir des professeurs, des etudiants, des cours et des devoirs.
+            </span>
+          </div>
+
+          <div className={styles.institutionRoomBoard}>
             {filteredRooms.length > 0 ? (
               filteredRooms.map((room) => (
                 <button
@@ -516,19 +683,21 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
                   type="button"
                   className={
                     selectedRoomId === room.id
-                      ? styles.institutionRoomCardActive
-                      : styles.institutionRoomCard
+                      ? styles.institutionRoomBoardActive
+                      : styles.institutionRoomBoardCard
                   }
                   onClick={() => setSelectedRoomId(room.id)}
                 >
-                  <span>Salle</span>
+                  <div className={styles.institutionRoomBoardTop}>
+                    <span>Classe</span>
+                    <small>#{room.slug || "sans-slug"}</small>
+                  </div>
                   <h3>{room.name}</h3>
-                  <p>{room.description || "Salle prete pour cours, devoirs et invitations."}</p>
-                  <small>#{room.slug || "sans-slug"}</small>
+                  <p>{room.description || "Classe prete pour centraliser les cours et les devoirs."}</p>
                 </button>
               ))
             ) : (
-              <p className={styles.paragraph}>Aucune salle ne correspond a cette recherche.</p>
+              <p className={styles.paragraph}>Aucune classe ne correspond a cette recherche.</p>
             )}
           </div>
         </section>
@@ -537,87 +706,100 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
           <section className={styles.card}>
             <div className={styles.sectionHeader}>
               <div>
-                <p className={styles.sectionLabel}>Salle active</p>
+                <p className={styles.sectionLabel}>Classe active</p>
                 <h2>{roomDetail.name}</h2>
               </div>
-              <span className={styles.sectionHint}>#{roomDetail.slug || "sans-slug"}</span>
+              <span className={styles.sectionHint}>
+                {roomDetail.slug ? `#${roomDetail.slug}` : "Classe sans slug"}
+              </span>
             </div>
 
-            <div className={styles.institutionRoomHero}>
-              <div className={styles.institutionRoomHeroPanel}>
-                <strong>Vue d&apos;ensemble</strong>
-                <p>
-                  {roomDetail.description ||
-                    "Salle prete pour centraliser cours, devoirs et invitations."}
-                </p>
-              </div>
-              <div className={styles.institutionRoomHeroPanel}>
-                <strong>Membres</strong>
-                <p>{roomDetail.members.length} rattaches a cette salle.</p>
-              </div>
-              <div className={styles.institutionRoomHeroPanel}>
-                <strong>Contenus</strong>
-                <p>{roomDetail.courses.length} cours et {roomDetail.assignments.length} devoirs.</p>
-              </div>
+            <div className={styles.institutionOpsGrid}>
+              <article className={styles.institutionOpsCard}>
+                <span>Professeurs</span>
+                <strong>{roomCounts.teachers}</strong>
+                <p>Enseignants qui pilotent les contenus de cette classe.</p>
+              </article>
+              <article className={styles.institutionOpsCard}>
+                <span>Etudiants</span>
+                <strong>{roomCounts.students}</strong>
+                <p>Apprenants actuellement relies a cette classe.</p>
+              </article>
+              <article className={styles.institutionOpsCard}>
+                <span>Assistants</span>
+                <strong>{roomCounts.assistants}</strong>
+                <p>Support pedagogique ou encadrement additionnel.</p>
+              </article>
+              <article className={styles.institutionOpsCard}>
+                <span>Contenus</span>
+                <strong>{roomDetail.courses.length}</strong>
+                <p>Cours assignes a cette classe.</p>
+              </article>
+              <article className={styles.institutionOpsCard}>
+                <span>Remises</span>
+                <strong>{Number(roomDetail.submissionSummary?.total ?? 0)}</strong>
+                <p>{Number(roomDetail.submissionSummary?.pending ?? 0)} en attente de correction.</p>
+              </article>
             </div>
 
-            <div className={styles.dualPane}>
-              <section className={styles.institutionColumnPanel}>
+            <div className={styles.institutionStudioGrid}>
+              <section className={styles.institutionStudioPanel}>
                 <div className={styles.sectionHeader}>
                   <div>
-                    <p className={styles.sectionLabel}>Membres</p>
-                    <h3>Equipe et apprenants</h3>
+                    <p className={styles.sectionLabel}>Equipe de classe</p>
+                    <h3>Professeurs et etudiants</h3>
                   </div>
                 </div>
-                <div className={styles.roadmapList}>
+                <div className={styles.institutionMemberGrid}>
                   {roomDetail.members.length > 0 ? (
                     roomDetail.members.map((member) => (
-                      <article key={member.id} className={styles.institutionMemberCard}>
+                      <article key={member.id} className={styles.institutionMemberCardWide}>
                         <strong>
                           {member.profile?.fullname || member.profile?.email || "Membre"}
                         </strong>
-                        <p>{formatRoleLabel(member.role)}</p>
-                        <small>{member.profile?.email || "Profil sans email visible"}</small>
+                        <span>{formatRoleLabel(member.role)}</span>
+                        <small>{member.profile?.email || "Email non visible"}</small>
                       </article>
                     ))
                   ) : (
-                    <p className={styles.paragraph}>Aucun membre dans cette salle pour le moment.</p>
+                    <p className={styles.paragraph}>Aucun membre encore relie a cette classe.</p>
                   )}
                 </div>
               </section>
 
-              <section className={styles.institutionColumnPanel}>
+              <section className={styles.institutionStudioPanel}>
                 <div className={styles.sectionHeader}>
                   <div>
-                    <p className={styles.sectionLabel}>Cours attribues</p>
-                    <h3>Bibliotheque de salle</h3>
+                    <p className={styles.sectionLabel}>Cours de la classe</p>
+                    <h3>Catalogue affecte</h3>
                   </div>
                 </div>
-                <div className={styles.roadmapList}>
+                <div className={styles.institutionCourseBoard}>
                   {roomDetail.courses.length > 0 ? (
                     roomDetail.courses.map((entry) => (
-                      <article key={entry.id} className={styles.roadmapItem}>
+                      <article key={entry.id} className={styles.institutionCourseCard}>
                         <strong>{entry.course?.title || "Cours"}</strong>
                         <p>
-                          {entry.course?.description ||
-                            entry.course?.short_description ||
-                            "Cours affecte a la salle."}
+                          {entry.course?.short_description ||
+                            entry.course?.description ||
+                            "Cours affecte a la classe."}
                         </p>
+                        <small>{Number(entry.course?.price_fcfa ?? 0)} FCFA</small>
                       </article>
                     ))
                   ) : (
-                    <p className={styles.paragraph}>Aucun cours n&apos;est encore lie a cette salle.</p>
+                    <p className={styles.paragraph}>Aucun cours encore attribue a cette classe.</p>
                   )}
                 </div>
               </section>
             </div>
 
-            <div className={styles.dualPane}>
-              <section className={styles.institutionColumnPanel}>
+            <div className={styles.institutionStudioGrid}>
+              <section className={styles.institutionStudioPanel}>
                 <div className={styles.sectionHeader}>
                   <div>
                     <p className={styles.sectionLabel}>Travaux</p>
-                    <h3>Devoirs publies</h3>
+                    <h3>Devoirs et exercices</h3>
                   </div>
                 </div>
                 <div className={styles.roadmapList}>
@@ -625,21 +807,28 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
                     roomDetail.assignments.map((assignment) => (
                       <article key={assignment.id} className={styles.roadmapItem}>
                         <strong>{assignment.title}</strong>
-                        <p>{assignment.instructions || "Sans consignes supplementaires."}</p>
-                        <small>{assignment.status}</small>
+                        <p>{assignment.instructions || "Aucune consigne detaillee."}</p>
+                        <small>
+                          {assignment.status} | {formatDate(assignment.due_at)}
+                        </small>
+                        <small>
+                          {Number(assignment.submissionCount ?? 0)} remises |{" "}
+                          {Number(assignment.pendingCount ?? 0)} a corriger |{" "}
+                          {Number(assignment.reviewedCount ?? 0)} corrigees
+                        </small>
                       </article>
                     ))
                   ) : (
-                    <p className={styles.paragraph}>Aucun devoir publie pour cette salle.</p>
+                    <p className={styles.paragraph}>Aucun devoir publie dans cette classe.</p>
                   )}
                 </div>
               </section>
 
-              <section className={styles.institutionColumnPanel}>
+              <section className={styles.institutionStudioPanel}>
                 <div className={styles.sectionHeader}>
                   <div>
-                    <p className={styles.sectionLabel}>Invitations</p>
-                    <h3>Liens d&apos;acces a la salle</h3>
+                    <p className={styles.sectionLabel}>Liens d&apos;invitation</p>
+                    <h3>Acces par role</h3>
                   </div>
                 </div>
                 <div className={styles.roadmapList}>
@@ -655,116 +844,85 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
                       </article>
                     ))
                   ) : (
-                    <p className={styles.paragraph}>Aucun lien genere pour cette salle.</p>
+                    <p className={styles.paragraph}>Aucun lien encore genere pour cette classe.</p>
                   )}
+                </div>
+              </section>
+            </div>
+
+            <div className={styles.institutionStudioGrid}>
+              <section className={styles.institutionStudioPanel}>
+                <div className={styles.sectionHeader}>
+                  <div>
+                    <p className={styles.sectionLabel}>Suivi des remises</p>
+                    <h3>Copies recentes de la classe</h3>
+                  </div>
+                </div>
+                <div className={styles.roadmapList}>
+                  {(roomDetail.recentSubmissions ?? []).length > 0 ? (
+                    (roomDetail.recentSubmissions ?? []).map((submission) => (
+                      <article key={submission.id} className={styles.roadmapItem}>
+                        <strong>{submission.studentName}</strong>
+                        <p>{submission.assignmentTitle}</p>
+                        <small>
+                          {submission.status} | {formatDate(submission.submittedAt)}
+                          {submission.score !== null && submission.score !== undefined
+                            ? ` | score ${submission.score}`
+                            : ""}
+                        </small>
+                      </article>
+                    ))
+                  ) : (
+                    <p className={styles.paragraph}>Aucune copie n&apos;a encore ete remise dans cette classe.</p>
+                  )}
+                </div>
+              </section>
+
+              <section className={styles.institutionStudioPanel}>
+                <div className={styles.sectionHeader}>
+                  <div>
+                    <p className={styles.sectionLabel}>Synthese correction</p>
+                    <h3>Etat global des devoirs</h3>
+                  </div>
+                </div>
+                <div className={styles.institutionStatsGrid}>
+                  <article className={styles.institutionStatCard}>
+                    <span>Total remises</span>
+                    <strong>{Number(roomDetail.submissionSummary?.total ?? 0)}</strong>
+                    <small>Toutes copies confondues</small>
+                  </article>
+                  <article className={styles.institutionStatCard}>
+                    <span>A corriger</span>
+                    <strong>{Number(roomDetail.submissionSummary?.pending ?? 0)}</strong>
+                    <small>Demandent une revue enseignant</small>
+                  </article>
+                  <article className={styles.institutionStatCard}>
+                    <span>Corrigees</span>
+                    <strong>{Number(roomDetail.submissionSummary?.reviewed ?? 0)}</strong>
+                    <small>Copies deja traitees</small>
+                  </article>
                 </div>
               </section>
             </div>
           </section>
         ) : null}
 
-        <section className={styles.dualPane}>
+        <section className={styles.institutionActionGrid}>
           <section className={styles.card}>
             <div className={styles.sectionHeader}>
               <div>
-                <p className={styles.sectionLabel}>Invitations</p>
-                <h2>Generer un lien d&apos;acces</h2>
-              </div>
-              <span className={styles.sectionHint}>Mode Teams pour salle</span>
-            </div>
-
-            <form onSubmit={handleCreateInvite} className={styles.teacherForm}>
-              <div className={styles.metaFields}>
-                <label className={styles.formField}>
-                  <span>Salle cible</span>
-                  <select
-                    className={styles.selectField}
-                    value={inviteRoomId}
-                    onChange={(event) => setInviteRoomId(event.target.value)}
-                  >
-                    <option value="">Choisir une salle</option>
-                    {(detail?.rooms ?? []).map((room) => (
-                      <option key={room.id} value={room.id}>
-                        {room.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className={styles.formField}>
-                  <span>Type d&apos;invitation</span>
-                  <select
-                    className={styles.selectField}
-                    value={inviteRole}
-                    onChange={(event) =>
-                      setInviteRole(
-                        event.target.value as "student" | "teacher" | "assistant",
-                      )
-                    }
-                  >
-                    <option value="student">Eleve / etudiant</option>
-                    <option value="teacher">Professeur</option>
-                    <option value="assistant">Assistant</option>
-                  </select>
-                </label>
-              </div>
-
-              <button type="submit" className={styles.submitButton}>
-                Generer un lien
-              </button>
-            </form>
-
-            {generatedLink ? (
-              <div className={styles.inviteLinkBox}>
-                <strong>Lien genere</strong>
-                <p>{generatedLink}</p>
-              </div>
-            ) : null}
-          </section>
-
-          <section className={styles.card}>
-            <div className={styles.sectionHeader}>
-              <div>
-                <p className={styles.sectionLabel}>Historique</p>
-                <h2>Invitations existantes</h2>
-              </div>
-            </div>
-
-            <div className={styles.roadmapList}>
-              {filteredInvites.length > 0 ? (
-                filteredInvites.map((invite) => (
-                  <article key={invite.id} className={styles.institutionInviteCard}>
-                    <strong>{formatRoleLabel(invite.invite_role)}</strong>
-                    <p>{roomLookup.get(invite.room_id) || "Salle inconnue"}</p>
-                    <small>
-                      {invite.used_count}/{invite.max_uses} utilisation |{" "}
-                      {invite.is_active ? "actif" : "clos"}
-                    </small>
-                  </article>
-                ))
-              ) : (
-                <p className={styles.paragraph}>Aucun lien ne correspond a la recherche.</p>
-              )}
-            </div>
-          </section>
-        </section>
-
-        <section className={styles.dualPane}>
-          <section className={styles.card}>
-            <div className={styles.sectionHeader}>
-              <div>
-                <p className={styles.sectionLabel}>Creation de salle</p>
-                <h2>Ajouter une salle</h2>
+                <p className={styles.sectionLabel}>Nouvelle classe</p>
+                <h2>Creer une classe</h2>
               </div>
             </div>
             <form onSubmit={handleCreateRoom} className={styles.teacherForm}>
               <label className={styles.formField}>
-                <span>Nom de la salle</span>
+                <span>Nom de la classe</span>
                 <input
                   type="text"
                   value={roomName}
                   onChange={(event) => setRoomName(event.target.value)}
-                  placeholder="Salle Terminale A"
+                  placeholder="Licence 1 Informatique"
                 />
               </label>
               <label className={styles.formField}>
@@ -774,11 +932,11 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
                   rows={4}
                   value={roomDescription}
                   onChange={(event) => setRoomDescription(event.target.value)}
-                  placeholder="Classe, filiere ou groupe cible"
+                  placeholder="Filiere, niveau, objectif pedagogique et organisation"
                 />
               </label>
               <button type="submit" className={styles.submitButton}>
-                Creer la salle
+                Creer la classe
               </button>
             </form>
           </section>
@@ -786,19 +944,19 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
           <section className={styles.card}>
             <div className={styles.sectionHeader}>
               <div>
-                <p className={styles.sectionLabel}>Travaux</p>
-                <h2>Donner un exercice</h2>
+                <p className={styles.sectionLabel}>Affectation</p>
+                <h2>Donner un cours a la classe</h2>
               </div>
             </div>
-            <form onSubmit={handleCreateAssignment} className={styles.teacherForm}>
+            <form onSubmit={handleAssignCourseToRoom} className={styles.teacherForm}>
               <label className={styles.formField}>
-                <span>Salle cible</span>
+                <span>Classe cible</span>
                 <select
                   className={styles.selectField}
-                  value={assignmentRoomId}
-                  onChange={(event) => setAssignmentRoomId(event.target.value)}
+                  value={selectedRoomId}
+                  onChange={(event) => setSelectedRoomId(event.target.value)}
                 >
-                  <option value="">Choisir une salle</option>
+                  <option value="">Choisir une classe</option>
                   {(detail?.rooms ?? []).map((room) => (
                     <option key={room.id} value={room.id}>
                       {room.name}
@@ -807,12 +965,77 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
                 </select>
               </label>
               <label className={styles.formField}>
-                <span>Titre</span>
+                <span>Cours a affecter</span>
+                <select
+                  className={styles.selectField}
+                  value={assignedCourseId}
+                  onChange={(event) => setAssignedCourseId(event.target.value)}
+                >
+                  <option value="">Choisir un cours</option>
+                  {unassignedCatalogCourses.map((course) => (
+                    <option key={course.id} value={course.id}>
+                      {course.title} - {course.teacherName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button type="submit" className={styles.submitButton}>
+                Affecter le cours
+              </button>
+            </form>
+          </section>
+        </section>
+
+        <section className={styles.institutionActionGrid}>
+          <section className={styles.card}>
+            <div className={styles.sectionHeader}>
+              <div>
+                <p className={styles.sectionLabel}>Devoir</p>
+                <h2>Publier un devoir de classe</h2>
+              </div>
+            </div>
+            <form onSubmit={handleCreateAssignment} className={styles.teacherForm}>
+              <div className={styles.metaFields}>
+                <label className={styles.formField}>
+                  <span>Classe cible</span>
+                  <select
+                    className={styles.selectField}
+                    value={assignmentRoomId}
+                    onChange={(event) => setAssignmentRoomId(event.target.value)}
+                  >
+                    <option value="">Choisir une classe</option>
+                    {(detail?.rooms ?? []).map((room) => (
+                      <option key={room.id} value={room.id}>
+                        {room.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className={styles.formField}>
+                  <span>Cours lie</span>
+                  <select
+                    className={styles.selectField}
+                    value={assignmentCourseId}
+                    onChange={(event) => setAssignmentCourseId(event.target.value)}
+                  >
+                    <option value="">Aucun cours precis</option>
+                    {(roomDetail?.courses ?? []).map((entry) =>
+                      entry.course?.id ? (
+                        <option key={entry.id} value={String(entry.course.id)}>
+                          {entry.course.title}
+                        </option>
+                      ) : null,
+                    )}
+                  </select>
+                </label>
+              </div>
+              <label className={styles.formField}>
+                <span>Titre du devoir</span>
                 <input
                   type="text"
                   value={assignmentTitle}
                   onChange={(event) => setAssignmentTitle(event.target.value)}
-                  placeholder="Exercice de revision"
+                  placeholder="Devoir de mathematiques semaine 2"
                 />
               </label>
               <label className={styles.formField}>
@@ -822,21 +1045,131 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
                   rows={4}
                   value={assignmentInstructions}
                   onChange={(event) => setAssignmentInstructions(event.target.value)}
-                  placeholder="Travail a faire, date limite, pieces attendues"
+                  placeholder="Instructions, format attendu, date limite et criteres."
                 />
               </label>
               <button type="submit" className={styles.submitButton}>
-                Publier l&apos;exercice
+                Publier le devoir
               </button>
+              {selectedCourseForAssignment ? (
+                <p className={styles.inlineMessage}>
+                  Devoir rattache a: {"title" in selectedCourseForAssignment
+                    ? String(selectedCourseForAssignment.title ?? "")
+                    : ""}
+                </p>
+              ) : null}
             </form>
           </section>
+
+          <section className={styles.card}>
+            <div className={styles.sectionHeader}>
+              <div>
+                <p className={styles.sectionLabel}>Invitations</p>
+                <h2>Ajouter professeurs et etudiants</h2>
+              </div>
+            </div>
+            <form onSubmit={handleCreateInvite} className={styles.teacherForm}>
+              <div className={styles.metaFields}>
+                <label className={styles.formField}>
+                  <span>Classe cible</span>
+                  <select
+                    className={styles.selectField}
+                    value={inviteRoomId}
+                    onChange={(event) => setInviteRoomId(event.target.value)}
+                  >
+                    <option value="">Choisir une classe</option>
+                    {(detail?.rooms ?? []).map((room) => (
+                      <option key={room.id} value={room.id}>
+                        {room.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className={styles.formField}>
+                  <span>Role invite</span>
+                  <select
+                    className={styles.selectField}
+                    value={inviteRole}
+                    onChange={(event) =>
+                      setInviteRole(
+                        event.target.value as "student" | "teacher" | "assistant",
+                      )
+                    }
+                  >
+                    <option value="student">Etudiant</option>
+                    <option value="teacher">Professeur</option>
+                    <option value="assistant">Assistant</option>
+                  </select>
+                </label>
+              </div>
+
+              <button type="submit" className={styles.submitButton}>
+                Generer un lien d&apos;invitation
+              </button>
+            </form>
+
+            {generatedLink ? (
+              <div className={styles.inviteLinkBox}>
+                <strong>Lien pret a partager</strong>
+                <p>{generatedLink}</p>
+              </div>
+            ) : null}
+          </section>
+        </section>
+
+        <section className={styles.card}>
+          <div className={styles.sectionHeader}>
+            <div>
+              <p className={styles.sectionLabel}>Journal campus</p>
+              <h2>Devoirs et liens recents</h2>
+            </div>
+          </div>
+          <div className={styles.institutionFeedGrid}>
+            <section className={styles.institutionStudioPanel}>
+              <h3>Devoirs recents</h3>
+              <div className={styles.roadmapList}>
+                {filteredAssignments.length > 0 ? (
+                  filteredAssignments.slice(0, 6).map((assignment) => (
+                    <article key={assignment.id} className={styles.roadmapItem}>
+                      <strong>{assignment.title}</strong>
+                      <p>{roomLookup.get(assignment.room_id) || "Classe"}</p>
+                      <small>{assignment.status} | {formatDate(assignment.due_at)}</small>
+                    </article>
+                  ))
+                ) : (
+                  <p className={styles.paragraph}>Aucun devoir ne correspond a la recherche.</p>
+                )}
+              </div>
+            </section>
+
+            <section className={styles.institutionStudioPanel}>
+              <h3>Liens actifs</h3>
+              <div className={styles.roadmapList}>
+                {filteredInvites.length > 0 ? (
+                  filteredInvites.slice(0, 6).map((invite) => (
+                    <article key={invite.id} className={styles.institutionInviteCard}>
+                      <strong>{formatRoleLabel(invite.invite_role)}</strong>
+                      <p>{roomLookup.get(invite.room_id) || "Classe inconnue"}</p>
+                      <small>
+                        {invite.used_count}/{invite.max_uses} utilisation |{" "}
+                        {invite.is_active ? "actif" : "clos"}
+                      </small>
+                    </article>
+                  ))
+                ) : (
+                  <p className={styles.paragraph}>Aucun lien ne correspond a la recherche.</p>
+                )}
+              </div>
+            </section>
+          </div>
         </section>
       </div>
 
       <div className={styles.sideColumn}>
         <section className={styles.cardAccent}>
-          <p className={styles.sectionLabel}>Creation</p>
-          <h2>Nouveau campus</h2>
+          <p className={styles.sectionLabel}>Campus</p>
+          <h2>Creer un etablissement</h2>
           <form onSubmit={handleCreateInstitution} className={styles.teacherForm}>
             <label className={styles.formField}>
               <span>Nom de l&apos;etablissement</span>
@@ -863,36 +1196,58 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
         </section>
 
         <section className={styles.card}>
-          <p className={styles.sectionLabel}>Organisation</p>
-          <h2>Proposition produit</h2>
+          <p className={styles.sectionLabel}>Annuaire campus</p>
+          <h2>Repartition des roles</h2>
           <div className={styles.roadmapList}>
             <article className={styles.roadmapItem}>
-              <strong>1 salle = 1 hub d&apos;apprentissage</strong>
-              <p>Cours assignes, membres, exercices et liens au meme endroit.</p>
+              <strong>{institutionCounts.teachers} professeurs</strong>
+              <p>Peuvent etre invites classe par classe avec un lien dedie.</p>
             </article>
             <article className={styles.roadmapItem}>
-              <strong>Liens d&apos;invitation distincts</strong>
-              <p>Un lien etudiant, un lien professeur, un lien assistant si besoin.</p>
+              <strong>{institutionCounts.students} etudiants</strong>
+              <p>Rejoignent leurs classes sans saisie manuelle via invitation.</p>
             </article>
             <article className={styles.roadmapItem}>
-              <strong>Administration progressive</strong>
-              <p>Etablissement, puis salles, puis contenus, puis suivi des remises.</p>
+              <strong>{institutionCounts.admins + institutionCounts.owners} administrateurs</strong>
+              <p>Pilotent l&apos;organisation globale du campus.</p>
             </article>
           </div>
         </section>
 
         <section className={styles.card}>
-          <p className={styles.sectionLabel}>Plan actif</p>
-          <h2>Capacites du campus</h2>
+          <p className={styles.sectionLabel}>Recommandations produit</p>
+          <h2>Ameliorations intelligentes</h2>
           <div className={styles.roadmapList}>
             <article className={styles.roadmapItem}>
-              <strong>{detail?.max_rooms ?? 0} salles max</strong>
-              <p>Selon le plan actuel de l&apos;etablissement.</p>
+              <strong>1 classe = 1 espace de travail</strong>
+              <p>Le professeur y retrouve cours, devoirs, liens et participants au meme endroit.</p>
             </article>
             <article className={styles.roadmapItem}>
-              <strong>{detail?.max_students ?? 0} apprenants max</strong>
-              <p>Capacite globale de rattachement au campus.</p>
+              <strong>Invitations par role</strong>
+              <p>Un lien distinct pour les etudiants, un autre pour les professeurs.</p>
             </article>
+            <article className={styles.roadmapItem}>
+              <strong>Cours affectes avant les devoirs</strong>
+              <p>L&apos;etablissement peut structurer les classes puis laisser les enseignants diffuser les contenus.</p>
+            </article>
+          </div>
+        </section>
+
+        <section className={styles.card}>
+          <p className={styles.sectionLabel}>Catalogue</p>
+          <h2>Cours disponibles a affecter</h2>
+          <div className={styles.roadmapList}>
+            {catalogCourses.length > 0 ? (
+              catalogCourses.slice(0, 5).map((course) => (
+                <article key={course.id} className={styles.roadmapItem}>
+                  <strong>{course.title}</strong>
+                  <p>{course.teacherName} | {course.lessonsCount} lecons</p>
+                  <small>{course.courseRatingAverage.toFixed(1)}/5</small>
+                </article>
+              ))
+            ) : (
+              <p className={styles.paragraph}>Le catalogue public n&apos;est pas encore charge.</p>
+            )}
           </div>
         </section>
 

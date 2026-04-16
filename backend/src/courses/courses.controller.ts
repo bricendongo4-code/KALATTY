@@ -4,6 +4,7 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Post,
   Req,
   UploadedFile,
@@ -29,15 +30,21 @@ type UploadedAsset = {
 };
 
 @Controller('courses')
-@UseGuards(AuthGuard('jwt'))
 export class CoursesController {
   constructor(private readonly coursesService: CoursesService) {}
 
+  @Get('discover')
+  getDiscovery() {
+    return this.coursesService.getPublicDiscovery();
+  }
+
+  @UseGuards(AuthGuard('jwt'))
   @Get('mine')
   getMine(@Req() req: RequestUser) {
     return this.coursesService.getTeacherCourses(req.user);
   }
 
+  @UseGuards(AuthGuard('jwt'))
   @Get(':courseId')
   getCourseDetail(
     @Req() req: RequestUser,
@@ -46,6 +53,7 @@ export class CoursesController {
     return this.coursesService.getCourseDetail(req.user, courseId);
   }
 
+  @UseGuards(AuthGuard('jwt'))
   @Post()
   create(
     @Req() req: RequestUser,
@@ -58,6 +66,7 @@ export class CoursesController {
     );
   }
 
+  @UseGuards(AuthGuard('jwt'))
   @Post(':courseId/enroll')
   enroll(
     @Req() req: RequestUser,
@@ -67,6 +76,7 @@ export class CoursesController {
     return this.coursesService.enrollInCourse(req.user, courseId);
   }
 
+  @UseGuards(AuthGuard('jwt'))
   @Post(':courseId/reviews')
   addCourseReview(
     @Req() req: RequestUser,
@@ -76,6 +86,7 @@ export class CoursesController {
     return this.coursesService.addCourseReview(req.user, courseId, body);
   }
 
+  @UseGuards(AuthGuard('jwt'))
   @Post(':courseId/teacher-reviews')
   addTeacherReview(
     @Req() req: RequestUser,
@@ -85,6 +96,23 @@ export class CoursesController {
     return this.coursesService.addTeacherReview(req.user, courseId, body);
   }
 
+  @UseGuards(AuthGuard('jwt'))
+  @Patch(':courseId/lessons/:lessonId/progress')
+  updateLessonProgress(
+    @Req() req: RequestUser,
+    @Param('courseId') courseId: string,
+    @Param('lessonId') lessonId: string,
+    @Body() body: { status?: 'started' | 'completed' },
+  ) {
+    return this.coursesService.updateLessonProgress(
+      req.user,
+      courseId,
+      lessonId,
+      body,
+    );
+  }
+
+  @UseGuards(AuthGuard('jwt'))
   @Post('upload-thumbnail')
   @UseInterceptors(FileInterceptor('file'))
   uploadThumbnail(
@@ -98,6 +126,7 @@ export class CoursesController {
     return this.coursesService.uploadCourseAsset(req.user, file, 'thumbnail');
   }
 
+  @UseGuards(AuthGuard('jwt'))
   @Post('upload-video')
   @UseInterceptors(FileInterceptor('file'))
   uploadVideo(

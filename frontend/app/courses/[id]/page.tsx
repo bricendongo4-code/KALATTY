@@ -20,6 +20,9 @@ type CourseDetail = {
   enrolled: boolean;
   courseRatingAverage: number;
   teacherRatingAverage: number;
+  completedLessons: number;
+  startedLessons: number;
+  progressPercentage: number;
   courseReviews: Array<ReviewItem>;
   teacherReviews: Array<ReviewItem>;
   modules: Array<{
@@ -30,8 +33,10 @@ type CourseDetail = {
       id: string;
       title: string;
       content: string;
+      videoPath: string;
       durationSeconds: number;
       isPreview: boolean;
+      progressStatus: "not_started" | "started" | "completed";
     }>;
   }>;
 };
@@ -51,11 +56,15 @@ export default function CourseDetailPage({
 }) {
   const router = useRouter();
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
+  const storageBaseUrl =
+    "https://njoucnnjlrwbbhnktaho.supabase.co/storage/v1/object/public/course-videos/";
   const [courseId, setCourseId] = useState("");
   const [course, setCourse] = useState<CourseDetail | null>(null);
+  const [activeLessonId, setActiveLessonId] = useState("");
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [enrolling, setEnrolling] = useState(false);
+  const [paymentLoading, setPaymentLoading] = useState(false);
   const [role, setRole] = useState("");
   const [courseRating, setCourseRating] = useState("5");
   const [courseComment, setCourseComment] = useState("");
@@ -64,6 +73,7 @@ export default function CourseDetailPage({
   const [reviewMessage, setReviewMessage] = useState("");
   const [submittingCourseReview, setSubmittingCourseReview] = useState(false);
   const [submittingTeacherReview, setSubmittingTeacherReview] = useState(false);
+  const [lessonActionLoading, setLessonActionLoading] = useState(false);
 
   useEffect(() => {
     void params.then((resolved) => setCourseId(resolved.id));
@@ -112,7 +122,12 @@ export default function CourseDetailPage({
           return;
         }
 
-        setCourse(data as CourseDetail);
+        const nextCourse = data as CourseDetail;
+        setCourse(nextCourse);
+        const firstAvailableLesson = nextCourse.modules
+          .flatMap((module) => module.lessons)
+          .find((lesson) => lesson.videoPath && (nextCourse.enrolled || lesson.isPreview));
+        setActiveLessonId(firstAvailableLesson?.id ?? "");
       } catch {
         setMessage("Le detail du cours n'a pas pu etre charge.");
       } finally {
@@ -163,7 +178,78 @@ export default function CourseDetailPage({
     }
   };
 
+  const handlePayment = async () => {
+    const token = localStorage.getItem("kalatty_token");
+    if (!token || !course) {
+      return;
+    }
+
+    setPaymentLoading(true);
+    setMessage("");
+
+    try {
+      const checkoutRes = await fetch(`${apiBaseUrl}/payments/course-checkout`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ courseId: course.id }),
+      });
+      const checkoutData = await checkoutRes.json();
+
+      if (!checkoutRes.ok) {
+        setMessage(
+          typeof checkoutData.message === "string"
+            ? checkoutData.message
+            : "Impossible de preparer le paiement.",
+        );
+        return;
+      }
+
+      if (checkoutData.alreadyEnrolled) {
+        setCourse((current) => (current ? { ...current, enrolled: true } : current));
+        setMessage("Tu es deja inscrit a ce cours.");
+        return;
+      }
+
+      const confirmRes = await fetch(
+        `${apiBaseUrl}/payments/${checkoutData.paymentId}/confirm-demo`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      const confirmData = await confirmRes.json();
+
+      if (!confirmRes.ok) {
+        setMessage(
+          typeof confirmData.message === "string"
+            ? confirmData.message
+            : "Impossible de confirmer le paiement.",
+        );
+        return;
+      }
+
+      setCourse((current) => (current ? { ...current, enrolled: true } : current));
+      setMessage("Paiement confirme. Le cours est maintenant disponible.");
+    } catch {
+      setMessage("Le paiement n'a pas pu etre finalise.");
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
   const canReview = role === "student" || role === "admin";
+  const canAccessFullCourse =
+    role === "teacher" || role === "admin" || Boolean(course?.enrolled);
+  const allLessons = course?.modules.flatMap((module) => module.lessons) ?? [];
+  const activeLesson = allLessons.find((lesson) => lesson.id === activeLessonId) ?? null;
+  const canPlayActiveLesson = Boolean(
+    activeLesson && activeLesson.videoPath && (canAccessFullCourse || activeLesson.isPreview),
+  );
 
   const formatReviewDate = (value: string) => {
     if (!value) {
@@ -175,6 +261,95 @@ export default function CourseDetailPage({
       month: "short",
       year: "numeric",
     }).format(new Date(value));
+  };
+
+  const setLessonProgressLocally = (
+    lessonId: string,
+    status: "started" | "completed",
+  ) => {
+    setCourse((current) => {
+      if (!current) {
+        return current;
+      }
+
+      const modules = current.modules.map((module) => ({
+        ...module,
+        lessons: module.lessons.map((lesson) => {
+          if (lesson.id !== lessonId) {
+            return lesson;
+          }
+
+          if (lesson.progressStatus === "completed") {
+            return lesson;
+          }
+
+          return {
+            ...lesson,
+            progressStatus: status,
+          };
+        }),
+      }));
+
+      const updatedLessons = modules.flatMap((module) => module.lessons);
+      const completedLessons = updatedLessons.filter(
+        (lesson) => lesson.progressStatus === "completed",
+      ).length;
+      const startedLessons = updatedLessons.filter(
+        (lesson) =>
+          lesson.progressStatus === "started" || lesson.progressStatus === "completed",
+      ).length;
+
+      return {
+        ...current,
+        modules,
+        completedLessons,
+        startedLessons,
+        progressPercentage:
+          updatedLessons.length > 0
+            ? Math.round((completedLessons / updatedLessons.length) * 100)
+            : 0,
+      };
+    });
+  };
+
+  const persistLessonProgress = async (
+    lessonId: string,
+    status: "started" | "completed",
+  ) => {
+    const token = localStorage.getItem("kalatty_token");
+    if (!token || !course) {
+      return false;
+    }
+
+    try {
+      const res = await fetch(
+        `${apiBaseUrl}/courses/${course.id}/lessons/${lessonId}/progress`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ status }),
+        },
+      );
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMessage(
+          typeof data.message === "string"
+            ? data.message
+            : "Impossible d'enregistrer la progression de la lecon.",
+        );
+        return false;
+      }
+
+      setLessonProgressLocally(lessonId, data.status === "completed" ? "completed" : status);
+      return true;
+    } catch {
+      setMessage("La progression de la lecon n'a pas pu etre enregistree.");
+      return false;
+    }
   };
 
   const reloadCourse = async () => {
@@ -191,8 +366,57 @@ export default function CourseDetailPage({
     const data = await res.json();
 
     if (res.ok) {
-      setCourse(data as CourseDetail);
+      const refreshedCourse = data as CourseDetail;
+      setCourse(refreshedCourse);
+      if (!activeLessonId) {
+        const firstAvailableLesson = refreshedCourse.modules
+          .flatMap((module) => module.lessons)
+          .find((lesson) => lesson.videoPath && (refreshedCourse.enrolled || lesson.isPreview));
+        setActiveLessonId(firstAvailableLesson?.id ?? "");
+      }
     }
+  };
+
+  const handleStartCourse = () => {
+    if (!course) {
+      return;
+    }
+
+    const firstAvailableLesson = course.modules
+      .flatMap((module) => module.lessons)
+      .find((lesson) => lesson.videoPath && (canAccessFullCourse || lesson.isPreview));
+
+    if (!firstAvailableLesson) {
+      setMessage(
+        course.enrolled
+          ? "Aucune video n'est encore disponible sur ce cours."
+          : "Inscris-toi pour demarrer les lecons de ce cours.",
+      );
+      return;
+    }
+
+    setActiveLessonId(firstAvailableLesson.id);
+    setMessage("");
+    void persistLessonProgress(firstAvailableLesson.id, "started");
+  };
+
+  const handleLessonSelect = (lessonId: string) => {
+    setActiveLessonId(lessonId);
+    setMessage("");
+    void persistLessonProgress(lessonId, "started");
+  };
+
+  const handleMarkLessonCompleted = async () => {
+    if (!activeLesson) {
+      return;
+    }
+
+    setLessonActionLoading(true);
+    const updated = await persistLessonProgress(activeLesson.id, "completed");
+    if (updated) {
+      setMessage("Progression mise a jour. Cette lecon est marquee comme terminee.");
+    }
+    setLessonActionLoading(false);
   };
 
   const submitReview = async (
@@ -330,6 +554,22 @@ export default function CourseDetailPage({
               <span>{course.teacherRatingAverage}/5 prof</span>
             </div>
 
+            <div className={styles.progressHero}>
+              <div className={styles.progressHeroTop}>
+                <strong>Progression du parcours</strong>
+                <span>{course.progressPercentage}%</span>
+              </div>
+              <div className={styles.progressTrack}>
+                <div
+                  className={styles.progressFill}
+                  style={{ width: `${course.progressPercentage}%` }}
+                />
+              </div>
+              <small>
+                {course.completedLessons} lecon(s) terminee(s) sur {course.lessonsCount}
+              </small>
+            </div>
+
             <p className={styles.description}>
               {course.description || "Description detaillee indisponible pour le moment."}
             </p>
@@ -338,14 +578,34 @@ export default function CourseDetailPage({
               <button
                 type="button"
                 className={styles.primaryAction}
-                disabled={enrolling || course.enrolled}
-                onClick={() => void handleEnroll()}
+                disabled={enrolling || paymentLoading || course.enrolled}
+                onClick={() =>
+                  void (course.priceFcfa > 0 ? handlePayment() : handleEnroll())
+                }
+                hidden={role === "teacher"}
               >
-                {course.enrolled
-                  ? "Deja inscrit"
-                  : enrolling
-                    ? "Inscription..."
-                    : "S'inscrire au cours"}
+                {course.priceFcfa > 0
+                  ? course.enrolled
+                    ? "Deja debloque"
+                    : paymentLoading
+                      ? "Paiement..."
+                      : "Payer et debloquer"
+                  : course.enrolled
+                    ? "Deja inscrit"
+                    : enrolling
+                      ? "Inscription..."
+                      : "S'inscrire au cours"}
+              </button>
+              <button
+                type="button"
+                className={styles.secondaryActionButton}
+                onClick={course.priceFcfa > 0 && !course.enrolled ? () => void handlePayment() : handleStartCourse}
+              >
+                {course.priceFcfa > 0 && !course.enrolled
+                  ? "Lancer le paiement"
+                  : canAccessFullCourse
+                    ? "Commencer le cours"
+                    : "Voir l'apercu"}
               </button>
               <Link href="/dashboard" className={styles.secondaryAction}>
                 Voir mes cours
@@ -379,6 +639,84 @@ export default function CourseDetailPage({
         <section className={styles.panel}>
           <div className={styles.sectionHeader}>
             <div>
+              <span className={styles.sectionLabel}>Lecture</span>
+              <h2>Video du cours</h2>
+            </div>
+          </div>
+
+          <div className={styles.playerShell}>
+            {canPlayActiveLesson && activeLesson ? (
+              <>
+                <div className={styles.videoWrapper}>
+                  <video
+                    key={activeLesson.id}
+                    className={styles.videoPlayer}
+                    controls
+                    preload="metadata"
+                    src={`${storageBaseUrl}${activeLesson.videoPath}`}
+                  />
+                </div>
+                <div className={styles.playerMeta}>
+                  <strong>{activeLesson.title}</strong>
+                  <span>
+                    {activeLesson.durationSeconds > 0
+                      ? `${activeLesson.durationSeconds} sec`
+                      : "Duree non renseignee"}
+                  </span>
+                  <div className={styles.lessonBadgeRow}>
+                    <span className={styles.lessonBadge}>
+                      {activeLesson.progressStatus === "completed"
+                        ? "Terminee"
+                        : activeLesson.progressStatus === "started"
+                          ? "En cours"
+                          : "Non commencee"}
+                    </span>
+                    {activeLesson.isPreview ? (
+                      <span className={styles.lessonBadge}>Apercu</span>
+                    ) : null}
+                  </div>
+                  <p>
+                    {activeLesson.content || "Le professeur n'a pas encore ajoute de description pour cette lecon."}
+                  </p>
+                  {canAccessFullCourse ? (
+                    <div className={styles.actions}>
+                      <button
+                        type="button"
+                        className={styles.primaryAction}
+                        onClick={() => void handleMarkLessonCompleted()}
+                        disabled={
+                          lessonActionLoading ||
+                          activeLesson.progressStatus === "completed"
+                        }
+                      >
+                        {activeLesson.progressStatus === "completed"
+                          ? "Lecon deja terminee"
+                          : lessonActionLoading
+                            ? "Mise a jour..."
+                            : "Marquer comme terminee"}
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              </>
+            ) : (
+              <div className={styles.playerFallback}>
+                <strong>
+                  {course.enrolled
+                    ? "Choisis une lecon video pour commencer."
+                    : "Inscris-toi pour debloquer la lecture complete du cours."}
+                </strong>
+                <p>
+                  {course.enrolled
+                    ? "La video selectionnee s'affichera ici avec les informations de la lecon."
+                    : "Les apercus gratuits et les avis restent visibles depuis cette fiche."}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className={styles.sectionHeader}>
+            <div>
               <span className={styles.sectionLabel}>Programme</span>
               <h2>Contenu du cours</h2>
             </div>
@@ -396,7 +734,16 @@ export default function CourseDetailPage({
 
                   <div className={styles.lessonList}>
                     {module.lessons.map((lesson, lessonIndex) => (
-                      <div key={lesson.id} className={styles.lessonCard}>
+                      <button
+                        key={lesson.id}
+                        type="button"
+                        className={
+                          lesson.id === activeLessonId
+                            ? styles.lessonCardActive
+                            : styles.lessonCard
+                        }
+                        onClick={() => handleLessonSelect(lesson.id)}
+                      >
                         <strong>
                           Lecon {lessonIndex + 1}: {lesson.title}
                         </strong>
@@ -405,10 +752,23 @@ export default function CourseDetailPage({
                             ? `${lesson.durationSeconds} sec`
                             : "Duree a definir"}
                         </span>
-                        {lesson.isPreview ? (
-                          <small>Apercu disponible</small>
-                        ) : null}
-                      </div>
+                        <small>
+                          {lesson.videoPath
+                            ? lesson.isPreview && !course.enrolled
+                              ? "Apercu video disponible"
+                              : canAccessFullCourse || lesson.isPreview
+                                ? "Lecture disponible"
+                                : "Inscription necessaire"
+                            : "Video non ajoutee"}
+                        </small>
+                        <small>
+                          {lesson.progressStatus === "completed"
+                            ? "Statut: terminee"
+                            : lesson.progressStatus === "started"
+                              ? "Statut: en cours"
+                              : "Statut: non commencee"}
+                        </small>
+                      </button>
                     ))}
                   </div>
                 </article>
@@ -424,8 +784,9 @@ export default function CourseDetailPage({
             <span className={styles.sectionLabel}>Ce que tu obtiens</span>
             <ul className={styles.simpleList}>
               <li>Acces au programme du cours</li>
+              <li>Lecture video directe depuis la fiche cours</li>
               <li>Suivi de progression dans ton dashboard</li>
-              <li>Acces aux prochaines lecons apres inscription</li>
+              <li>Notes et commentaires apres inscription</li>
             </ul>
           </section>
 
@@ -443,6 +804,7 @@ export default function CourseDetailPage({
                 <span>{course.teacherReviews.length} avis</span>
               </div>
             </div>
+            {reviewMessage ? <p className={styles.reviewMessage}>{reviewMessage}</p> : null}
           </section>
         </aside>
       </section>
@@ -561,8 +923,6 @@ export default function CourseDetailPage({
               Il faut etre inscrit au cours pour noter le professeur.
             </p>
           )}
-
-          {reviewMessage ? <p className={styles.reviewMessage}>{reviewMessage}</p> : null}
 
           <div className={styles.reviewList}>
             {course.teacherReviews.length > 0 ? (

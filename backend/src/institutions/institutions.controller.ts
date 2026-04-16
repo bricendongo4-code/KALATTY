@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { InstitutionsService } from './institutions.service';
 
@@ -143,5 +143,23 @@ export class InstitutionsController {
     @Param('token') token: string,
   ) {
     return this.institutionsService.redeemInvite(req.user, token);
+  }
+
+  @Patch('submissions/:submissionId/review')
+  reviewSubmission(
+    @Req() req: RequestUser,
+    @Param('submissionId') submissionId: string,
+    @Body()
+    body: {
+      score?: number;
+      feedback?: string;
+      status?: 'reviewed' | 'returned';
+    },
+  ) {
+    return this.institutionsService.reviewAssignmentSubmission(
+      req.user,
+      submissionId,
+      body,
+    );
   }
 }

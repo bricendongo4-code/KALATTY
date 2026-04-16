@@ -293,6 +293,8 @@ export class InstitutionsService {
     const room = await this.getRoomOrThrow(roomId);
     await this.assertInstitutionAccess(user.id, room.institution_id);
 
+    const assignmentIds = await this.getRoomAssignmentIds(roomId);
+
     const [roomMembersRes, roomCoursesRes, assignmentsRes, invitesRes] =
       await Promise.all([
         this.supabaseService.client
@@ -321,6 +323,24 @@ export class InstitutionsService {
           .order('created_at', { ascending: false }),
       ]);
 
+    const submissionsRes = assignmentIds.length
+      ? await this.supabaseService.client
+          .from('assignment_submissions')
+          .select(
+            `
+              id,
+              assignment_id,
+              status,
+              submitted_at,
+              score,
+              assignments ( title ),
+              profiles:student_id ( fullname, email )
+            `,
+          )
+          .in('assignment_id', assignmentIds)
+          .order('submitted_at', { ascending: false })
+      : { data: [], error: null };
+
     if (roomMembersRes.error) {
       throw new BadRequestException(roomMembersRes.error.message);
     }
@@ -337,6 +357,12 @@ export class InstitutionsService {
       throw new BadRequestException(invitesRes.error.message);
     }
 
+    if (submissionsRes.error) {
+      throw new BadRequestException(submissionsRes.error.message);
+    }
+
+    const submissions = submissionsRes.data ?? [];
+
     return {
       ...room,
       members: (roomMembersRes.data ?? []).map((row: any) => ({
@@ -350,8 +376,51 @@ export class InstitutionsService {
         assignedAt: row.created_at,
         course: Array.isArray(row.courses) ? row.courses[0] : row.courses,
       })),
-      assignments: assignmentsRes.data ?? [],
+      assignments: (assignmentsRes.data ?? []).map((assignment: any) => {
+        const assignmentSubmissions = submissions.filter(
+          (submission: any) => submission.assignment_id === assignment.id,
+        );
+
+        return {
+          ...assignment,
+          submissionCount: assignmentSubmissions.length,
+          reviewedCount: assignmentSubmissions.filter(
+            (submission: any) => submission.status === 'reviewed',
+          ).length,
+          pendingCount: assignmentSubmissions.filter(
+            (submission: any) =>
+              submission.status === 'submitted' || submission.status === 'returned',
+          ).length,
+        };
+      }),
       invites: invitesRes.data ?? [],
+      submissionSummary: {
+        total: submissions.length,
+        reviewed: submissions.filter((submission: any) => submission.status === 'reviewed')
+          .length,
+        pending: submissions.filter(
+          (submission: any) =>
+            submission.status === 'submitted' || submission.status === 'returned',
+        ).length,
+      },
+      recentSubmissions: submissions.slice(0, 8).map((submission: any) => ({
+        id: submission.id,
+        status: submission.status,
+        submittedAt: submission.submitted_at,
+        score: submission.score,
+        assignmentTitle:
+          (Array.isArray(submission.assignments)
+            ? submission.assignments[0]
+            : submission.assignments)?.title ?? 'Devoir',
+        studentName:
+          (Array.isArray(submission.profiles)
+            ? submission.profiles[0]
+            : submission.profiles)?.fullname ??
+          (Array.isArray(submission.profiles)
+            ? submission.profiles[0]
+            : submission.profiles)?.email ??
+          'Etudiant',
+      })),
     };
   }
 
@@ -636,6 +705,82 @@ export class InstitutionsService {
     };
   }
 
+  async reviewAssignmentSubmission(
+    user: AuthUser,
+    submissionId: string,
+    payload: {
+      score?: number;
+      feedback?: string;
+      status?: 'reviewed' | 'returned';
+    },
+  ) {
+    const { data: submission, error } = await this.supabaseService.client
+      .from('assignment_submissions')
+      .select(
+        `
+          id,
+          assignment_id,
+          assignments (
+            id,
+            room_id
+          )
+        `,
+      )
+      .eq('id', submissionId)
+      .maybeSingle();
+
+    if (error || !submission) {
+      throw new NotFoundException('Remise introuvable.');
+    }
+
+    const assignment = Array.isArray(submission.assignments)
+      ? submission.assignments[0]
+      : submission.assignments;
+
+    if (!assignment?.room_id) {
+      throw new BadRequestException('Salle liee a la remise introuvable.');
+    }
+
+    const room = await this.getRoomOrThrow(String(assignment.room_id));
+    await this.assertInstitutionStaff(user.id, room.institution_id, [
+      'owner',
+      'admin',
+      'teacher',
+    ]);
+
+    const nextStatus = payload.status === 'returned' ? 'returned' : 'reviewed';
+    const score =
+      payload.score === undefined || payload.score === null
+        ? null
+        : Number(payload.score);
+
+    if (score !== null && Number.isNaN(score)) {
+      throw new BadRequestException('La note saisie est invalide.');
+    }
+
+    const { data: updated, error: updateError } = await this.supabaseService.client
+      .from('assignment_submissions')
+      .update({
+        status: nextStatus,
+        score,
+        feedback: payload.feedback?.trim() || null,
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: user.id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', submissionId)
+      .select('id, status, score, feedback, reviewed_at')
+      .single();
+
+    if (updateError || !updated) {
+      throw new BadRequestException(
+        updateError?.message ?? 'Impossible de corriger la remise.',
+      );
+    }
+
+    return updated;
+  }
+
   private async resolveGlobalRole(userId: string, fallbackRole?: string) {
     if (fallbackRole) {
       return fallbackRole;
@@ -745,6 +890,19 @@ export class InstitutionsService {
 
     const ids = (data ?? []).map((room: any) => room.id).filter(Boolean);
     return ids.length > 0 ? ids : ['00000000-0000-0000-0000-000000000000'];
+  }
+
+  private async getRoomAssignmentIds(roomId: string) {
+    const { data, error } = await this.supabaseService.client
+      .from('assignments')
+      .select('id')
+      .eq('room_id', roomId);
+
+    if (error) {
+      throw new BadRequestException(error.message);
+    }
+
+    return (data ?? []).map((assignment: any) => assignment.id).filter(Boolean);
   }
 
   private buildSlug(value: string) {

@@ -42,7 +42,7 @@ const createModule = (): ModuleDraft => ({
 
 type Props = {
   apiBaseUrl: string;
-  onCourseCreated: (updater: (current: DashboardResponse | null) => DashboardResponse | null) => void;
+  onCourseCreated: () => Promise<void> | void;
 };
 
 export default function TeacherCourseBuilder({
@@ -274,20 +274,7 @@ export default function TeacherCourseBuilder({
         return;
       }
 
-      onCourseCreated((current) => {
-        if (!current) {
-          return current;
-        }
-
-        return {
-          ...current,
-          stats: {
-            ...current.stats,
-            publishedCourses: (current.stats.publishedCourses ?? 0) + 1,
-          },
-          courses: [data, ...current.courses],
-        };
-      });
+      await onCourseCreated();
 
       setCourseTitle("");
       setCourseDescription("");

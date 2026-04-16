@@ -144,6 +144,32 @@
   font-weight: 800;
 }
 
+.progressHero {
+  display: grid;
+  gap: 0.6rem;
+  max-width: 32rem;
+  padding: 1rem 1.1rem;
+  border-radius: 20px;
+  background: rgba(255, 248, 239, 0.1);
+  border: 1px solid rgba(255, 248, 239, 0.12);
+}
+
+.progressHeroTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+}
+
+.progressHeroTop strong,
+.progressHero small {
+  color: #fff8ef;
+}
+
+.progressHero small {
+  color: rgba(255, 244, 229, 0.82);
+}
+
 .actions {
   display: flex;
   gap: 0.85rem;
@@ -169,6 +195,16 @@
   background: rgba(255, 255, 255, 0.82);
   color: var(--primary-dark);
   border: 1px solid rgba(29, 111, 95, 0.12);
+}
+
+.secondaryActionButton {
+  min-height: 3.2rem;
+  border: 1px solid rgba(255, 248, 239, 0.18);
+  border-radius: 18px;
+  padding: 0 1.15rem;
+  background: rgba(255, 248, 239, 0.12);
+  color: #fff8ef;
+  font-weight: 800;
 }
 
 .heroCard,
@@ -233,6 +269,85 @@
   gap: 1rem;
 }
 
+.playerShell {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.videoWrapper,
+.playerFallback {
+  border-radius: 24px;
+  overflow: hidden;
+  border: 1px solid rgba(29, 111, 95, 0.1);
+  background: rgba(16, 53, 59, 0.96);
+}
+
+.videoPlayer {
+  width: 100%;
+  display: block;
+  aspect-ratio: 16 / 9;
+  background: #081717;
+}
+
+.playerMeta {
+  display: grid;
+  gap: 0.4rem;
+  padding: 1rem 1.1rem;
+  border-radius: 20px;
+  background: rgba(29, 111, 95, 0.05);
+}
+
+.playerMeta strong {
+  color: var(--primary-dark);
+  font-size: 1.1rem;
+}
+
+.playerMeta span,
+.playerMeta p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.lessonBadgeRow {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.lessonBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0 0.75rem;
+  border-radius: 999px;
+  background: rgba(29, 111, 95, 0.08);
+  color: var(--primary-dark);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.playerFallback {
+  display: grid;
+  gap: 0.5rem;
+  place-items: center;
+  padding: 2rem;
+  text-align: center;
+  color: #fff8ef;
+}
+
+.playerFallback strong {
+  font-size: 1.2rem;
+}
+
+.playerFallback p {
+  margin: 0;
+  max-width: 52ch;
+  color: rgba(255, 244, 229, 0.82);
+  line-height: 1.7;
+}
+
 .moduleCard {
   padding: 1rem;
   border-radius: 22px;
@@ -266,9 +381,20 @@
 }
 
 .lessonCard {
+  border: 1px solid transparent;
+  text-align: left;
   padding: 0.95rem 1rem;
   border-radius: 18px;
   background: rgba(29, 111, 95, 0.05);
+}
+
+.lessonCardActive {
+  border: 1px solid rgba(29, 111, 95, 0.18);
+  text-align: left;
+  padding: 0.95rem 1rem;
+  border-radius: 18px;
+  background: rgba(29, 111, 95, 0.12);
+  box-shadow: 0 12px 24px rgba(16, 53, 59, 0.08);
 }
 
 .simpleList {

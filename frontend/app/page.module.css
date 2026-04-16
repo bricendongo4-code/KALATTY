@@ -220,6 +220,137 @@
   padding: 0.5rem 0 1.5rem;
 }
 
+.discoverySection,
+.rankSection,
+.guidesSection {
+  display: grid;
+  gap: 1.3rem;
+}
+
+.discoveryGrid,
+.guidesGrid {
+  display: grid;
+  gap: 1rem;
+}
+
+.discoveryGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.discoveryCard,
+.discoveryCardWide,
+.rankCard,
+.promoCard,
+.guideCard {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1.2rem;
+  border-radius: 24px;
+  background: rgba(255, 251, 245, 0.86);
+  border: 1px solid rgba(29, 111, 95, 0.12);
+  box-shadow: var(--shadow);
+}
+
+.discoveryCardWide {
+  grid-column: 1 / -1;
+}
+
+.discoveryTag {
+  width: fit-content;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(29, 111, 95, 0.08);
+  color: var(--primary-dark);
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.discoveryCard h3,
+.discoveryCardWide h3,
+.rankCard h3,
+.promoCard h3,
+.guideCard h3 {
+  margin: 0;
+  color: var(--primary-dark);
+}
+
+.discoveryCard p,
+.discoveryCardWide p,
+.rankCard p,
+.promoCard p,
+.guideCard p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.75;
+}
+
+.discoveryMeta,
+.discoveryFooter,
+.rankCard {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.discoveryMeta span {
+  padding: 0.45rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(29, 111, 95, 0.08);
+  color: var(--primary-dark);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.discoveryFooter {
+  justify-content: space-between;
+}
+
+.discoveryFooter strong {
+  color: var(--secondary);
+  font-size: 1.15rem;
+}
+
+.discoveryLink {
+  min-height: 2.9rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 1rem;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(19, 77, 67, 0.98), rgba(16, 53, 59, 0.94));
+  color: #fff8ef;
+  font-weight: 800;
+}
+
+.rankSection {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.rankColumn,
+.rankList,
+.promoList {
+  display: grid;
+  gap: 1rem;
+}
+
+.rankCard strong {
+  color: var(--secondary);
+  font-size: 1.5rem;
+}
+
+.promoCard {
+  background:
+    radial-gradient(circle at top right, rgba(255, 145, 0, 0.18), transparent 30%),
+    linear-gradient(135deg, rgba(255, 250, 243, 0.9), rgba(245, 238, 226, 0.96));
+}
+
+.guidesGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .sectionIntro {
   display: grid;
   gap: 0.45rem;
@@ -284,7 +415,10 @@
 @media (max-width: 980px) {
   .heroGrid,
   .benefitGrid,
-  .highlightList {
+  .highlightList,
+  .discoveryGrid,
+  .rankSection,
+  .guidesGrid {
     grid-template-columns: 1fr;
   }
 

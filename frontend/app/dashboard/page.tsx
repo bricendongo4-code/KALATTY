@@ -9,7 +9,8 @@ import TeacherCourseBuilder from "./TeacherCourseBuilder";
 import styles from "./dashboard.module.css";
 
 type DashboardRole = "student" | "teacher" | "institution";
-type StudentView = "home" | "progress" | "institutions";
+type StudentView = "home" | "progress" | "institutions" | "profile";
+type TeacherView = "overview" | "profile";
 type StoredUser = {
   email?: string;
   fullname?: string;
@@ -17,6 +18,7 @@ type StoredUser = {
   level?: string | null;
   school_name?: string | null;
   expertise?: string | null;
+  bio?: string | null;
 };
 type DashboardResponse = {
   role: DashboardRole;
@@ -24,7 +26,38 @@ type DashboardResponse = {
   stats: Record<string, number>;
   courses: Array<Record<string, unknown>>;
   catalogCourses?: Array<Record<string, unknown>>;
+  teacherRooms?: Array<Record<string, unknown>>;
   tasks: string[];
+};
+
+type TeacherRoomDetail = {
+  id: string;
+  name: string;
+  slug?: string | null;
+  description?: string | null;
+  assignments: Array<{
+    id: string;
+    title: string;
+    instructions?: string | null;
+    status: string;
+    due_at?: string | null;
+    submissionCount?: number;
+    pendingCount?: number;
+    reviewedCount?: number;
+  }>;
+  recentSubmissions?: Array<{
+    id: string;
+    status: string;
+    submittedAt?: string | null;
+    score?: number | null;
+    assignmentTitle: string;
+    studentName: string;
+  }>;
+  submissionSummary?: {
+    total: number;
+    reviewed: number;
+    pending: number;
+  };
 };
 
 type DiscoveryCourse = {
@@ -37,6 +70,8 @@ type DiscoveryCourse = {
   priceFcfa?: number;
   teacherName?: string;
   enrolled?: boolean;
+  ratingAverage?: number;
+  lessonsCount?: number;
 };
 
 const studentTimeline = [
@@ -83,42 +118,66 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [studentView, setStudentView] = useState<StudentView>("home");
+  const [teacherView, setTeacherView] = useState<TeacherView>("overview");
   const [studentSearch, setStudentSearch] = useState("");
   const [teacherSearch, setTeacherSearch] = useState("");
   const [institutionSearch, setInstitutionSearch] = useState("");
   const [catalogMessage, setCatalogMessage] = useState("");
   const [enrollingCourseId, setEnrollingCourseId] = useState("");
+  const [profileMessage, setProfileMessage] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [selectedTeacherRoomId, setSelectedTeacherRoomId] = useState("");
+  const [teacherRoomDetail, setTeacherRoomDetail] = useState<TeacherRoomDetail | null>(null);
+  const [teacherAssignmentTitle, setTeacherAssignmentTitle] = useState("");
+  const [teacherAssignmentInstructions, setTeacherAssignmentInstructions] = useState("");
+  const [teacherActionMessage, setTeacherActionMessage] = useState("");
+  const [reviewForm, setReviewForm] = useState({
+    submissionId: "",
+    score: "",
+    feedback: "",
+    status: "reviewed",
+  });
+  const [profileForm, setProfileForm] = useState({
+    fullname: "",
+    level: "",
+    school_name: "",
+    expertise: "",
+    bio: "",
+  });
 
-  useEffect(() => {
+  const fetchDashboard = async () => {
     const token = localStorage.getItem("kalatty_token");
     if (!token) {
       startTransition(() => router.push("/login"));
       return;
     }
-    const fetchDashboard = async () => {
-      try {
-        const res = await fetch(`${apiBaseUrl}/dashboard`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          if (res.status === 401) {
-            localStorage.removeItem("kalatty_token");
-            localStorage.removeItem("kalatty_user");
-            startTransition(() => router.push("/login"));
-            return;
-          }
-          setError(data.message ?? "Impossible de charger le dashboard.");
+
+    try {
+      const res = await fetch(`${apiBaseUrl}/dashboard`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 401) {
+          localStorage.removeItem("kalatty_token");
+          localStorage.removeItem("kalatty_user");
+          startTransition(() => router.push("/login"));
           return;
         }
-        setDashboardData(data as DashboardResponse);
-        localStorage.setItem("kalatty_user", JSON.stringify(data.profile));
-      } catch {
-        setError("Le dashboard n'a pas pu etre charge.");
-      } finally {
-        setLoading(false);
+        setError(data.message ?? "Impossible de charger le dashboard.");
+        return;
       }
-    };
+      setDashboardData(data as DashboardResponse);
+      localStorage.setItem("kalatty_user", JSON.stringify(data.profile));
+      setError("");
+    } catch {
+      setError("Le dashboard n'a pas pu etre charge.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     void fetchDashboard();
   }, [apiBaseUrl, router]);
 
@@ -130,6 +189,7 @@ export default function DashboardPage() {
     profile?.fullname?.trim() || (role === "teacher" ? "Formateur" : role === "institution" ? "Etablissement" : "Apprenant");
   const studentCourses = dashboardData?.courses ?? [];
   const teacherCourses = dashboardData?.courses ?? [];
+  const teacherRooms = dashboardData?.teacherRooms ?? [];
   const heroCourse = studentCourses[0];
   const discoveryCourses: DiscoveryCourse[] =
     (dashboardData?.catalogCourses?.length ?? 0) > 0
@@ -142,6 +202,8 @@ export default function DashboardPage() {
           category: String(course.category ?? "Catalogue"),
           priceFcfa: Number(course.priceFcfa ?? 0),
           teacherName: String(course.teacherName ?? "Formateur Kalatty"),
+          ratingAverage: Number(course.ratingAverage ?? 0),
+          lessonsCount: Number(course.lessonsCount ?? 0),
         }))
       : fallbackDiscovery;
   const studentQuery = studentSearch.trim().toLowerCase();
@@ -155,10 +217,64 @@ export default function DashboardPage() {
   const filteredTeacherCourses = teacherCourses.filter((course) =>
     includesSearch([course.title, course.description, course.priceFcfa, course.learners], teacherQuery),
   );
+  const filteredTeacherRooms = teacherRooms.filter((room) =>
+    includesSearch([room.name, room.description, room.institutionName, room.role], teacherQuery),
+  );
   const institutionQuery = institutionSearch.trim().toLowerCase();
   const filteredInstitutionRooms = institutionRooms.filter((room) =>
     includesSearch([room.name, room.members, room.action], institutionQuery),
   );
+
+  useEffect(() => {
+    setProfileForm({
+      fullname: profile?.fullname ?? "",
+      level: profile?.level ?? "",
+      school_name: profile?.school_name ?? "",
+      expertise: profile?.expertise ?? "",
+      bio: profile?.bio ?? "",
+    });
+  }, [profile?.bio, profile?.expertise, profile?.fullname, profile?.level, profile?.school_name]);
+
+  useEffect(() => {
+    if (!selectedTeacherRoomId && teacherRooms.length > 0) {
+      setSelectedTeacherRoomId(String(teacherRooms[0].id ?? ""));
+    }
+  }, [selectedTeacherRoomId, teacherRooms]);
+
+  useEffect(() => {
+    const token = localStorage.getItem("kalatty_token");
+    if (!token || !selectedTeacherRoomId || role !== "teacher") {
+      setTeacherRoomDetail(null);
+      return;
+    }
+
+    const loadTeacherRoom = async () => {
+      try {
+        const res = await fetch(`${apiBaseUrl}/institutions/rooms/${selectedTeacherRoomId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          setTeacherActionMessage(
+            typeof data.message === "string"
+              ? data.message
+              : "Impossible de charger les details de la classe.",
+          );
+          return;
+        }
+
+        setTeacherRoomDetail(data as TeacherRoomDetail);
+      } catch {
+        setTeacherActionMessage("Le detail de la classe n'a pas pu etre charge.");
+      }
+    };
+
+    void loadTeacherRoom();
+  }, [apiBaseUrl, role, selectedTeacherRoomId, teacherRooms]);
+
   const handleLogout = () => {
     localStorage.removeItem("kalatty_token");
     localStorage.removeItem("kalatty_user");
@@ -228,6 +344,292 @@ export default function DashboardPage() {
       setEnrollingCourseId("");
     }
   };
+
+  const handleProfileFieldChange = (
+    field: "fullname" | "level" | "school_name" | "expertise" | "bio",
+    value: string,
+  ) => {
+    setProfileForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  };
+
+  const handleProfileSave = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    const token = localStorage.getItem("kalatty_token");
+    if (!token) {
+      setProfileMessage("Session introuvable. Reconnecte-toi.");
+      return;
+    }
+
+    setSavingProfile(true);
+    setProfileMessage("");
+
+    try {
+      const res = await fetch(`${apiBaseUrl}/dashboard/profile`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(profileForm),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setProfileMessage(
+          typeof data.message === "string"
+            ? data.message
+            : "Impossible de mettre a jour le profil.",
+        );
+        return;
+      }
+
+      setDashboardData((current) =>
+        current
+          ? {
+              ...current,
+              profile: data,
+            }
+          : current,
+      );
+      localStorage.setItem("kalatty_user", JSON.stringify(data));
+      setProfileMessage("Profil mis a jour avec succes.");
+    } catch {
+      setProfileMessage("La mise a jour du profil a echoue.");
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const refreshTeacherRoom = async () => {
+    const token = localStorage.getItem("kalatty_token");
+    if (!token || !selectedTeacherRoomId) {
+      return;
+    }
+
+    const res = await fetch(`${apiBaseUrl}/institutions/rooms/${selectedTeacherRoomId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    const data = await res.json();
+
+    if (res.ok) {
+      setTeacherRoomDetail(data as TeacherRoomDetail);
+    }
+  };
+
+  const handleTeacherAssignmentCreate = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    const token = localStorage.getItem("kalatty_token");
+    if (!token || !selectedTeacherRoomId) {
+      setTeacherActionMessage("Classe introuvable.");
+      return;
+    }
+
+    setTeacherActionMessage("");
+
+    try {
+      const res = await fetch(`${apiBaseUrl}/institutions/rooms/${selectedTeacherRoomId}/assignments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          title: teacherAssignmentTitle,
+          instructions: teacherAssignmentInstructions,
+        }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setTeacherActionMessage(
+          typeof data.message === "string"
+            ? data.message
+            : "Impossible de publier le devoir.",
+        );
+        return;
+      }
+
+      setTeacherAssignmentTitle("");
+      setTeacherAssignmentInstructions("");
+      setTeacherActionMessage("Devoir publie dans la classe.");
+      await refreshTeacherRoom();
+    } catch {
+      setTeacherActionMessage("La publication du devoir a echoue.");
+    }
+  };
+
+  const handleSubmissionReview = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    const token = localStorage.getItem("kalatty_token");
+    if (!token || !reviewForm.submissionId) {
+      setTeacherActionMessage("Selectionne une remise a corriger.");
+      return;
+    }
+
+    setTeacherActionMessage("");
+
+    try {
+      const res = await fetch(
+        `${apiBaseUrl}/institutions/submissions/${reviewForm.submissionId}/review`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            score: reviewForm.score ? Number(reviewForm.score) : null,
+            feedback: reviewForm.feedback,
+            status: reviewForm.status,
+          }),
+        },
+      );
+      const data = await res.json();
+
+      if (!res.ok) {
+        setTeacherActionMessage(
+          typeof data.message === "string"
+            ? data.message
+            : "Impossible de corriger la remise.",
+        );
+        return;
+      }
+
+      setReviewForm({
+        submissionId: "",
+        score: "",
+        feedback: "",
+        status: "reviewed",
+      });
+      setTeacherActionMessage("Remise corrigee avec succes.");
+      await refreshTeacherRoom();
+    } catch {
+      setTeacherActionMessage("La correction de la remise a echoue.");
+    }
+  };
+
+  const renderProfileEditor = () => (
+    <section className={styles.grid}>
+      <div className={styles.primaryColumn}>
+        <section className={styles.card}>
+          <div className={styles.sectionHeader}>
+            <div>
+              <p className={styles.sectionLabel}>Profil</p>
+              <h2>Modifier mon profil</h2>
+            </div>
+            <span className={styles.sectionHint}>
+              {role === "teacher"
+                ? "Mets en avant ton expertise et ta bio formateur."
+                : "Complete ton niveau, ton etablissement et tes informations."}
+            </span>
+          </div>
+          <form className={styles.profileEditor} onSubmit={(event) => void handleProfileSave(event)}>
+            <div className={styles.metaFields}>
+              <label className={styles.formField}>
+                <span>Nom complet</span>
+                <input
+                  type="text"
+                  value={profileForm.fullname}
+                  onChange={(event) => handleProfileFieldChange("fullname", event.target.value)}
+                  placeholder="Ton nom complet"
+                />
+              </label>
+
+              {role === "student" ? (
+                <label className={styles.formField}>
+                  <span>Niveau</span>
+                  <input
+                    type="text"
+                    value={profileForm.level}
+                    onChange={(event) => handleProfileFieldChange("level", event.target.value)}
+                    placeholder="Ex: Terminale, Licence 2"
+                  />
+                </label>
+              ) : null}
+
+              <label className={styles.formField}>
+                <span>{role === "teacher" ? "Specialite" : "Etablissement"}</span>
+                <input
+                  type="text"
+                  value={role === "teacher" ? profileForm.expertise : profileForm.school_name}
+                  onChange={(event) =>
+                    handleProfileFieldChange(
+                      role === "teacher" ? "expertise" : "school_name",
+                      event.target.value,
+                    )
+                  }
+                  placeholder={
+                    role === "teacher"
+                      ? "Ex: Math, Developpement web"
+                      : "Nom de ton etablissement"
+                  }
+                />
+              </label>
+
+              {role === "student" ? (
+                <label className={styles.formField}>
+                  <span>Objectif ou specialite</span>
+                  <input
+                    type="text"
+                    value={profileForm.expertise}
+                    onChange={(event) => handleProfileFieldChange("expertise", event.target.value)}
+                    placeholder="Ex: Baccalaureat, Anglais, Informatique"
+                  />
+                </label>
+              ) : null}
+            </div>
+
+            <label className={styles.formField}>
+              <span>Bio</span>
+              <textarea
+                className={styles.formTextarea}
+                rows={5}
+                value={profileForm.bio}
+                onChange={(event) => handleProfileFieldChange("bio", event.target.value)}
+                placeholder={
+                  role === "teacher"
+                    ? "Presente ton experience, ta pedagogie et ce que tes apprenants vont trouver."
+                    : "Presente ton parcours, tes besoins ou ton contexte d'apprentissage."
+                }
+              />
+            </label>
+
+            <button type="submit" className={styles.submitButton} disabled={savingProfile}>
+              {savingProfile ? "Enregistrement..." : "Enregistrer le profil"}
+            </button>
+            {profileMessage ? <p className={styles.inlineMessage}>{profileMessage}</p> : null}
+          </form>
+        </section>
+      </div>
+
+      <div className={styles.sideColumn}>
+        <section className={styles.cardAccent}>
+          <p className={styles.sectionLabel}>Apercu</p>
+          <h2>Profil public Kalatty</h2>
+          <div className={styles.profilePreview}>
+            <strong>{profileForm.fullname || displayName}</strong>
+            <span>
+              {role === "teacher"
+                ? profileForm.expertise || "Expertise a completer"
+                : profileForm.level || "Niveau a completer"}
+            </span>
+            <p>
+              {profileForm.bio ||
+                "Ajoute une bio pour mieux presenter ton profil dans l'application."}
+            </p>
+          </div>
+        </section>
+      </div>
+    </section>
+  );
 
   if (loading) {
     return (
@@ -320,6 +722,15 @@ export default function DashboardPage() {
                   <option value="home">Accueil</option>
                   <option value="progress">Suivi des cours</option>
                   <option value="institutions">Etablissements</option>
+                  <option value="profile">Mon profil</option>
+                </select>
+              </label>
+            ) : role === "teacher" ? (
+              <label className={styles.viewPicker}>
+                <span>Menu enseignant</span>
+                <select value={teacherView} onChange={(event) => setTeacherView(event.target.value as TeacherView)}>
+                  <option value="overview">Pilotage</option>
+                  <option value="profile">Mon profil</option>
                 </select>
               </label>
             ) : null}
@@ -359,6 +770,7 @@ export default function DashboardPage() {
               <button type="button" className={studentView === "home" ? styles.activeTab : styles.studentTab} onClick={() => setStudentView("home")}>Accueil</button>
               <button type="button" className={studentView === "progress" ? styles.activeTab : styles.studentTab} onClick={() => setStudentView("progress")}>Suivi des cours</button>
               <button type="button" className={studentView === "institutions" ? styles.activeTab : styles.studentTab} onClick={() => setStudentView("institutions")}>Etablissements</button>
+              <button type="button" className={studentView === "profile" ? styles.activeTab : styles.studentTab} onClick={() => setStudentView("profile")}>Mon profil</button>
             </div>
           </section>
 
@@ -384,6 +796,11 @@ export default function DashboardPage() {
                       <div className={styles.progressFill} style={{ width: `${Number(heroCourse?.progress ?? 0)}%` }} />
                     </div>
                     <small>{Number(heroCourse?.progress ?? 0)}% complete</small>
+                    {heroCourse?.id ? (
+                      <Link href={`/courses/${String(heroCourse.id)}`} className={styles.catalogDetailLink}>
+                        Reprendre ce cours
+                      </Link>
+                    ) : null}
                   </div>
                 </section>
 
@@ -418,6 +835,12 @@ export default function DashboardPage() {
                               : "Reprendre"}
                           </span>
                         </div>
+                        {"ratingAverage" in course ? (
+                          <div className={styles.discoveryMetaRow}>
+                            <span>{Number(course.ratingAverage ?? 0).toFixed(1)}/5</span>
+                            <span>{Number(course.lessonsCount ?? 0)} lecons</span>
+                          </div>
+                        ) : null}
                         {"priceFcfa" in course ? (
                           <Link
                             href={`/courses/${course.id}`}
@@ -427,21 +850,32 @@ export default function DashboardPage() {
                           </Link>
                         ) : null}
                         {"priceFcfa" in course ? (
-                          <button
-                            type="button"
-                            className={styles.catalogActionButton}
-                            disabled={
-                              enrollingCourseId === String(course.id) ||
-                              Boolean("enrolled" in course && course.enrolled)
-                            }
-                            onClick={() => void handleEnroll(String(course.id))}
-                          >
-                            {"enrolled" in course && course.enrolled
-                              ? "Deja inscrit"
-                              : enrollingCourseId === String(course.id)
-                                ? "Inscription..."
-                                : "S'inscrire"}
-                          </button>
+                          Number(course.priceFcfa ?? 0) > 0 ? (
+                            <Link
+                              href={`/courses/${course.id}`}
+                              className={styles.catalogActionButton}
+                            >
+                              {"enrolled" in course && course.enrolled
+                                ? "Voir le cours"
+                                : "Voir et payer"}
+                            </Link>
+                          ) : (
+                            <button
+                              type="button"
+                              className={styles.catalogActionButton}
+                              disabled={
+                                enrollingCourseId === String(course.id) ||
+                                Boolean("enrolled" in course && course.enrolled)
+                              }
+                              onClick={() => void handleEnroll(String(course.id))}
+                            >
+                              {"enrolled" in course && course.enrolled
+                                ? "Deja inscrit"
+                                : enrollingCourseId === String(course.id)
+                                  ? "Inscription..."
+                                  : "S'inscrire"}
+                            </button>
+                          )
                         ) : null}
                       </article>
                     ))}
@@ -505,6 +939,11 @@ export default function DashboardPage() {
                           <div className={styles.progressFill} style={{ width: `${Number(course.progress ?? 0)}%` }} />
                         </div>
                         <small>{String(course.description ?? "Cours en progression")}</small>
+                        <div className={styles.courseActionRow}>
+                          <Link href={`/courses/${String(course.id)}`} className={styles.catalogDetailLink}>
+                            Commencer / reprendre
+                          </Link>
+                        </div>
                       </article>
                     )) : <p className={styles.paragraph}>{studentCourses.length > 0 ? "Aucun cours ne correspond a cette recherche." : "Aucun cours n'est encore lie a ce compte."}</p>}
                   </div>
@@ -562,8 +1001,12 @@ export default function DashboardPage() {
               </div>
             </section>
           ) : null}
+
+          {studentView === "profile" ? renderProfileEditor() : null}
         </>
-      ) : role === "teacher" ? (
+      ) : role === "teacher" ? teacherView === "profile" ? (
+        renderProfileEditor()
+      ) : (
         <section className={styles.grid}>
           <div className={styles.primaryColumn}>
             <section className={styles.card}>
@@ -591,6 +1034,11 @@ export default function DashboardPage() {
                       <span>{String(course.videoUrl ?? "") ? "Video reliee" : "Video a ajouter"}</span>
                       <span>{String(course.thumbnailUrl ?? "") ? "Miniature prete" : "Miniature manquante"}</span>
                     </div>
+                    <div className={styles.courseActionRow}>
+                      <Link href={`/courses/${String(course.id)}`} className={styles.catalogDetailLink}>
+                        Voir la fiche publique
+                      </Link>
+                    </div>
                   </article>
                 )) : <p className={styles.paragraph}>{teacherCourses.length > 0 ? "Aucun cours ne correspond a cette recherche." : "Aucun cours n'est encore rattache a cet enseignant."}</p>}
               </div>
@@ -609,16 +1057,204 @@ export default function DashboardPage() {
               </div>
             </section>
 
+            <section className={styles.card}>
+              <div className={styles.sectionHeader}>
+                <div><p className={styles.sectionLabel}>Classes affectees</p><h2>Mes classes d&apos;etablissement</h2></div>
+                <span className={styles.sectionHint}>{dashboardData?.stats.activeClasses ?? 0} classes actives</span>
+              </div>
+              <div className={styles.teacherCourseGrid}>
+                {filteredTeacherRooms.length > 0 ? filteredTeacherRooms.map((room) => (
+                  <button
+                    key={String(room.id)}
+                    type="button"
+                    className={
+                      selectedTeacherRoomId === String(room.id)
+                        ? styles.institutionRoomBoardActive
+                        : styles.teacherCourseCard
+                    }
+                    onClick={() => setSelectedTeacherRoomId(String(room.id))}
+                  >
+                    <div className={styles.teacherMeta}>
+                      <span>{String(room.role ?? "teacher")}</span>
+                      <strong>{String(room.institutionName ?? "Etablissement")}</strong>
+                    </div>
+                    <h3>{String(room.name ?? "Classe")}</h3>
+                    <p>{String(room.description ?? "Classe rattachee a un etablissement partenaire.")}</p>
+                    <div className={styles.courseMetaGrid}>
+                      <span>{String(room.slug ?? "") ? `#${String(room.slug)}` : "Slug indisponible"}</span>
+                      <span>{String(room.joinedAt ?? "") ? "Rattachement actif" : "A confirmer"}</span>
+                      <span>Classes institutionnelles</span>
+                    </div>
+                  </button>
+                )) : <p className={styles.paragraph}>Aucune classe d&apos;etablissement n&apos;est encore rattachee a ce professeur.</p>}
+              </div>
+            </section>
+
+            {teacherRoomDetail ? (
+              <section className={styles.card}>
+                <div className={styles.sectionHeader}>
+                  <div><p className={styles.sectionLabel}>Salle active</p><h2>{teacherRoomDetail.name}</h2></div>
+                  <span className={styles.sectionHint}>
+                    {teacherRoomDetail.slug ? `#${teacherRoomDetail.slug}` : "Classe enseignant"}
+                  </span>
+                </div>
+                <div className={styles.institutionOpsGrid}>
+                  <article className={styles.institutionOpsCard}>
+                    <span>Remises</span>
+                    <strong>{Number(teacherRoomDetail.submissionSummary?.total ?? 0)}</strong>
+                    <p>Toutes copies remises dans cette classe.</p>
+                  </article>
+                  <article className={styles.institutionOpsCard}>
+                    <span>A corriger</span>
+                    <strong>{Number(teacherRoomDetail.submissionSummary?.pending ?? 0)}</strong>
+                    <p>Copies qui attendent ton retour.</p>
+                  </article>
+                  <article className={styles.institutionOpsCard}>
+                    <span>Corrigees</span>
+                    <strong>{Number(teacherRoomDetail.submissionSummary?.reviewed ?? 0)}</strong>
+                    <p>Copies deja traitees.</p>
+                  </article>
+                </div>
+
+                <div className={styles.institutionActionGrid}>
+                  <section className={styles.card}>
+                    <div className={styles.sectionHeader}>
+                      <div><p className={styles.sectionLabel}>Devoir enseignant</p><h2>Publier dans ma classe</h2></div>
+                    </div>
+                    <form onSubmit={(event) => void handleTeacherAssignmentCreate(event)} className={styles.teacherForm}>
+                      <label className={styles.formField}>
+                        <span>Titre</span>
+                        <input
+                          type="text"
+                          value={teacherAssignmentTitle}
+                          onChange={(event) => setTeacherAssignmentTitle(event.target.value)}
+                          placeholder="Controle continu - semaine 3"
+                        />
+                      </label>
+                      <label className={styles.formField}>
+                        <span>Consignes</span>
+                        <textarea
+                          className={styles.formTextarea}
+                          rows={4}
+                          value={teacherAssignmentInstructions}
+                          onChange={(event) => setTeacherAssignmentInstructions(event.target.value)}
+                          placeholder="Consignes de rendu, fichier attendu, date et modalites."
+                        />
+                      </label>
+                      <button type="submit" className={styles.submitButton}>
+                        Publier le devoir
+                      </button>
+                    </form>
+                  </section>
+
+                  <section className={styles.card}>
+                    <div className={styles.sectionHeader}>
+                      <div><p className={styles.sectionLabel}>Correction</p><h2>Corriger une remise</h2></div>
+                    </div>
+                    <form onSubmit={(event) => void handleSubmissionReview(event)} className={styles.teacherForm}>
+                      <label className={styles.formField}>
+                        <span>Copie a corriger</span>
+                        <select
+                          className={styles.selectField}
+                          value={reviewForm.submissionId}
+                          onChange={(event) =>
+                            setReviewForm((current) => ({
+                              ...current,
+                              submissionId: event.target.value,
+                            }))
+                          }
+                        >
+                          <option value="">Choisir une remise</option>
+                          {(teacherRoomDetail.recentSubmissions ?? []).map((submission) => (
+                            <option key={submission.id} value={submission.id}>
+                              {submission.studentName} - {submission.assignmentTitle}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <div className={styles.metaFields}>
+                        <label className={styles.formField}>
+                          <span>Note</span>
+                          <input
+                            type="number"
+                            min="0"
+                            value={reviewForm.score}
+                            onChange={(event) =>
+                              setReviewForm((current) => ({
+                                ...current,
+                                score: event.target.value,
+                              }))
+                            }
+                            placeholder="15"
+                          />
+                        </label>
+                        <label className={styles.formField}>
+                          <span>Statut</span>
+                          <select
+                            className={styles.selectField}
+                            value={reviewForm.status}
+                            onChange={(event) =>
+                              setReviewForm((current) => ({
+                                ...current,
+                                status: event.target.value,
+                              }))
+                            }
+                          >
+                            <option value="reviewed">Corrige</option>
+                            <option value="returned">Retourne</option>
+                          </select>
+                        </label>
+                      </div>
+                      <label className={styles.formField}>
+                        <span>Feedback</span>
+                        <textarea
+                          className={styles.formTextarea}
+                          rows={4}
+                          value={reviewForm.feedback}
+                          onChange={(event) =>
+                            setReviewForm((current) => ({
+                              ...current,
+                              feedback: event.target.value,
+                            }))
+                          }
+                          placeholder="Retour pedagogique pour l'etudiant."
+                        />
+                      </label>
+                      <button type="submit" className={styles.submitButton}>
+                        Enregistrer la correction
+                      </button>
+                    </form>
+                  </section>
+                </div>
+
+                <section className={styles.card}>
+                  <div className={styles.sectionHeader}>
+                    <div><p className={styles.sectionLabel}>Copies recentes</p><h2>Suivi des remises</h2></div>
+                  </div>
+                  <div className={styles.roadmapList}>
+                    {(teacherRoomDetail.recentSubmissions ?? []).length > 0 ? (
+                      (teacherRoomDetail.recentSubmissions ?? []).map((submission) => (
+                        <article key={submission.id} className={styles.roadmapItem}>
+                          <strong>{submission.studentName}</strong>
+                          <p>{submission.assignmentTitle}</p>
+                          <small>
+                            {submission.status}
+                            {submission.score !== null && submission.score !== undefined
+                              ? ` | score ${submission.score}`
+                              : ""}
+                          </small>
+                        </article>
+                      ))
+                    ) : <p className={styles.paragraph}>Aucune remise recente dans cette classe.</p>}
+                  </div>
+                  {teacherActionMessage ? <p className={styles.inlineMessage}>{teacherActionMessage}</p> : null}
+                </section>
+              </section>
+            ) : null}
+
             <TeacherCourseBuilder
               apiBaseUrl={apiBaseUrl}
-              onCourseCreated={(updater) =>
-                setDashboardData((current) => {
-                  if (!current) return current;
-                  const next = updater({ stats: current.stats, courses: current.courses });
-                  if (!next) return current;
-                  return { ...current, stats: next.stats, courses: next.courses };
-                })
-              }
+              onCourseCreated={fetchDashboard}
             />
           </div>
 

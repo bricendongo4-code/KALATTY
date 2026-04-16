@@ -370,6 +370,14 @@
   margin-bottom: 1rem;
 }
 
+.institutionToolbarExpanded {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) repeat(2, minmax(14rem, 0.75fr));
+  gap: 1rem;
+  align-items: end;
+  margin-bottom: 1rem;
+}
+
 .institutionGridWide {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -412,6 +420,63 @@
     linear-gradient(135deg, rgba(19, 77, 67, 0.98), rgba(16, 53, 59, 0.94));
   color: #fff8ef;
   margin-bottom: 1rem;
+}
+
+.institutionHeroV2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(15rem, 0.8fr);
+  gap: 1.2rem;
+  padding: 1.2rem;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at top right, rgba(242, 198, 109, 0.28), transparent 32%),
+    linear-gradient(135deg, rgba(15, 58, 73, 0.98), rgba(9, 36, 57, 0.96));
+  color: #fff8ef;
+  margin-bottom: 1rem;
+}
+
+.institutionHeroLead {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.institutionHeroLead h2 {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 3rem);
+  line-height: 1;
+  font-family: var(--font-serif), serif;
+}
+
+.institutionHeroLead .paragraph {
+  color: rgba(255, 244, 229, 0.84);
+}
+
+.institutionHeroStack {
+  display: grid;
+  gap: 0.8rem;
+  align-content: start;
+}
+
+.institutionHeroBadge {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.95rem 1rem;
+  border-radius: 20px;
+  background: rgba(255, 248, 239, 0.12);
+  border: 1px solid rgba(255, 248, 239, 0.12);
+}
+
+.institutionHeroBadge span {
+  color: rgba(255, 244, 229, 0.76);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 800;
+}
+
+.institutionHeroBadge strong {
+  color: #fff8ef;
+  font-size: 1.05rem;
 }
 
 .institutionHero h2 {
@@ -478,6 +543,154 @@
 .institutionRoomCardActive p {
   margin: 0;
   line-height: 1.65;
+}
+
+.institutionStatsGrid,
+.institutionOpsGrid,
+.institutionActionGrid,
+.institutionStudioGrid,
+.institutionFeedGrid,
+.institutionRoomBoard,
+.institutionMemberGrid,
+.institutionCourseBoard {
+  display: grid;
+  gap: 1rem;
+}
+
+.institutionStatsGrid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.institutionStatCard,
+.institutionOpsCard,
+.institutionStudioPanel,
+.institutionRoomBoardCard,
+.institutionRoomBoardActive,
+.institutionCourseCard,
+.institutionMemberCardWide {
+  display: grid;
+  gap: 0.45rem;
+  padding: 1rem;
+  border-radius: 22px;
+}
+
+.institutionStatCard,
+.institutionOpsCard,
+.institutionStudioPanel,
+.institutionRoomBoardCard,
+.institutionCourseCard,
+.institutionMemberCardWide {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(29, 111, 95, 0.1);
+}
+
+.institutionRoomBoard {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.institutionRoomBoardCard,
+.institutionRoomBoardActive {
+  text-align: left;
+}
+
+.institutionRoomBoardActive {
+  background: linear-gradient(135deg, rgba(15, 58, 73, 0.98), rgba(9, 36, 57, 0.96));
+  color: #fff8ef;
+  border: none;
+  box-shadow: 0 20px 38px rgba(9, 36, 57, 0.18);
+}
+
+.institutionRoomBoardTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.institutionRoomBoardTop span,
+.institutionRoomBoardTop small {
+  color: inherit;
+  opacity: 0.82;
+}
+
+.institutionRoomBoardCard h3,
+.institutionRoomBoardActive h3,
+.institutionCourseCard strong,
+.institutionMemberCardWide strong,
+.institutionStudioPanel h3 {
+  margin: 0;
+  color: var(--primary-dark);
+}
+
+.institutionRoomBoardActive h3 {
+  color: #fff8ef;
+}
+
+.institutionRoomBoardCard p,
+.institutionRoomBoardActive p,
+.institutionCourseCard p,
+.institutionMemberCardWide small,
+.institutionOpsCard p {
+  margin: 0;
+  line-height: 1.65;
+}
+
+.institutionRoomBoardCard p,
+.institutionCourseCard p,
+.institutionMemberCardWide small,
+.institutionOpsCard p {
+  color: var(--muted);
+}
+
+.institutionRoomBoardActive p {
+  color: rgba(255, 244, 229, 0.84);
+}
+
+.institutionStatCard span,
+.institutionOpsCard span {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.institutionStatCard strong,
+.institutionOpsCard strong {
+  color: var(--primary-dark);
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.institutionStatCard small {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.institutionOpsGrid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 1rem;
+}
+
+.institutionStudioGrid,
+.institutionActionGrid,
+.institutionFeedGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.institutionStudioPanel h3 {
+  font-size: 1.15rem;
+}
+
+.institutionMemberGrid,
+.institutionCourseBoard {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.institutionMemberCardWide span,
+.institutionCourseCard small {
+  color: var(--secondary);
+  font-weight: 800;
 }
 
 .institutionRoomHero {
@@ -662,6 +875,14 @@
   gap: 1rem;
 }
 
+.courseActionRow,
+.discoveryMetaRow {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
 .courseCard,
 .discoveryCard,
 .institutionCard,
@@ -780,6 +1001,15 @@
 .discoveryFooter strong {
   color: var(--secondary);
   font-size: 1.1rem;
+}
+
+.discoveryMetaRow span {
+  padding: 0.45rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(29, 111, 95, 0.08);
+  color: var(--primary-dark);
+  font-size: 0.82rem;
+  font-weight: 800;
 }
 
 .catalogActionButton {
@@ -955,6 +1185,31 @@
   margin: 0;
   color: var(--primary-dark);
   line-height: 1.6;
+}
+
+.profileEditor,
+.profilePreview {
+  display: grid;
+  gap: 1rem;
+}
+
+.profilePreview {
+  padding: 1.1rem;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(29, 111, 95, 0.1);
+}
+
+.profilePreview strong {
+  color: var(--primary-dark);
+  font-size: 1.2rem;
+}
+
+.profilePreview span,
+.profilePreview p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
 }
 
 .courseStudioShell {
@@ -1294,13 +1549,23 @@
   .institutionGrid,
   .institutionGridWide,
   .institutionToolbar,
+  .institutionToolbarExpanded,
   .courseStudioShell,
   .courseStudioMetrics,
   .publishChecklist,
   .institutionHero,
+  .institutionHeroV2,
   .institutionRoomHero,
   .dualPane,
   .statsRow,
+  .institutionStatsGrid,
+  .institutionOpsGrid,
+  .institutionActionGrid,
+  .institutionStudioGrid,
+  .institutionFeedGrid,
+  .institutionRoomBoard,
+  .institutionMemberGrid,
+  .institutionCourseBoard,
   .showcaseStats,
   .studentShowcase,
   .heroMeta,
