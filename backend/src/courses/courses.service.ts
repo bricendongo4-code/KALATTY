@@ -206,19 +206,30 @@ export class CoursesService {
     const courseIds = (courses ?? []).map((course: any) => course.id);
     const teacherIds = (courses ?? []).map((course: any) => course.teacher_id);
 
-    const { data: courseReviews } = courseIds.length
+    const { data: courseReviews, error: courseReviewsError } = courseIds.length
       ? await this.supabaseService.client
           .from('course_reviews')
           .select('course_id, rating')
           .in('course_id', courseIds)
       : { data: [] as Array<Record<string, unknown>> };
 
-    const { data: teacherReviews } = teacherIds.length
+    const { data: teacherReviews, error: teacherReviewsError } = teacherIds.length
       ? await this.supabaseService.client
           .from('teacher_reviews')
           .select('teacher_id, rating')
           .in('teacher_id', teacherIds)
       : { data: [] as Array<Record<string, unknown>> };
+
+    if (
+      (courseReviewsError && !this.isMissingTableError(courseReviewsError)) ||
+      (teacherReviewsError && !this.isMissingTableError(teacherReviewsError))
+    ) {
+      throw new BadRequestException(
+        courseReviewsError?.message ??
+          teacherReviewsError?.message ??
+          'Impossible de charger les avis publics.',
+      );
+    }
 
     const discoveryCourses = (courses ?? []).map((course: any) => {
       const courseReviewRows = (courseReviews ?? []).filter(
@@ -741,7 +752,7 @@ export class CoursesService {
       .eq('course_id', courseId)
       .order('created_at', { ascending: false });
 
-    if (error) {
+    if (error && !this.isMissingTableError(error)) {
       throw new BadRequestException(
         error.message ?? 'Impossible de charger les avis du cours.',
       );
@@ -774,7 +785,7 @@ export class CoursesService {
       .eq('course_id', courseId)
       .order('created_at', { ascending: false });
 
-    if (error) {
+    if (error && !this.isMissingTableError(error)) {
       throw new BadRequestException(
         error.message ?? 'Impossible de charger les avis sur le professeur.',
       );
@@ -787,6 +798,16 @@ export class CoursesService {
       createdAt: review.created_at,
       authorName: review.profiles?.fullname ?? 'Etudiant Kalatty',
     }));
+  }
+
+  private isMissingTableError(error: { message?: string } | null | undefined) {
+    const message = String(error?.message ?? '').toLowerCase();
+    return (
+      message.includes("could not find the table") ||
+      message.includes('schema cache') ||
+      message.includes('course_reviews') ||
+      message.includes('teacher_reviews')
+    );
   }
 
   private getAverageRating(reviews: Array<{ rating: number }>) {

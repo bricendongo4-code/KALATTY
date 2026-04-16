@@ -19,6 +19,12 @@ jobs:
         with:
           node-version: 22
 
+      - name: Validate Vercel secrets
+        run: |
+          test -n "${{ secrets.VERCEL_TOKEN }}" || (echo "Missing VERCEL_TOKEN secret" && exit 1)
+          test -n "${{ secrets.VERCEL_ORG_ID }}" || (echo "Missing VERCEL_ORG_ID secret" && exit 1)
+          test -n "${{ secrets.VERCEL_PROJECT_ID }}" || (echo "Missing VERCEL_PROJECT_ID secret" && exit 1)
+
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 
@@ -58,8 +64,14 @@ jobs:
         with:
           node-version: 22
 
+      - name: Validate Railway secrets
+        run: |
+          test -n "${{ secrets.RAILWAY_TOKEN }}" || (echo "Missing RAILWAY_TOKEN secret" && exit 1)
+          test -n "${{ secrets.RAILWAY_PROJECT_ID }}" || (echo "Missing RAILWAY_PROJECT_ID secret" && exit 1)
+          test -n "${{ secrets.RAILWAY_SERVICE_ID }}" || (echo "Missing RAILWAY_SERVICE_ID secret" && exit 1)
+
       - name: Deploy Backend
         working-directory: backend
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: npx @railway/cli up --service a21168e9-8d0e-44cf-9485-d8b7aaf99968 --detach
+        run: npx -y @railway/cli up --ci --service ${{ secrets.RAILWAY_SERVICE_ID }} --project ${{ secrets.RAILWAY_PROJECT_ID }}

@@ -40,6 +40,7 @@ export class AuthService {
     const schoolName = data.school_name?.trim() || null;
     const expertise = data.expertise?.trim() || null;
     const bio = data.bio?.trim() || null;
+    let effectiveRole = this.normalizeRole(role);
 
     const { data: authData, error } =
       await this.supabaseService.authClient.auth.signUp({
@@ -63,10 +64,12 @@ export class AuthService {
     }
 
     if (authData.user?.id) {
+      effectiveRole = await this.resolveAccountRole(authData.user.id, role);
+
       await this.syncProfileRecord(authData.user.id, {
         email,
         fullname,
-        role,
+        role: effectiveRole,
         country,
         level,
         school_name: schoolName,
@@ -74,7 +77,7 @@ export class AuthService {
         bio,
       });
 
-      if (role === 'institution') {
+      if (effectiveRole === 'institution') {
         await this.ensureInstitutionWorkspace(authData.user.id, {
           name: schoolName || fullname,
           contact_email: email,
@@ -97,8 +100,7 @@ export class AuthService {
             fullname:
               (authData.user.user_metadata?.fullname as string | undefined) ??
               fullname,
-            role:
-              (authData.user.user_metadata?.role as string | undefined) ?? role,
+            role: effectiveRole,
             country:
               (authData.user.user_metadata?.country as string | undefined) ??
               country,
@@ -119,7 +121,7 @@ export class AuthService {
         ? this.jwtService.sign({
             sub: authData.user.id,
             email: authData.user.email,
-            role,
+            role: effectiveRole,
           })
         : null,
       supabaseToken: authData.session?.access_token ?? null,
@@ -148,12 +150,13 @@ export class AuthService {
 
     const metadataRole =
       (authData.user.user_metadata?.role as string | undefined) ?? 'student';
+    const effectiveRole = await this.resolveAccountRole(authData.user.id, metadataRole);
 
     await this.syncProfileRecord(authData.user.id, {
       email: authData.user.email ?? email,
       fullname:
         (authData.user.user_metadata?.fullname as string | undefined) ?? '',
-      role: metadataRole,
+      role: effectiveRole,
       country:
         (authData.user.user_metadata?.country as string | undefined) ??
         'Cameroun',
@@ -166,7 +169,7 @@ export class AuthService {
       bio: (authData.user.user_metadata?.bio as string | undefined) ?? null,
     });
 
-    if (metadataRole === 'institution') {
+    if (effectiveRole === 'institution') {
       await this.ensureInstitutionWorkspace(authData.user.id, {
         name:
           (authData.user.user_metadata?.school_name as string | undefined) ??
@@ -188,9 +191,7 @@ export class AuthService {
       token: this.jwtService.sign({
         sub: authData.user.id,
         email: authData.user.email,
-        role:
-          (authData.user.user_metadata?.role as string | undefined) ??
-          'student',
+        role: effectiveRole,
       }),
       supabaseToken: authData.session.access_token,
       refreshToken: authData.session.refresh_token,
@@ -199,8 +200,7 @@ export class AuthService {
         email: authData.user.email,
         fullname:
           (authData.user.user_metadata?.fullname as string | undefined) ?? '',
-        role:
-          (authData.user.user_metadata?.role as string | undefined) ?? 'student',
+        role: effectiveRole,
         country:
           (authData.user.user_metadata?.country as string | undefined) ??
           'Cameroun',
@@ -229,17 +229,20 @@ export class AuthService {
       bio?: string | null;
     },
   ) {
+    const { data: existingProfile } = await this.supabaseService.client
+      .from('profiles')
+      .select('role')
+      .eq('id', userId)
+      .maybeSingle();
+
+    const nextRole = this.mergeRoles(existingProfile?.role, payload.role);
+
     const { error } = await this.supabaseService.client.from('profiles').upsert(
       {
         id: userId,
         email: payload.email,
         fullname: payload.fullname?.trim() || 'Utilisateur Kalatty',
-        role:
-          payload.role === 'teacher'
-            ? 'teacher'
-            : payload.role === 'institution'
-              ? 'institution'
-              : 'student',
+        role: nextRole,
         country: payload.country?.trim() || 'Cameroun',
         level: payload.level?.trim() || null,
         school_name: payload.school_name?.trim() || null,
@@ -255,6 +258,79 @@ export class AuthService {
         error.message ?? 'Impossible de synchroniser le profil utilisateur.',
       );
     }
+  }
+
+  private async resolveAccountRole(userId: string, requestedRole: string) {
+    const normalizedRequestedRole = this.normalizeRole(requestedRole);
+
+    const { data: existingProfile } = await this.supabaseService.client
+      .from('profiles')
+      .select('role')
+      .eq('id', userId)
+      .maybeSingle();
+
+    const { data: ownedInstitution } = await this.supabaseService.client
+      .from('institutions')
+      .select('id')
+      .eq('owner_user_id', userId)
+      .limit(1)
+      .maybeSingle();
+
+    if (ownedInstitution?.id) {
+      return 'institution';
+    }
+
+    const { data: institutionMembership } = await this.supabaseService.client
+      .from('institution_members')
+      .select('role')
+      .eq('user_id', userId)
+      .in('role', ['owner', 'admin'])
+      .limit(1)
+      .maybeSingle();
+
+    if (institutionMembership?.role) {
+      return 'institution';
+    }
+
+    const { data: teacherCourse } = await this.supabaseService.client
+      .from('courses')
+      .select('id')
+      .eq('teacher_id', userId)
+      .limit(1)
+      .maybeSingle();
+
+    if (teacherCourse?.id) {
+      return 'teacher';
+    }
+
+    return this.mergeRoles(existingProfile?.role, normalizedRequestedRole);
+  }
+
+  private mergeRoles(existingRole?: string | null, incomingRole?: string | null) {
+    const normalizedExisting = this.normalizeRole(existingRole ?? undefined);
+    const normalizedIncoming = this.normalizeRole(incomingRole ?? undefined);
+
+    if (normalizedExisting === 'institution' || normalizedIncoming === 'institution') {
+      return 'institution';
+    }
+
+    if (normalizedExisting === 'teacher' || normalizedIncoming === 'teacher') {
+      return 'teacher';
+    }
+
+    return 'student';
+  }
+
+  private normalizeRole(role?: string) {
+    if (role === 'institution') {
+      return 'institution';
+    }
+
+    if (role === 'teacher') {
+      return 'teacher';
+    }
+
+    return 'student';
   }
 
   private async ensureInstitutionWorkspace(
