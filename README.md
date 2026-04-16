@@ -90,6 +90,28 @@ Exemple:
 Le depot contient un fichier `render.yaml` a la racine pour accelerer le
 deploiement du backend.
 
+### Auto-deploiement GitHub
+
+Le depot contient aussi un workflow GitHub Actions:
+
+- `.github/workflows/deploy-kalatty.yml`
+
+Secrets GitHub a ajouter:
+
+- `VERCEL_TOKEN`
+- `VERCEL_ORG_ID`
+- `VERCEL_PROJECT_ID`
+- `RAILWAY_TOKEN`
+
+Variable GitHub Actions a ajouter:
+
+- `NEXT_PUBLIC_API_BASE_URL=https://kalatty-backend-production.up.railway.app`
+
+Valeurs actuelles:
+
+- `VERCEL_ORG_ID=team_Wmyz0wXrmiU8ixgD0I5ZRa9R`
+- `VERCEL_PROJECT_ID=prj_mqISpEkgmDqcwwr1nSQTREuIoB91`
+
 ## Base de donnees
 
 Les scripts SQL lies aux etablissements et aux invitations sont dans:
