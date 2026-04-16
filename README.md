@@ -75,10 +75,20 @@ Variables:
 Variables:
 
 - `PORT`
+- `CORS_ORIGINS`
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY`
+
+Exemple:
+
+- `CORS_ORIGINS=https://ton-frontend.vercel.app,http://localhost:3000`
+
+### Render
+
+Le depot contient un fichier `render.yaml` a la racine pour accelerer le
+deploiement du backend.
 
 ## Base de donnees
 
