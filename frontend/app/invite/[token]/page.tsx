@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { startTransition, useEffect, useState } from "react";
 import styles from "../../auth.module.css";
@@ -68,7 +69,7 @@ export default function InviteRedeemPage({
   return (
     <main className={styles.shell}>
       <section className={styles.hero}>
-        <div className={styles.brandBlock}>
+        <Link href="/" className={styles.brandLink}>
           <Image
             src="/kalatty-logo.png"
             alt="Logo Kalatty"
@@ -78,7 +79,7 @@ export default function InviteRedeemPage({
             priority
           />
           <span className={styles.brandLine}>Kalatty</span>
-        </div>
+        </Link>
         <span className={styles.badge}>Invitation Kalatty</span>
         <h1 className={styles.title}>Rejoindre une salle</h1>
         <p className={styles.subtitle}>

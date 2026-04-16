@@ -42,7 +42,7 @@ export class AuthService {
     const bio = data.bio?.trim() || null;
 
     const { data: authData, error } =
-      await this.supabaseService.client.auth.signUp({
+      await this.supabaseService.authClient.auth.signUp({
         email,
         password,
         options: {
@@ -80,9 +80,12 @@ export class AuthService {
               (authData.user.user_metadata?.country as string | undefined) ??
               country,
             level:
-              (authData.user.user_metadata?.level as string | undefined) ?? level,
+              (authData.user.user_metadata?.level as string | undefined) ??
+              level,
             school_name:
-              (authData.user.user_metadata?.school_name as string | undefined) ??
+              (authData.user.user_metadata?.school_name as
+                | string
+                | undefined) ??
               schoolName,
             expertise:
               (authData.user.user_metadata?.expertise as string | undefined) ??
@@ -105,7 +108,7 @@ export class AuthService {
     const password = data.password;
 
     const { data: authData, error } =
-      await this.supabaseService.client.auth.signInWithPassword({
+      await this.supabaseService.authClient.auth.signInWithPassword({
         email,
         password,
       });
@@ -126,7 +129,8 @@ export class AuthService {
         sub: authData.user.id,
         email: authData.user.email,
         role:
-          (authData.user.user_metadata?.role as string | undefined) ?? 'student',
+          (authData.user.user_metadata?.role as string | undefined) ??
+          'student',
       }),
       supabaseToken: authData.session.access_token,
       refreshToken: authData.session.refresh_token,
@@ -146,7 +150,8 @@ export class AuthService {
           (authData.user.user_metadata?.school_name as string | undefined) ??
           null,
         expertise:
-          (authData.user.user_metadata?.expertise as string | undefined) ?? null,
+          (authData.user.user_metadata?.expertise as string | undefined) ??
+          null,
       },
     };
   }

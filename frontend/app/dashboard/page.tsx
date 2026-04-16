@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { startTransition, useEffect, useState } from "react";
 import InstitutionWorkspace from "./InstitutionWorkspace";
@@ -22,7 +23,20 @@ type DashboardResponse = {
   profile: StoredUser;
   stats: Record<string, number>;
   courses: Array<Record<string, unknown>>;
+  catalogCourses?: Array<Record<string, unknown>>;
   tasks: string[];
+};
+
+type DiscoveryCourse = {
+  id: string;
+  title: string;
+  description: string;
+  progress: number;
+  badge: string;
+  category: string;
+  priceFcfa?: number;
+  teacherName?: string;
+  enrolled?: boolean;
 };
 
 const studentTimeline = [
@@ -72,6 +86,8 @@ export default function DashboardPage() {
   const [studentSearch, setStudentSearch] = useState("");
   const [teacherSearch, setTeacherSearch] = useState("");
   const [institutionSearch, setInstitutionSearch] = useState("");
+  const [catalogMessage, setCatalogMessage] = useState("");
+  const [enrollingCourseId, setEnrollingCourseId] = useState("");
 
   useEffect(() => {
     const token = localStorage.getItem("kalatty_token");
@@ -115,15 +131,17 @@ export default function DashboardPage() {
   const studentCourses = dashboardData?.courses ?? [];
   const teacherCourses = dashboardData?.courses ?? [];
   const heroCourse = studentCourses[0];
-  const discoveryCourses =
-    studentCourses.length > 0
-      ? studentCourses.slice(0, 3).map((course, index) => ({
+  const discoveryCourses: DiscoveryCourse[] =
+    (dashboardData?.catalogCourses?.length ?? 0) > 0
+      ? (dashboardData?.catalogCourses ?? []).slice(0, 6).map((course, index) => ({
           id: String(course.id ?? `course-${index}`),
           title: String(course.title ?? "Cours sans titre"),
           description: String(course.description ?? "Parcours a decouvrir sur Kalatty."),
           progress: Number(course.progress ?? 0),
-          badge: index === 0 ? "Continue" : "Recommande",
-          category: index === 0 ? "Mes cours" : "Pour toi",
+          badge: String(course.badge ?? (index === 0 ? "Disponible" : "Catalogue")),
+          category: String(course.category ?? "Catalogue"),
+          priceFcfa: Number(course.priceFcfa ?? 0),
+          teacherName: String(course.teacherName ?? "Formateur Kalatty"),
         }))
       : fallbackDiscovery;
   const studentQuery = studentSearch.trim().toLowerCase();
@@ -146,6 +164,69 @@ export default function DashboardPage() {
     localStorage.removeItem("kalatty_user");
     localStorage.removeItem("kalatty_role");
     startTransition(() => router.push("/login"));
+  };
+
+  const handleEnroll = async (courseId: string) => {
+    const token = localStorage.getItem("kalatty_token");
+    if (!token || !dashboardData) {
+      setCatalogMessage("Session introuvable. Reconnecte-toi.");
+      return;
+    }
+
+    setEnrollingCourseId(courseId);
+    setCatalogMessage("");
+
+    try {
+      const res = await fetch(`${apiBaseUrl}/courses/${courseId}/enroll`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ courseId }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setCatalogMessage(
+          typeof data.message === "string"
+            ? data.message
+            : "Impossible de s'inscrire a ce cours.",
+        );
+        return;
+      }
+
+      setDashboardData((current) => {
+        if (!current) return current;
+
+        const alreadyEnrolled = current.courses.some(
+          (course) => String(course.id) === String(data.id),
+        );
+
+        return {
+          ...current,
+          stats: {
+            ...current.stats,
+            enrolledCourses: alreadyEnrolled
+              ? Number(current.stats.enrolledCourses ?? 0)
+              : Number(current.stats.enrolledCourses ?? 0) + 1,
+          },
+          courses: alreadyEnrolled ? current.courses : [data, ...current.courses],
+          catalogCourses: (current.catalogCourses ?? []).map((course) =>
+            String(course.id) === String(courseId)
+              ? { ...course, enrolled: true }
+              : course,
+          ),
+        };
+      });
+
+      setCatalogMessage("Inscription reussie. Le cours est maintenant dans ton suivi.");
+    } catch {
+      setCatalogMessage("L'inscription au cours a echoue.");
+    } finally {
+      setEnrollingCourseId("");
+    }
   };
 
   if (loading) {
@@ -176,7 +257,7 @@ export default function DashboardPage() {
   return (
     <main className={styles.dashboardShell}>
       <section className={styles.dashboardMasthead}>
-        <div className={styles.dashboardMastheadBrand}>
+        <Link href="/" className={styles.dashboardBrandLink}>
           <Image
             src="/kalatty-logo.png"
             alt="Logo Kalatty"
@@ -189,7 +270,7 @@ export default function DashboardPage() {
             <span className={styles.dashboardMastheadTag}>Plateforme Kalatty</span>
             <strong className={styles.dashboardMastheadName}>Learning workspace</strong>
           </div>
-        </div>
+        </Link>
         <div className={styles.dashboardMastheadMeta}>
           <span>{role === "student" ? "Espace etudiant" : role === "teacher" ? "Espace formateur" : "Espace etablissement"}</span>
           <span>{displayName}</span>
@@ -199,7 +280,8 @@ export default function DashboardPage() {
       <section className={styles.hero}>
         <div className={styles.heroTop}>
           <div>
-            <div className={styles.heroBrand}>
+            <Link href="/" className={styles.heroBrandLink}>
+              <div className={styles.heroBrand}>
               <Image
                 src="/kalatty-logo.png"
                 alt="Logo Kalatty"
@@ -212,7 +294,8 @@ export default function DashboardPage() {
                 <p className={styles.kicker}>Dashboard Kalatty</p>
                 <strong className={styles.heroBrandName}>Kalatty</strong>
               </div>
-            </div>
+              </div>
+            </Link>
             <h1>
               {role === "student"
                 ? `Bon retour, ${displayName}`
@@ -326,12 +409,44 @@ export default function DashboardPage() {
                         <h3>{course.title}</h3>
                         <p>{course.description}</p>
                         <div className={styles.discoveryFooter}>
-                          <strong>{course.progress}%</strong>
-                          <span>Reprendre</span>
+                          <strong>
+                            {"priceFcfa" in course ? `${Number(course.priceFcfa ?? 0)} FCFA` : `${course.progress}%`}
+                          </strong>
+                          <span>
+                            {"teacherName" in course
+                              ? String(course.teacherName ?? "Formateur Kalatty")
+                              : "Reprendre"}
+                          </span>
                         </div>
+                        {"priceFcfa" in course ? (
+                          <Link
+                            href={`/courses/${course.id}`}
+                            className={styles.catalogDetailLink}
+                          >
+                            Voir le cours
+                          </Link>
+                        ) : null}
+                        {"priceFcfa" in course ? (
+                          <button
+                            type="button"
+                            className={styles.catalogActionButton}
+                            disabled={
+                              enrollingCourseId === String(course.id) ||
+                              Boolean("enrolled" in course && course.enrolled)
+                            }
+                            onClick={() => void handleEnroll(String(course.id))}
+                          >
+                            {"enrolled" in course && course.enrolled
+                              ? "Deja inscrit"
+                              : enrollingCourseId === String(course.id)
+                                ? "Inscription..."
+                                : "S'inscrire"}
+                          </button>
+                        ) : null}
                       </article>
                     ))}
                   </div>
+                  {catalogMessage ? <p className={styles.inlineMessage}>{catalogMessage}</p> : null}
                   {filteredDiscovery.length === 0 ? <p className={styles.paragraph}>Aucun parcours ne correspond a cette recherche.</p> : null}
                 </section>
               </div>

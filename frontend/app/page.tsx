@@ -29,7 +29,7 @@ export default function Home() {
     <main className={styles.page}>
       <section className={styles.hero}>
         <header className={styles.topbar}>
-          <div className={styles.brand}>
+          <Link href="/" className={styles.brand}>
             <Image
               src="/kalatty-logo.png"
               alt="Logo Kalatty"
@@ -42,7 +42,7 @@ export default function Home() {
               <span className={styles.brandTag}>Plateforme educative</span>
               <strong className={styles.brandName}>Kalatty</strong>
             </div>
-          </div>
+          </Link>
 
           <nav className={styles.nav}>
             <Link href="/login" className={styles.navLink}>

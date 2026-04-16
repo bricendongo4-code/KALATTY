@@ -57,6 +57,11 @@ type UploadedAsset = {
   originalname: string;
 };
 
+type ReviewPayload = {
+  rating?: number;
+  comment?: string;
+};
+
 @Injectable()
 export class CoursesService {
   constructor(private readonly supabaseService: SupabaseService) {}
@@ -150,6 +155,389 @@ export class CoursesService {
     }));
   }
 
+  async getCourseDetail(user: AuthUser, courseId: string) {
+    const role = await this.resolveRole(user);
+
+    const { data: course, error } = await this.supabaseService.client
+      .from('courses')
+      .select(
+        `
+          id,
+          title,
+          description,
+          short_description,
+          price_fcfa,
+          thumbnail_url,
+          teacher_id,
+          status,
+          profiles:teacher_id (
+            fullname,
+            expertise
+          ),
+          course_modules (
+            id,
+            title,
+            description,
+            order_index,
+            lessons (
+              id,
+              title,
+              content,
+              duration_seconds,
+              is_preview,
+              order_index
+            )
+          )
+        `,
+      )
+      .eq('id', courseId)
+      .maybeSingle();
+
+    if (error || !course) {
+      throw new BadRequestException(
+        error?.message ?? 'Le cours demande est introuvable.',
+      );
+    }
+
+    if (
+      course.status !== 'published' &&
+      role !== 'admin' &&
+      !(role === 'teacher' && course.teacher_id === user.id)
+    ) {
+      throw new ForbiddenException("Ce cours n'est pas accessible.");
+    }
+
+    const modules = (course.course_modules ?? [])
+      .slice()
+      .sort((a: any, b: any) => Number(a.order_index ?? 0) - Number(b.order_index ?? 0))
+      .map((module: any) => ({
+        id: module.id,
+        title: module.title ?? 'Module',
+        description: module.description ?? '',
+        lessons: (module.lessons ?? [])
+          .slice()
+          .sort(
+            (a: any, b: any) =>
+              Number(a.order_index ?? 0) - Number(b.order_index ?? 0),
+          )
+          .map((lesson: any) => ({
+            id: lesson.id,
+            title: lesson.title ?? 'Lecon',
+            content: lesson.content ?? '',
+            durationSeconds: Number(lesson.duration_seconds ?? 0),
+            isPreview: Boolean(lesson.is_preview),
+          })),
+      }));
+
+    const courseReviews = await this.getCourseReviews(course.id);
+    const teacherReviews = await this.getTeacherReviews(
+      course.teacher_id,
+      course.id,
+    );
+
+    return {
+      id: course.id,
+      title: course.title ?? 'Cours sans titre',
+      description: course.description ?? '',
+      shortDescription: course.short_description ?? '',
+      priceFcfa: Number(course.price_fcfa ?? 0),
+      thumbnailUrl: course.thumbnail_url ?? '',
+      teacherName: course.profiles?.fullname ?? 'Formateur Kalatty',
+      teacherExpertise: course.profiles?.expertise ?? '',
+      status: course.status ?? 'draft',
+      modules,
+      courseReviews,
+      teacherReviews,
+      courseRatingAverage: this.getAverageRating(courseReviews),
+      teacherRatingAverage: this.getAverageRating(teacherReviews),
+      lessonsCount: modules.reduce(
+        (sum: number, module: { lessons: Array<unknown> }) =>
+          sum + module.lessons.length,
+        0,
+      ),
+      enrolled:
+        role === 'student'
+          ? await this.isUserEnrolled(user.id, course.id)
+          : false,
+    };
+  }
+
+  async addCourseReview(
+    user: AuthUser,
+    courseId: string,
+    payload: ReviewPayload,
+  ) {
+    await this.assertStudentReviewer(user, courseId);
+    const rating = this.normalizeRating(payload.rating);
+    const comment = payload.comment?.trim() || null;
+
+    const { error } = await this.supabaseService.client
+      .from('course_reviews')
+      .upsert(
+        {
+          course_id: courseId,
+          student_id: user.id,
+          rating,
+          comment,
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: 'course_id,student_id',
+        },
+      );
+
+    if (error) {
+      throw new BadRequestException(
+        error.message ?? "Impossible d'enregistrer l'avis sur le cours.",
+      );
+    }
+
+    return {
+      message: 'Avis sur le cours enregistre.',
+    };
+  }
+
+  async addTeacherReview(
+    user: AuthUser,
+    courseId: string,
+    payload: ReviewPayload,
+  ) {
+    const course = await this.assertStudentReviewer(user, courseId);
+    const rating = this.normalizeRating(payload.rating);
+    const comment = payload.comment?.trim() || null;
+
+    const { error } = await this.supabaseService.client
+      .from('teacher_reviews')
+      .upsert(
+        {
+          teacher_id: course.teacher_id,
+          student_id: user.id,
+          course_id: courseId,
+          rating,
+          comment,
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: 'teacher_id,student_id,course_id',
+        },
+      );
+
+    if (error) {
+      throw new BadRequestException(
+        error.message ?? "Impossible d'enregistrer l'avis sur le professeur.",
+      );
+    }
+
+    return {
+      message: 'Avis sur le professeur enregistre.',
+    };
+  }
+
+  async enrollInCourse(user: AuthUser, courseId?: string) {
+    if (!courseId) {
+      throw new BadRequestException('Le cours a inscrire est introuvable.');
+    }
+
+    const role = await this.resolveRole(user);
+    if (role !== 'student' && role !== 'admin') {
+      throw new ForbiddenException(
+        "Seuls les etudiants peuvent s'inscrire a un cours.",
+      );
+    }
+
+    const { data: course, error: courseError } = await this.supabaseService.client
+      .from('courses')
+      .select('id, title, description, short_description, price_fcfa, status')
+      .eq('id', courseId)
+      .eq('status', 'published')
+      .maybeSingle();
+
+    if (courseError || !course) {
+      throw new BadRequestException(
+        courseError?.message ?? "Le cours n'est pas disponible a l'inscription.",
+      );
+    }
+
+    const { data: existingEnrollment, error: existingError } =
+      await this.supabaseService.client
+        .from('enrollments')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('course_id', courseId)
+        .maybeSingle();
+
+    if (existingError) {
+      throw new BadRequestException(
+        existingError.message ?? "Impossible de verifier l'inscription existante.",
+      );
+    }
+
+    if (!existingEnrollment) {
+      const { error: enrollError } = await this.supabaseService.client
+        .from('enrollments')
+        .insert({
+          user_id: user.id,
+          course_id: courseId,
+        });
+
+      if (enrollError) {
+        throw new BadRequestException(
+          enrollError.message ?? "Impossible d'inscrire l'etudiant a ce cours.",
+        );
+      }
+    }
+
+    return {
+      id: course.id,
+      title: course.title ?? 'Cours sans titre',
+      description:
+        course.short_description ?? course.description ?? 'Cours Kalatty',
+      progress: 0,
+      nextLesson: 'Commencer la premiere lecon',
+      enrolled: true,
+    };
+  }
+
+  private async isUserEnrolled(userId: string, courseId: string) {
+    const { data, error } = await this.supabaseService.client
+      .from('enrollments')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('course_id', courseId)
+      .maybeSingle();
+
+    if (error) {
+      throw new BadRequestException(
+        error.message ?? "Impossible de verifier l'inscription au cours.",
+      );
+    }
+
+    return Boolean(data?.id);
+  }
+
+  private async getCourseReviews(courseId: string) {
+    const { data, error } = await this.supabaseService.client
+      .from('course_reviews')
+      .select(
+        `
+          id,
+          rating,
+          comment,
+          created_at,
+          profiles:student_id (
+            fullname
+          )
+        `,
+      )
+      .eq('course_id', courseId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new BadRequestException(
+        error.message ?? 'Impossible de charger les avis du cours.',
+      );
+    }
+
+    return (data ?? []).map((review: any) => ({
+      id: review.id,
+      rating: Number(review.rating ?? 0),
+      comment: review.comment ?? '',
+      createdAt: review.created_at,
+      authorName: review.profiles?.fullname ?? 'Etudiant Kalatty',
+    }));
+  }
+
+  private async getTeacherReviews(teacherId: string, courseId: string) {
+    const { data, error } = await this.supabaseService.client
+      .from('teacher_reviews')
+      .select(
+        `
+          id,
+          rating,
+          comment,
+          created_at,
+          profiles:student_id (
+            fullname
+          )
+        `,
+      )
+      .eq('teacher_id', teacherId)
+      .eq('course_id', courseId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new BadRequestException(
+        error.message ?? 'Impossible de charger les avis sur le professeur.',
+      );
+    }
+
+    return (data ?? []).map((review: any) => ({
+      id: review.id,
+      rating: Number(review.rating ?? 0),
+      comment: review.comment ?? '',
+      createdAt: review.created_at,
+      authorName: review.profiles?.fullname ?? 'Etudiant Kalatty',
+    }));
+  }
+
+  private getAverageRating(reviews: Array<{ rating: number }>) {
+    if (reviews.length === 0) {
+      return 0;
+    }
+
+    return Number(
+      (
+        reviews.reduce((sum, review) => sum + Number(review.rating ?? 0), 0) /
+        reviews.length
+      ).toFixed(1),
+    );
+  }
+
+  private normalizeRating(value?: number) {
+    const rating = Number(value ?? 0);
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+      throw new BadRequestException('La note doit etre comprise entre 1 et 5.');
+    }
+
+    return rating;
+  }
+
+  private async assertStudentReviewer(user: AuthUser, courseId: string) {
+    const role = await this.resolveRole(user);
+    if (role !== 'student' && role !== 'admin') {
+      throw new ForbiddenException(
+        'Seuls les etudiants peuvent laisser un avis.',
+      );
+    }
+
+    const { data: course, error: courseError } = await this.supabaseService.client
+      .from('courses')
+      .select('id, teacher_id, status')
+      .eq('id', courseId)
+      .maybeSingle();
+
+    if (courseError || !course) {
+      throw new BadRequestException(
+        courseError?.message ?? 'Cours introuvable pour avis.',
+      );
+    }
+
+    if (course.status !== 'published' && role !== 'admin') {
+      throw new ForbiddenException("Ce cours n'accepte pas encore d'avis.");
+    }
+
+    if (role === 'student') {
+      const enrolled = await this.isUserEnrolled(user.id, courseId);
+      if (!enrolled) {
+        throw new ForbiddenException(
+          "Tu dois etre inscrit au cours avant de laisser un avis.",
+        );
+      }
+    }
+
+    return course;
+  }
+
   async createCourse(user: AuthUser, payload: CreateCoursePayload) {
     await this.assertTeacher(user);
 
@@ -180,7 +568,7 @@ export class CoursesService {
         price_fcfa: priceFcfa,
         thumbnail_url: thumbnailPath,
         teacher_id: user.id,
-        status: 'draft',
+        status: 'published',
       })
       .select(
         'id, title, description, short_description, price_fcfa, thumbnail_url, status, created_at',
@@ -326,7 +714,7 @@ export class CoursesService {
       shortDescription: course.short_description ?? '',
       priceFcfa: Number(course.price_fcfa ?? 0),
       thumbnailPath: course.thumbnail_url ?? '',
-      status: course.status ?? 'draft',
+      status: course.status ?? 'published',
       createdAt: course.created_at,
       modulesCount: modules.length,
       lessonsCount: modules.reduce(

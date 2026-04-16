@@ -69,7 +69,7 @@ export default function InstitutionRegisterPage() {
   return (
     <main className={styles.shell}>
       <section className={styles.hero}>
-        <div className={styles.brandBlock}>
+        <Link href="/" className={styles.brandLink}>
           <Image
             src="/kalatty-logo.png"
             alt="Logo Kalatty"
@@ -79,7 +79,7 @@ export default function InstitutionRegisterPage() {
             priority
           />
           <span className={styles.brandLine}>Kalatty</span>
-        </div>
+        </Link>
         <span className={styles.badge}>Parcours etablissement</span>
         <h1 className={styles.title}>Cree un campus digital pour tes classes et tes filieres.</h1>
         <p className={styles.subtitle}>

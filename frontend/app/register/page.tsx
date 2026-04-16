@@ -30,7 +30,7 @@ export default function RegisterChoicePage() {
   return (
     <main className={styles.shell}>
       <section className={styles.hero}>
-        <div className={styles.brandBlock}>
+        <Link href="/" className={styles.brandLink}>
           <Image
             src="/kalatty-logo.png"
             alt="Logo Kalatty"
@@ -40,7 +40,7 @@ export default function RegisterChoicePage() {
             priority
           />
           <span className={styles.brandLine}>Kalatty</span>
-        </div>
+        </Link>
         <span className={styles.badge}>Choix du parcours</span>
         <h1 className={styles.title}>
           Kalatty accueille les apprenants comme les createurs de cours.

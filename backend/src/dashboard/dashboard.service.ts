@@ -63,6 +63,25 @@ export class DashboardService {
       )
       .eq('user_id', profile.id);
 
+    const { data: catalogRows } = await this.supabaseService.client
+      .from('courses')
+      .select(
+        `
+          id,
+          title,
+          description,
+          short_description,
+          price_fcfa,
+          thumbnail_url,
+          teacher_id,
+          profiles:teacher_id (
+            fullname
+          )
+        `,
+      )
+      .eq('status', 'published')
+      .order('created_at', { ascending: false });
+
     const enrollmentsList = (enrollments ?? []).map((item: any) => {
       const courseProgress = (progressRows ?? []).filter(
         (row: any) => row.lessons?.course_id === item.courses?.id,
@@ -97,6 +116,20 @@ export class DashboardService {
       (row: any) => row.status === 'completed',
     ).length;
     const totalLessons = (progressRows ?? []).length;
+    const catalogCourses = (catalogRows ?? []).map((course: any) => ({
+      id: course.id,
+      title: course.title ?? 'Cours sans titre',
+      description:
+        course.short_description ??
+        course.description ??
+        'Cours disponible sur Kalatty.',
+      fullDescription: course.description ?? '',
+      priceFcfa: Number(course.price_fcfa ?? 0),
+      thumbnailUrl: course.thumbnail_url ?? '',
+      teacherName: course.profiles?.fullname ?? 'Formateur Kalatty',
+      badge: 'Disponible',
+      category: 'Catalogue',
+    }));
 
     return {
       role: 'student',
@@ -114,8 +147,10 @@ export class DashboardService {
               )
             : 0,
         totalLessons,
+        availableCatalogCourses: catalogCourses.length,
       },
       courses: enrollmentsList,
+      catalogCourses,
       tasks: enrollmentsList.slice(0, 3).map((course: any) =>
         course.progress >= 100
           ? `Revoir les points cles du cours ${course.title}.`

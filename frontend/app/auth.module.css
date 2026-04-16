@@ -38,6 +38,14 @@
   justify-items: start;
 }
 
+.brandLink {
+  display: inline-grid;
+  gap: 0.55rem;
+  justify-items: start;
+  color: inherit;
+  text-decoration: none;
+}
+
 .brandLogo {
   width: clamp(5.5rem, 10vw, 8rem);
   height: auto;

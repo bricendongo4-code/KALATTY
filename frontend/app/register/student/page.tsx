@@ -68,7 +68,7 @@ export default function StudentRegisterPage() {
   return (
     <main className={styles.shell}>
       <section className={styles.hero}>
-        <div className={styles.brandBlock}>
+        <Link href="/" className={styles.brandLink}>
           <Image
             src="/kalatty-logo.png"
             alt="Logo Kalatty"
@@ -78,7 +78,7 @@ export default function StudentRegisterPage() {
             priority
           />
           <span className={styles.brandLine}>Kalatty</span>
-        </div>
+        </Link>
         <span className={styles.badge}>Parcours etudiant</span>
         <h1 className={styles.title}>Commence ton parcours d&apos;apprentissage.</h1>
         <p className={styles.subtitle}>

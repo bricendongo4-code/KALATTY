@@ -57,7 +57,7 @@ export default function LoginPage() {
   return (
     <main className={styles.shell}>
       <section className={styles.hero}>
-        <div className={styles.brandBlock}>
+        <Link href="/" className={styles.brandLink}>
           <Image
             src="/kalatty-logo.png"
             alt="Logo Kalatty"
@@ -67,7 +67,7 @@ export default function LoginPage() {
             priority
           />
           <span className={styles.brandLine}>Kalatty</span>
-        </div>
+        </Link>
         <span className={styles.badge}>Plateforme Kalatty</span>
         <h1 className={styles.title}>
           Etudier, progresser, reussir avec des parcours penses pour l&apos;Afrique.
