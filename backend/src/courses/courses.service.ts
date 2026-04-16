@@ -424,7 +424,7 @@ export class CoursesService {
       completedLessons,
       startedLessons,
       progressPercentage:
-        totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0,
+        totalLessons > 0 ? Math.round((startedLessons / totalLessons) * 100) : 0,
       enrolled:
         role === 'student'
           ? await this.isUserEnrolled(user.id, course.id)

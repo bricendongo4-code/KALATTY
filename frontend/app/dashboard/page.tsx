@@ -115,6 +115,7 @@ export default function DashboardPage() {
     }
   });
   const [dashboardData, setDashboardData] = useState<DashboardResponse | null>(null);
+  const [hasInstitutionAccess, setHasInstitutionAccess] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [studentView, setStudentView] = useState<StudentView>("home");
@@ -181,9 +182,63 @@ export default function DashboardPage() {
     void fetchDashboard();
   }, [apiBaseUrl, router]);
 
-  const role: DashboardRole =
-    dashboardData?.role ??
-    (user?.role === "teacher" ? "teacher" : user?.role === "institution" ? "institution" : "student");
+  useEffect(() => {
+    const token = localStorage.getItem("kalatty_token");
+    if (!token) {
+      return;
+    }
+
+    const detectInstitutionAccess = async () => {
+      try {
+        const res = await fetch(`${apiBaseUrl}/institutions/mine`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          setHasInstitutionAccess(false);
+          return;
+        }
+
+        const hasAccess = Array.isArray(data) && data.length > 0;
+        setHasInstitutionAccess(hasAccess);
+
+        if (hasAccess) {
+          const rawUser = localStorage.getItem("kalatty_user");
+          if (rawUser) {
+            try {
+              const parsedUser = JSON.parse(rawUser) as StoredUser;
+              localStorage.setItem(
+                "kalatty_user",
+                JSON.stringify({
+                  ...parsedUser,
+                  role: "institution",
+                }),
+              );
+            } catch {
+              // Ignore malformed local cache and keep runtime detection.
+            }
+          }
+        }
+      } catch {
+        setHasInstitutionAccess(false);
+      }
+    };
+
+    void detectInstitutionAccess();
+  }, [apiBaseUrl]);
+
+  const role: DashboardRole = hasInstitutionAccess
+    ? "institution"
+    : user?.role === "institution"
+      ? "institution"
+      : dashboardData?.role === "institution"
+        ? "institution"
+        : dashboardData?.role === "teacher" || user?.role === "teacher"
+          ? "teacher"
+          : "student";
   const profile = dashboardData?.profile ?? user;
   const displayName =
     profile?.fullname?.trim() || (role === "teacher" ? "Formateur" : role === "institution" ? "Etablissement" : "Apprenant");

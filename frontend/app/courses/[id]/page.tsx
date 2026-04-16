@@ -74,6 +74,7 @@ export default function CourseDetailPage({
   const [submittingCourseReview, setSubmittingCourseReview] = useState(false);
   const [submittingTeacherReview, setSubmittingTeacherReview] = useState(false);
   const [lessonActionLoading, setLessonActionLoading] = useState(false);
+  const [videoStarted, setVideoStarted] = useState(false);
 
   useEffect(() => {
     void params.then((resolved) => setCourseId(resolved.id));
@@ -128,6 +129,7 @@ export default function CourseDetailPage({
           .flatMap((module) => module.lessons)
           .find((lesson) => lesson.videoPath && (nextCourse.enrolled || lesson.isPreview));
         setActiveLessonId(firstAvailableLesson?.id ?? "");
+        setVideoStarted(false);
       } catch {
         setMessage("Le detail du cours n'a pas pu etre charge.");
       } finally {
@@ -171,6 +173,7 @@ export default function CourseDetailPage({
         current ? { ...current, enrolled: true } : current,
       );
       setMessage("Inscription reussie. Tu peux maintenant suivre ce cours.");
+      await reloadCourse();
     } catch {
       setMessage("L'inscription au cours a echoue.");
     } finally {
@@ -235,6 +238,7 @@ export default function CourseDetailPage({
 
       setCourse((current) => (current ? { ...current, enrolled: true } : current));
       setMessage("Paiement confirme. Le cours est maintenant disponible.");
+      await reloadCourse();
     } catch {
       setMessage("Le paiement n'a pas pu etre finalise.");
     } finally {
@@ -368,6 +372,7 @@ export default function CourseDetailPage({
     if (res.ok) {
       const refreshedCourse = data as CourseDetail;
       setCourse(refreshedCourse);
+      setVideoStarted(false);
       if (!activeLessonId) {
         const firstAvailableLesson = refreshedCourse.modules
           .flatMap((module) => module.lessons)
@@ -396,12 +401,14 @@ export default function CourseDetailPage({
     }
 
     setActiveLessonId(firstAvailableLesson.id);
+    setVideoStarted(false);
     setMessage("");
     void persistLessonProgress(firstAvailableLesson.id, "started");
   };
 
   const handleLessonSelect = (lessonId: string) => {
     setActiveLessonId(lessonId);
+    setVideoStarted(false);
     setMessage("");
     void persistLessonProgress(lessonId, "started");
   };
@@ -654,6 +661,15 @@ export default function CourseDetailPage({
                     controls
                     preload="metadata"
                     src={`${storageBaseUrl}${activeLesson.videoPath}`}
+                    onPlay={() => {
+                      if (!videoStarted) {
+                        setVideoStarted(true);
+                        void persistLessonProgress(activeLesson.id, "started");
+                      }
+                    }}
+                    onEnded={() => {
+                      void handleMarkLessonCompleted();
+                    }}
                   />
                 </div>
                 <div className={styles.playerMeta}>

@@ -166,9 +166,12 @@ export class DashboardService {
       const completedCount = Array.from(progressByLesson.values()).filter(
         (status) => status === 'completed',
       ).length;
+      const engagedCount = Array.from(progressByLesson.values()).filter(
+        (status) => status === 'started' || status === 'completed',
+      ).length;
       const totalCount = orderedLessons.length;
       const progress =
-        totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+        totalCount > 0 ? Math.round((engagedCount / totalCount) * 100) : 0;
       const nextLessonData = orderedLessons.find(
         (lesson: any) => progressByLesson.get(lesson.id) !== 'completed',
       );
@@ -187,10 +190,26 @@ export class DashboardService {
       };
     });
 
-    const completedLessons = (progressRows ?? []).filter(
-      (row: any) => row.status === 'completed',
+    const uniqueLessonProgress = new Map<string, string>();
+    for (const row of progressRows ?? []) {
+      const lessonData = Array.isArray(row.lessons) ? row.lessons[0] : row.lessons;
+      if (lessonData?.id && !uniqueLessonProgress.has(lessonData.id)) {
+        uniqueLessonProgress.set(lessonData.id, row.status ?? 'started');
+      }
+    }
+
+    const completedLessons = Array.from(uniqueLessonProgress.values()).filter(
+      (status) => status === 'completed',
     ).length;
-    const totalLessons = (progressRows ?? []).length;
+    const totalLessons = (enrollments ?? []).reduce((sum: number, item: any) => {
+      const lessonsCount = ((item.courses?.course_modules ?? []) as Array<any>).reduce(
+        (moduleSum: number, module: any) =>
+          moduleSum + ((module.lessons ?? []) as Array<any>).length,
+        0,
+      );
+
+      return sum + lessonsCount;
+    }, 0);
     const catalogCourses = (catalogRows ?? []).map((course: any) => ({
       id: course.id,
       title: course.title ?? 'Cours sans titre',
