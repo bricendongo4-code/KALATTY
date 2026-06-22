@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { startTransition, useEffect, useState } from "react";
+import { startTransition, useEffect, useRef, useState } from "react";
 import styles from "./page.module.css";
 
 type CourseDetail = {
@@ -57,7 +57,7 @@ export default function CourseDetailPage({
   const router = useRouter();
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
   const storageBaseUrl =
-    "https://njoucnnjlrwbbhnktaho.supabase.co/storage/v1/object/public/course-videos/";
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://njoucnnjlrwbbhnktaho.supabase.co"}/storage/v1/object/public`;
   const [courseId, setCourseId] = useState("");
   const [course, setCourse] = useState<CourseDetail | null>(null);
   const [activeLessonId, setActiveLessonId] = useState("");
@@ -75,6 +75,120 @@ export default function CourseDetailPage({
   const [submittingTeacherReview, setSubmittingTeacherReview] = useState(false);
   const [lessonActionLoading, setLessonActionLoading] = useState(false);
   const [videoStarted, setVideoStarted] = useState(false);
+  const videoElementRef = useRef<HTMLVideoElement | null>(null);
+  const lastTrackedSecondRef = useRef(0);
+
+  const buildStorageUrl = (bucket: string, path: string) => {
+    if (!path) {
+      return "";
+    }
+
+    const normalizedPath = path
+      .split("/")
+      .filter(Boolean)
+      .map((segment) => encodeURIComponent(segment))
+      .join("/");
+
+    return `${storageBaseUrl}/${bucket}/${normalizedPath}`;
+  };
+
+  const getAccessibleLessons = (nextCourse: CourseDetail) =>
+    nextCourse.modules
+      .flatMap((module) => module.lessons)
+      .filter((lesson) => lesson.videoPath && (nextCourse.enrolled || lesson.isPreview));
+
+  const pickLessonToResume = (nextCourse: CourseDetail, preferredLessonId?: string) => {
+    const accessibleLessons = getAccessibleLessons(nextCourse);
+
+    if (preferredLessonId) {
+      const preferredLesson = accessibleLessons.find(
+        (lesson) => lesson.id === preferredLessonId,
+      );
+      if (preferredLesson) {
+        return preferredLesson;
+      }
+    }
+
+    const inProgressLesson = accessibleLessons.find(
+      (lesson) => lesson.progressStatus === "started",
+    );
+    if (inProgressLesson) {
+      return inProgressLesson;
+    }
+
+    const nextIncompleteLesson = accessibleLessons.find(
+      (lesson) => lesson.progressStatus !== "completed",
+    );
+    if (nextIncompleteLesson) {
+      return nextIncompleteLesson;
+    }
+
+    return accessibleLessons[0] ?? null;
+  };
+
+  const saveLastLesson = (nextCourseId: string, lessonId: string) => {
+    if (typeof window === "undefined" || !nextCourseId || !lessonId) {
+      return;
+    }
+
+    localStorage.setItem(`kalatty_last_lesson_${nextCourseId}`, lessonId);
+  };
+
+  const getSavedLastLesson = (nextCourseId: string) => {
+    if (typeof window === "undefined" || !nextCourseId) {
+      return "";
+    }
+
+    return localStorage.getItem(`kalatty_last_lesson_${nextCourseId}`) ?? "";
+  };
+
+  const getVideoPositionKey = (nextCourseId: string, lessonId: string) =>
+    `kalatty_video_position_${nextCourseId}_${lessonId}`;
+
+  const saveVideoPosition = (
+    nextCourseId: string,
+    lessonId: string,
+    currentTime: number,
+    duration?: number,
+  ) => {
+    if (
+      typeof window === "undefined" ||
+      !nextCourseId ||
+      !lessonId ||
+      !Number.isFinite(currentTime) ||
+      currentTime <= 0
+    ) {
+      return;
+    }
+
+    if (Number.isFinite(duration) && Number(duration) - currentTime <= 2) {
+      localStorage.removeItem(getVideoPositionKey(nextCourseId, lessonId));
+      return;
+    }
+
+    localStorage.setItem(
+      getVideoPositionKey(nextCourseId, lessonId),
+      String(Math.floor(currentTime)),
+    );
+  };
+
+  const getSavedVideoPosition = (nextCourseId: string, lessonId: string) => {
+    if (typeof window === "undefined" || !nextCourseId || !lessonId) {
+      return 0;
+    }
+
+    const rawValue = localStorage.getItem(getVideoPositionKey(nextCourseId, lessonId));
+    const parsedValue = Number(rawValue ?? 0);
+    return Number.isFinite(parsedValue) ? parsedValue : 0;
+  };
+
+  const clearSavedVideoPosition = (nextCourseId: string, lessonId: string) => {
+    if (typeof window === "undefined" || !nextCourseId || !lessonId) {
+      return;
+    }
+
+    localStorage.removeItem(getVideoPositionKey(nextCourseId, lessonId));
+  };
 
   useEffect(() => {
     void params.then((resolved) => setCourseId(resolved.id));
@@ -125,10 +239,11 @@ export default function CourseDetailPage({
 
         const nextCourse = data as CourseDetail;
         setCourse(nextCourse);
-        const firstAvailableLesson = nextCourse.modules
-          .flatMap((module) => module.lessons)
-          .find((lesson) => lesson.videoPath && (nextCourse.enrolled || lesson.isPreview));
-        setActiveLessonId(firstAvailableLesson?.id ?? "");
+        const lessonToResume = pickLessonToResume(
+          nextCourse,
+          getSavedLastLesson(nextCourse.id),
+        );
+        setActiveLessonId(lessonToResume?.id ?? "");
         setVideoStarted(false);
       } catch {
         setMessage("Le detail du cours n'a pas pu etre charge.");
@@ -139,6 +254,23 @@ export default function CourseDetailPage({
 
     void loadCourse();
   }, [apiBaseUrl, courseId, router]);
+
+  useEffect(() => {
+    lastTrackedSecondRef.current = 0;
+  }, [activeLessonId]);
+
+  useEffect(() => {
+    return () => {
+      if (course?.id && activeLessonId && videoElementRef.current) {
+        saveVideoPosition(
+          course.id,
+          activeLessonId,
+          videoElementRef.current.currentTime,
+          videoElementRef.current.duration,
+        );
+      }
+    };
+  }, [activeLessonId, course?.id]);
 
   const handleEnroll = async () => {
     const token = localStorage.getItem("kalatty_token");
@@ -251,6 +383,12 @@ export default function CourseDetailPage({
     role === "teacher" || role === "admin" || Boolean(course?.enrolled);
   const allLessons = course?.modules.flatMap((module) => module.lessons) ?? [];
   const activeLesson = allLessons.find((lesson) => lesson.id === activeLessonId) ?? null;
+  const accessibleLessons = course ? getAccessibleLessons(course) : [];
+  const activeLessonIndex = accessibleLessons.findIndex(
+    (lesson) => lesson.id === activeLessonId,
+  );
+  const nextLesson =
+    activeLessonIndex >= 0 ? accessibleLessons[activeLessonIndex + 1] ?? null : null;
   const canPlayActiveLesson = Boolean(
     activeLesson && activeLesson.videoPath && (canAccessFullCourse || activeLesson.isPreview),
   );
@@ -298,7 +436,7 @@ export default function CourseDetailPage({
       const completedLessons = updatedLessons.filter(
         (lesson) => lesson.progressStatus === "completed",
       ).length;
-      const startedLessons = updatedLessons.filter(
+      const engagedLessons = updatedLessons.filter(
         (lesson) =>
           lesson.progressStatus === "started" || lesson.progressStatus === "completed",
       ).length;
@@ -307,10 +445,10 @@ export default function CourseDetailPage({
         ...current,
         modules,
         completedLessons,
-        startedLessons,
+        startedLessons: engagedLessons,
         progressPercentage:
           updatedLessons.length > 0
-            ? Math.round((completedLessons / updatedLessons.length) * 100)
+            ? Math.round((engagedLessons / updatedLessons.length) * 100)
             : 0,
       };
     });
@@ -373,12 +511,11 @@ export default function CourseDetailPage({
       const refreshedCourse = data as CourseDetail;
       setCourse(refreshedCourse);
       setVideoStarted(false);
-      if (!activeLessonId) {
-        const firstAvailableLesson = refreshedCourse.modules
-          .flatMap((module) => module.lessons)
-          .find((lesson) => lesson.videoPath && (refreshedCourse.enrolled || lesson.isPreview));
-        setActiveLessonId(firstAvailableLesson?.id ?? "");
-      }
+      const lessonToResume = pickLessonToResume(
+        refreshedCourse,
+        activeLessonId || getSavedLastLesson(refreshedCourse.id),
+      );
+      setActiveLessonId(lessonToResume?.id ?? "");
     }
   };
 
@@ -387,9 +524,10 @@ export default function CourseDetailPage({
       return;
     }
 
-    const firstAvailableLesson = course.modules
-      .flatMap((module) => module.lessons)
-      .find((lesson) => lesson.videoPath && (canAccessFullCourse || lesson.isPreview));
+    const firstAvailableLesson = pickLessonToResume(
+      course,
+      activeLessonId || getSavedLastLesson(course.id),
+    );
 
     if (!firstAvailableLesson) {
       setMessage(
@@ -401,27 +539,66 @@ export default function CourseDetailPage({
     }
 
     setActiveLessonId(firstAvailableLesson.id);
+    saveLastLesson(course.id, firstAvailableLesson.id);
     setVideoStarted(false);
     setMessage("");
     void persistLessonProgress(firstAvailableLesson.id, "started");
   };
 
   const handleLessonSelect = (lessonId: string) => {
+    if (!course) {
+      return;
+    }
+
+    const selectedLesson = allLessons.find((lesson) => lesson.id === lessonId);
     setActiveLessonId(lessonId);
+    saveLastLesson(course.id, lessonId);
     setVideoStarted(false);
     setMessage("");
-    void persistLessonProgress(lessonId, "started");
+
+    if (
+      selectedLesson?.videoPath &&
+      (canAccessFullCourse || selectedLesson.isPreview)
+    ) {
+      void persistLessonProgress(lessonId, "started");
+    }
+  };
+
+  const moveToNextLesson = (options?: { completedCourse?: boolean }) => {
+    if (!course) {
+      return;
+    }
+
+    if (!nextLesson) {
+      if (options?.completedCourse) {
+        setMessage("Bravo, tu as termine toutes les videos disponibles de ce cours.");
+      } else {
+        setMessage("Cette lecon est la derniere video disponible pour le moment.");
+      }
+      return;
+    }
+
+    setActiveLessonId(nextLesson.id);
+    saveLastLesson(course.id, nextLesson.id);
+    setVideoStarted(false);
+    setMessage(
+      options?.completedCourse
+        ? "Lecon terminee. Passage automatique a la suite."
+        : "Passage a la lecon suivante.",
+    );
+    void persistLessonProgress(nextLesson.id, "started");
   };
 
   const handleMarkLessonCompleted = async () => {
-    if (!activeLesson) {
+    if (!activeLesson || !course) {
       return;
     }
 
     setLessonActionLoading(true);
     const updated = await persistLessonProgress(activeLesson.id, "completed");
     if (updated) {
-      setMessage("Progression mise a jour. Cette lecon est marquee comme terminee.");
+      clearSavedVideoPosition(course.id, activeLesson.id);
+      moveToNextLesson({ completedCourse: true });
     }
     setLessonActionLoading(false);
   };
@@ -625,7 +802,7 @@ export default function CourseDetailPage({
           <aside className={styles.heroCard}>
             {course.thumbnailUrl ? (
               <Image
-                src={`https://njoucnnjlrwbbhnktaho.supabase.co/storage/v1/object/public/course-thumbnails/${course.thumbnailUrl}`}
+                src={buildStorageUrl("course-thumbnails", course.thumbnailUrl)}
                 alt={course.title}
                 width={520}
                 height={320}
@@ -656,18 +833,69 @@ export default function CourseDetailPage({
               <>
                 <div className={styles.videoWrapper}>
                   <video
+                    ref={videoElementRef}
                     key={activeLesson.id}
                     className={styles.videoPlayer}
                     controls
                     preload="metadata"
-                    src={`${storageBaseUrl}${activeLesson.videoPath}`}
+                    src={buildStorageUrl("course-videos", activeLesson.videoPath)}
+                    onLoadedMetadata={(event) => {
+                      if (!course) {
+                        return;
+                      }
+
+                      const savedPosition = getSavedVideoPosition(course.id, activeLesson.id);
+                      const player = event.currentTarget;
+
+                      if (
+                        savedPosition > 0 &&
+                        Number.isFinite(player.duration) &&
+                        savedPosition < player.duration - 2
+                      ) {
+                        player.currentTime = savedPosition;
+                        lastTrackedSecondRef.current = savedPosition;
+                      }
+                    }}
+                    onTimeUpdate={(event) => {
+                      if (!course) {
+                        return;
+                      }
+
+                      const player = event.currentTarget;
+                      const currentSecond = Math.floor(player.currentTime);
+                      if (currentSecond - lastTrackedSecondRef.current >= 5) {
+                        saveVideoPosition(
+                          course.id,
+                          activeLesson.id,
+                          player.currentTime,
+                          player.duration,
+                        );
+                        lastTrackedSecondRef.current = currentSecond;
+                      }
+                    }}
                     onPlay={() => {
                       if (!videoStarted) {
                         setVideoStarted(true);
+                        if (course) {
+                          saveLastLesson(course.id, activeLesson.id);
+                        }
                         void persistLessonProgress(activeLesson.id, "started");
                       }
                     }}
+                    onPause={(event) => {
+                      if (course) {
+                        saveVideoPosition(
+                          course.id,
+                          activeLesson.id,
+                          event.currentTarget.currentTime,
+                          event.currentTarget.duration,
+                        );
+                      }
+                    }}
                     onEnded={() => {
+                      if (course) {
+                        clearSavedVideoPosition(course.id, activeLesson.id);
+                      }
                       void handleMarkLessonCompleted();
                     }}
                   />
@@ -694,6 +922,15 @@ export default function CourseDetailPage({
                   <p>
                     {activeLesson.content || "Le professeur n'a pas encore ajoute de description pour cette lecon."}
                   </p>
+                  {nextLesson ? (
+                    <p>
+                      Suite conseillee: <strong>{nextLesson.title}</strong>
+                    </p>
+                  ) : (
+                    <p>
+                      Cette lecon clot actuellement le parcours video disponible.
+                    </p>
+                  )}
                   {canAccessFullCourse ? (
                     <div className={styles.actions}>
                       <button
@@ -711,6 +948,15 @@ export default function CourseDetailPage({
                             ? "Mise a jour..."
                             : "Marquer comme terminee"}
                       </button>
+                      {nextLesson ? (
+                        <button
+                          type="button"
+                          className={styles.secondaryAction}
+                          onClick={() => moveToNextLesson()}
+                        >
+                          Lecon suivante
+                        </button>
+                      ) : null}
                     </div>
                   ) : null}
                 </div>

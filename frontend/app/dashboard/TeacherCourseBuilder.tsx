@@ -3,11 +3,6 @@
 import { useMemo, useState } from "react";
 import styles from "./dashboard.module.css";
 
-type DashboardResponse = {
-  stats: Record<string, number>;
-  courses: Array<Record<string, unknown>>;
-};
-
 type LessonDraft = {
   title: string;
   video_path: string;
@@ -428,7 +423,7 @@ export default function TeacherCourseBuilder({
               <div className={styles.courseStudioHintBlock}>
                 <strong>Ce qu&apos;il faut montrer ici</strong>
                 <p>
-                  Un bon titre, un sous-titre orienté resultat, une description
+                  Un bon titre, un sous-titre oriente resultat, une description
                   utile et une miniature propre. Cette page doit donner envie de
                   commencer le cours.
                 </p>

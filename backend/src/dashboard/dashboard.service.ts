@@ -25,7 +25,7 @@ export class DashboardService {
     }
 
     if (effectiveRole === 'institution') {
-      return this.getInstitutionDashboard(profile);
+      return this.getInstitutionDashboard(userId, profile);
     }
 
     return this.getStudentDashboard(profile);
@@ -134,13 +134,75 @@ export class DashboardService {
       .eq('status', 'published')
       .order('created_at', { ascending: false });
 
+    const { data: institutionMembershipRows } = await this.supabaseService.client
+      .from('institution_members')
+      .select(
+        `
+          id,
+          role,
+          joined_at,
+          institutions (
+            id,
+            name,
+            slug,
+            institution_type,
+            plan_name,
+            subscription_status
+          )
+        `,
+      )
+      .eq('user_id', profile.id)
+      .order('joined_at', { ascending: false });
+
+    const { data: roomMembershipRows } = await this.supabaseService.client
+      .from('room_members')
+      .select(
+        `
+          id,
+          role,
+          joined_at,
+          rooms (
+            id,
+            name,
+            slug,
+            description,
+            institution_id,
+            institutions (
+              id,
+              name,
+              slug
+            )
+          )
+        `,
+      )
+      .eq('user_id', profile.id)
+      .order('joined_at', { ascending: false });
+
+    const roomIds = (roomMembershipRows ?? [])
+      .map((row: any) => {
+        const room = Array.isArray(row.rooms) ? row.rooms[0] : row.rooms;
+        return room?.id ? String(room.id) : '';
+      })
+      .filter(Boolean);
+
+    const { data: roomAssignmentRows } = roomIds.length
+      ? await this.supabaseService.client
+          .from('assignments')
+          .select('id, room_id, title, status, due_at')
+          .in('room_id', roomIds)
+          .order('created_at', { ascending: false })
+      : { data: [] as Array<Record<string, unknown>> };
+
     const catalogCourseIds = (catalogRows ?? []).map((course: any) => course.id);
-    const { data: catalogReviewRows } = catalogCourseIds.length
+    const catalogReviewResult = catalogCourseIds.length
       ? await this.supabaseService.client
           .from('course_reviews')
           .select('course_id, rating')
           .in('course_id', catalogCourseIds)
-      : { data: [] as Array<Record<string, unknown>> };
+      : { data: [] as Array<Record<string, unknown>>, error: null };
+    const catalogReviewRows = this.isMissingTableError(catalogReviewResult.error)
+      ? []
+      : (catalogReviewResult.data ?? []);
 
     const enrollmentsList = (enrollments ?? []).map((item: any) => {
       const progressByLesson = new Map<string, string>();
@@ -233,6 +295,57 @@ export class DashboardService {
       ),
     }));
 
+    const studentInstitutions = (institutionMembershipRows ?? []).map((row: any) => {
+      const institution = Array.isArray(row.institutions)
+        ? row.institutions[0]
+        : row.institutions;
+
+      return {
+        id: institution?.id ?? row.id,
+        name: institution?.name ?? 'Etablissement',
+        slug: institution?.slug ?? '',
+        institutionType: institution?.institution_type ?? '',
+        planName: institution?.plan_name ?? '',
+        subscriptionStatus: institution?.subscription_status ?? '',
+        membershipRole: row.role ?? 'student',
+        joinedAt: row.joined_at,
+      };
+    });
+
+    const studentRooms = (roomMembershipRows ?? []).map((row: any) => {
+      const room = Array.isArray(row.rooms) ? row.rooms[0] : row.rooms;
+      const institution = Array.isArray(room?.institutions)
+        ? room.institutions[0]
+        : room?.institutions;
+      const assignments = (roomAssignmentRows ?? []).filter(
+        (assignment: any) => assignment.room_id === room?.id,
+      );
+
+      return {
+        id: room?.id ?? row.id,
+        name: room?.name ?? 'Salle',
+        slug: room?.slug ?? '',
+        description: room?.description ?? '',
+        institutionId: room?.institution_id ?? institution?.id ?? '',
+        institutionName: institution?.name ?? 'Etablissement',
+        role: row.role ?? 'student',
+        joinedAt: row.joined_at,
+        assignmentsCount: assignments.length,
+        pendingAssignments: assignments.filter(
+          (assignment: any) => assignment.status === 'published',
+        ).length,
+        latestAssignmentTitle: assignments[0]?.title ?? '',
+      };
+    });
+
+    const studentInstitutionTasks = studentRooms
+      .slice(0, 3)
+      .map((room: any) =>
+        room.latestAssignmentTitle
+          ? `Verifier ${room.latestAssignmentTitle} dans ${room.name}.`
+          : `Consulter les annonces de ${room.name}.`,
+      );
+
     return {
       role: 'student',
       profile,
@@ -250,14 +363,19 @@ export class DashboardService {
             : 0,
         totalLessons,
         availableCatalogCourses: catalogCourses.length,
+        linkedInstitutions: studentInstitutions.length,
+        activeRooms: studentRooms.length,
       },
       courses: enrollmentsList,
       catalogCourses,
-      tasks: enrollmentsList.slice(0, 3).map((course: any) =>
-        course.progress >= 100
-          ? `Revoir les points cles du cours ${course.title}.`
-          : `Continuer ${course.title} et travailler ${course.nextLesson}.`,
-      ),
+      studentInstitutions,
+      studentRooms,
+      tasks:
+        enrollmentsList.slice(0, 3).map((course: any) =>
+          course.progress >= 100
+            ? `Revoir les points cles du cours ${course.title}.`
+            : `Continuer ${course.title} et travailler ${course.nextLesson}.`,
+        ).concat(studentInstitutionTasks).slice(0, 5),
     };
   }
 
@@ -467,8 +585,108 @@ export class DashboardService {
     });
   }
 
-  private getInstitutionDashboard(profile: Record<string, unknown>) {
+  private async getInstitutionDashboard(
+    userId: string,
+    profile: Record<string, unknown>,
+  ) {
+    const { data: institutionRows } = await this.supabaseService.client
+      .from('institution_members')
+      .select(
+        `
+          role,
+          joined_at,
+          institutions (
+            id,
+            name,
+            slug,
+            plan_name,
+            subscription_status
+          )
+        `,
+      )
+      .eq('user_id', userId)
+      .in('role', ['owner', 'admin'])
+      .order('joined_at', { ascending: false });
+
+    const institutions = (institutionRows ?? []).map((row: any) => {
+      const institution = Array.isArray(row.institutions)
+        ? row.institutions[0]
+        : row.institutions;
+
+      return {
+        id: institution?.id ?? '',
+        name: institution?.name ?? 'Etablissement',
+        slug: institution?.slug ?? '',
+        planName: institution?.plan_name ?? '',
+        subscriptionStatus: institution?.subscription_status ?? '',
+        membershipRole: row.role ?? 'admin',
+        joinedAt: row.joined_at,
+      };
+    });
+
+    if (institutions.length === 0) {
+      const { data: ownedInstitutions } = await this.supabaseService.client
+        .from('institutions')
+        .select('id, name, slug, plan_name, subscription_status, created_at')
+        .eq('owner_user_id', userId)
+        .order('created_at', { ascending: false });
+
+      for (const institution of ownedInstitutions ?? []) {
+        institutions.push({
+          id: institution.id,
+          name: institution.name ?? 'Etablissement',
+          slug: institution.slug ?? '',
+          planName: institution.plan_name ?? '',
+          subscriptionStatus: institution.subscription_status ?? '',
+          membershipRole: 'owner',
+          joinedAt: institution.created_at,
+        });
+      }
+    }
+
+    const institutionIds = institutions.map((institution) => institution.id).filter(Boolean);
+    const [roomsRes, institutionMembersRes] = institutionIds.length
+      ? await Promise.all([
+          this.supabaseService.client
+            .from('rooms')
+            .select('id, institution_id')
+            .in('institution_id', institutionIds),
+          this.supabaseService.client
+            .from('institution_members')
+            .select('id, institution_id, role')
+            .in('institution_id', institutionIds),
+        ])
+      : [
+          { data: [] as Array<Record<string, unknown>>, error: null },
+          { data: [] as Array<Record<string, unknown>>, error: null },
+        ];
+
+    const roomIds = (roomsRes.data ?? []).map((room: any) => room.id).filter(Boolean);
+    const [roomCoursesRes, submissionsRes] = roomIds.length
+      ? await Promise.all([
+          this.supabaseService.client
+            .from('room_courses')
+            .select('id, room_id')
+            .in('room_id', roomIds),
+          this.supabaseService.client
+            .from('assignment_submissions')
+            .select('id, status, assignments ( room_id )')
+            .in('assignment_id', await this.getAssignmentIdsForRooms(roomIds)),
+        ])
+      : [
+          { data: [] as Array<Record<string, unknown>>, error: null },
+          { data: [] as Array<Record<string, unknown>>, error: null },
+        ];
+
+    const studentCount = (institutionMembersRes.data ?? []).filter(
+      (member: any) => member.role === 'student',
+    ).length;
+    const assignedCourses = (roomCoursesRes.data ?? []).length;
+    const pendingExercises = (submissionsRes.data ?? []).filter((row: any) =>
+      ['submitted', 'returned'].includes(String(row.status ?? '')),
+    ).length;
     const institutionName =
+      institutions[0]?.name ||
       (profile.fullname as string | undefined) ||
       (profile.school_name as string | undefined) ||
       'Etablissement';
@@ -477,17 +695,54 @@ export class DashboardService {
       role: 'institution',
       profile,
       stats: {
-        activeStudents: 0,
-        activeRooms: 0,
-        assignedCourses: 0,
-        pendingExercises: 0,
+        activeStudents: studentCount,
+        activeRooms: (roomsRes.data ?? []).length,
+        assignedCourses,
+        pendingExercises,
+        managedInstitutions: institutions.length,
       },
       courses: [],
+      institutions,
       tasks: [
-        `Configurer les premieres salles de ${institutionName}.`,
-        "Inviter des etudiants ou eleves avec des codes de groupe.",
-        'Associer des cours et programmer les premiers exercices.',
+        (roomsRes.data ?? []).length === 0
+          ? `Configurer les premieres salles de ${institutionName}.`
+          : `Verifier les classes actives de ${institutionName}.`,
+        studentCount === 0
+          ? "Inviter des etudiants ou eleves avec des liens de groupe."
+          : 'Suivre les inscriptions et affectations dans les classes.',
+        assignedCourses === 0
+          ? 'Associer des cours aux classes pour lancer le campus.'
+          : 'Programmer les prochains devoirs et corrections.',
       ],
     };
+  }
+
+  private async getAssignmentIdsForRooms(roomIds: string[]) {
+    if (roomIds.length === 0) {
+      return [];
+    }
+
+    const { data, error } = await this.supabaseService.client
+      .from('assignments')
+      .select('id')
+      .in('room_id', roomIds);
+
+    if (error) {
+      return [];
+    }
+
+    return (data ?? []).map((row: any) => row.id).filter(Boolean);
+  }
+
+  private isMissingTableError(error: { message?: string; code?: string } | null) {
+    if (!error) {
+      return false;
+    }
+
+    return (
+      error.code === '42P01' ||
+      error.message?.includes('schema cache') ||
+      error.message?.includes('Could not find the table')
+    );
   }
 }

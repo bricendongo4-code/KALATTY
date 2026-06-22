@@ -7,7 +7,7 @@
 
 .hero,
 .panel {
-  border-radius: 28px;
+  border-radius: var(--radius);
   border: 1px solid rgba(29, 111, 95, 0.12);
   box-shadow: var(--shadow);
 }
@@ -16,10 +16,8 @@
   display: grid;
   gap: 1.5rem;
   padding: 1.5rem;
-  background:
-    radial-gradient(circle at top right, rgba(242, 198, 109, 0.26), transparent 32%),
-    linear-gradient(135deg, rgba(19, 77, 67, 0.98), rgba(16, 53, 59, 0.94));
-  color: #fff8ef;
+  background: #102a43;
+  color: #ffffff;
 }
 
 .panel {
@@ -49,7 +47,7 @@
   align-items: center;
   justify-content: center;
   padding: 0 1rem;
-  border-radius: 16px;
+  border-radius: var(--radius);
   font-weight: 800;
 }
 
@@ -57,7 +55,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.75rem;
-  color: #fff8ef;
+  color: #ffffff;
   text-decoration: none;
   font-weight: 900;
 }
@@ -70,12 +68,12 @@
 .backLink {
   background: rgba(255, 248, 239, 0.12);
   border: 1px solid rgba(255, 248, 239, 0.18);
-  color: #fff8ef;
+  color: #ffffff;
 }
 
 .statusChip {
   padding: 0.55rem 0.9rem;
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   background: rgba(255, 248, 239, 0.12);
   text-transform: uppercase;
   font-size: 0.8rem;
@@ -98,7 +96,7 @@
 
 .kicker,
 .sectionLabel {
-  color: #f5d8ac;
+  color: var(--secondary-soft);
   font-size: 0.8rem;
   font-weight: 800;
   text-transform: uppercase;
@@ -139,7 +137,7 @@
 
 .metaRow span {
   padding: 0.6rem 0.85rem;
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   background: rgba(255, 248, 239, 0.12);
   font-weight: 800;
 }
@@ -149,7 +147,7 @@
   gap: 0.6rem;
   max-width: 32rem;
   padding: 1rem 1.1rem;
-  border-radius: 20px;
+  border-radius: var(--radius);
   background: rgba(255, 248, 239, 0.1);
   border: 1px solid rgba(255, 248, 239, 0.12);
 }
@@ -163,7 +161,7 @@
 
 .progressHeroTop strong,
 .progressHero small {
-  color: #fff8ef;
+  color: #ffffff;
 }
 
 .progressHero small {
@@ -179,10 +177,10 @@
 .primaryAction {
   min-height: 3.2rem;
   border: none;
-  border-radius: 18px;
+  border-radius: var(--radius);
   padding: 0 1.15rem;
-  background: linear-gradient(135deg, #ff8b27, #ff6a21);
-  color: #fff8ef;
+  background: var(--accent);
+  color: #ffffff;
   font-weight: 800;
 }
 
@@ -200,10 +198,10 @@
 .secondaryActionButton {
   min-height: 3.2rem;
   border: 1px solid rgba(255, 248, 239, 0.18);
-  border-radius: 18px;
+  border-radius: var(--radius);
   padding: 0 1.15rem;
   background: rgba(255, 248, 239, 0.12);
-  color: #fff8ef;
+  color: #ffffff;
   font-weight: 800;
 }
 
@@ -224,7 +222,7 @@
 .coverFallback {
   width: 100%;
   min-height: 18rem;
-  border-radius: 24px;
+  border-radius: var(--radius);
 }
 
 .coverImage {
@@ -236,17 +234,15 @@
 .coverFallback {
   display: grid;
   place-items: center;
-  background:
-    radial-gradient(circle at top right, rgba(242, 198, 109, 0.22), transparent 35%),
-    rgba(255, 248, 239, 0.12);
-  color: #fff8ef;
+  background: rgba(255, 248, 239, 0.12);
+  color: #ffffff;
   font-size: 2rem;
   font-weight: 900;
 }
 
 .teacherCard {
   padding: 1rem;
-  border-radius: 20px;
+  border-radius: var(--radius);
   background: rgba(255, 248, 239, 0.12);
 }
 
@@ -277,7 +273,7 @@
 
 .videoWrapper,
 .playerFallback {
-  border-radius: 24px;
+  border-radius: var(--radius);
   overflow: hidden;
   border: 1px solid rgba(29, 111, 95, 0.1);
   background: rgba(16, 53, 59, 0.96);
@@ -294,7 +290,7 @@
   display: grid;
   gap: 0.4rem;
   padding: 1rem 1.1rem;
-  border-radius: 20px;
+  border-radius: var(--radius);
   background: rgba(29, 111, 95, 0.05);
 }
 
@@ -321,7 +317,7 @@
   align-items: center;
   min-height: 2rem;
   padding: 0 0.75rem;
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   background: rgba(29, 111, 95, 0.08);
   color: var(--primary-dark);
   font-size: 0.82rem;
@@ -334,7 +330,7 @@
   place-items: center;
   padding: 2rem;
   text-align: center;
-  color: #fff8ef;
+  color: #ffffff;
 }
 
 .playerFallback strong {
@@ -350,7 +346,7 @@
 
 .moduleCard {
   padding: 1rem;
-  border-radius: 22px;
+  border-radius: var(--radius);
   background: rgba(255, 255, 255, 0.72);
   border: 1px solid rgba(29, 111, 95, 0.1);
 }
@@ -384,7 +380,7 @@
   border: 1px solid transparent;
   text-align: left;
   padding: 0.95rem 1rem;
-  border-radius: 18px;
+  border-radius: var(--radius);
   background: rgba(29, 111, 95, 0.05);
 }
 
@@ -392,7 +388,7 @@
   border: 1px solid rgba(29, 111, 95, 0.18);
   text-align: left;
   padding: 0.95rem 1rem;
-  border-radius: 18px;
+  border-radius: var(--radius);
   background: rgba(29, 111, 95, 0.12);
   box-shadow: 0 12px 24px rgba(16, 53, 59, 0.08);
 }
@@ -413,7 +409,7 @@
 .ratingCard,
 .reviewCard {
   padding: 1rem;
-  border-radius: 20px;
+  border-radius: var(--radius);
   background: rgba(255, 255, 255, 0.72);
   border: 1px solid rgba(29, 111, 95, 0.1);
 }
@@ -453,7 +449,7 @@
 
 .reviewCardTop span {
   padding: 0.35rem 0.7rem;
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   background: rgba(29, 111, 95, 0.08);
   color: var(--primary-dark);
   font-size: 0.84rem;
@@ -481,7 +477,7 @@
 
 .formField select,
 .formField textarea {
-  border-radius: 16px;
+  border-radius: var(--radius);
   border: 1px solid rgba(29, 111, 95, 0.16);
   background: rgba(255, 255, 255, 0.82);
   color: var(--foreground);

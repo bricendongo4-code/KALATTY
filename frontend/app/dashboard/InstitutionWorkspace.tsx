@@ -240,6 +240,43 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
       students: members.filter((member) => member.role === "student").length,
     };
   }, [detail]);
+  const activeInvitesCount = (detail?.invites ?? []).filter((invite) => invite.is_active).length;
+  const campusQuickStats = [
+    {
+      label: "Classes",
+      value: detail?.rooms.length ?? 0,
+      note: `Capacite plan: ${detail?.max_rooms ?? 0}`,
+    },
+    {
+      label: "Professeurs",
+      value: institutionCounts.teachers,
+      note: `${institutionCounts.admins + institutionCounts.owners} admin / owner`,
+    },
+    {
+      label: "Etudiants",
+      value: institutionCounts.students,
+      note: `Capacite plan: ${detail?.max_students ?? 0}`,
+    },
+    {
+      label: "Devoirs",
+      value: detail?.assignments.length ?? 0,
+      note: "Travaux diffuses",
+    },
+  ];
+  const campusActionCards = [
+    {
+      title: "Structurer les classes",
+      text: "Creer les salles par niveau, filiere ou groupe de formation.",
+    },
+    {
+      title: "Inviter par role",
+      text: "Generer des liens distincts pour professeurs, etudiants et assistants.",
+    },
+    {
+      title: "Affecter les cours",
+      text: "Relier les contenus aux classes avant de diffuser devoirs et consignes.",
+    },
+  ];
 
   const roomCounts = useMemo(() => {
     const members = roomDetail?.members ?? [];
@@ -249,6 +286,33 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
       assistants: members.filter((member) => member.role === "assistant").length,
     };
   }, [roomDetail]);
+  const roomOperationalStats = [
+    {
+      label: "Professeurs",
+      value: roomCounts.teachers,
+      text: "Enseignants qui pilotent les contenus de cette classe.",
+    },
+    {
+      label: "Etudiants",
+      value: roomCounts.students,
+      text: "Apprenants actuellement relies a cette classe.",
+    },
+    {
+      label: "Assistants",
+      value: roomCounts.assistants,
+      text: "Support pedagogique ou encadrement additionnel.",
+    },
+    {
+      label: "Contenus",
+      value: roomDetail?.courses.length ?? 0,
+      text: "Cours assignes a cette classe.",
+    },
+    {
+      label: "Remises",
+      value: Number(roomDetail?.submissionSummary?.total ?? 0),
+      text: `${Number(roomDetail?.submissionSummary?.pending ?? 0)} en attente de correction.`,
+    },
+  ];
 
   const unassignedCatalogCourses = useMemo(() => {
     const assignedIds = new Set(
@@ -571,13 +635,17 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
         <section className={styles.card}>
           <div className={styles.institutionHeroV2}>
             <div className={styles.institutionHeroLead}>
-              <p className={styles.sectionLabel}>Campus command center</p>
+              <p className={styles.sectionLabel}>Pilotage etablissement</p>
               <h2>{selectedInstitution?.name || "Espace etablissement"}</h2>
               <p className={styles.paragraph}>
-                Un cockpit complet pour gerer les classes, les professeurs, les
-                etudiants, les cours affectes et les devoirs, avec une logique
-                plus proche de Teams que d&apos;un simple dashboard etudiant.
+                Un cockpit pour organiser les classes, inviter les professeurs,
+                rattacher les etudiants, affecter les cours et suivre les devoirs.
               </p>
+              <div className={styles.courseMetaGrid}>
+                <span>{detail?.rooms.length ?? 0} classes</span>
+                <span>{activeInvitesCount} liens actifs</span>
+                <span>{catalogCourses.length} cours disponibles</span>
+              </div>
             </div>
 
             <div className={styles.institutionHeroStack}>
@@ -641,26 +709,13 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
           </div>
 
           <div className={styles.institutionStatsGrid}>
-            <article className={styles.institutionStatCard}>
-              <span>Classes</span>
-              <strong>{detail?.rooms.length ?? 0}</strong>
-              <small>Capacite plan: {detail?.max_rooms ?? 0}</small>
-            </article>
-            <article className={styles.institutionStatCard}>
-              <span>Professeurs</span>
-              <strong>{institutionCounts.teachers}</strong>
-              <small>{institutionCounts.admins + institutionCounts.owners} admin / owner</small>
-            </article>
-            <article className={styles.institutionStatCard}>
-              <span>Etudiants</span>
-              <strong>{institutionCounts.students}</strong>
-              <small>Capacite plan: {detail?.max_students ?? 0}</small>
-            </article>
-            <article className={styles.institutionStatCard}>
-              <span>Devoirs</span>
-              <strong>{detail?.assignments.length ?? 0}</strong>
-              <small>Travaux diffuses aux classes</small>
-            </article>
+            {campusQuickStats.map((stat) => (
+              <article key={stat.label} className={styles.institutionStatCard}>
+                <span>{stat.label}</span>
+                <strong>{stat.value}</strong>
+                <small>{stat.note}</small>
+              </article>
+            ))}
           </div>
         </section>
 
@@ -715,31 +770,13 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
             </div>
 
             <div className={styles.institutionOpsGrid}>
-              <article className={styles.institutionOpsCard}>
-                <span>Professeurs</span>
-                <strong>{roomCounts.teachers}</strong>
-                <p>Enseignants qui pilotent les contenus de cette classe.</p>
-              </article>
-              <article className={styles.institutionOpsCard}>
-                <span>Etudiants</span>
-                <strong>{roomCounts.students}</strong>
-                <p>Apprenants actuellement relies a cette classe.</p>
-              </article>
-              <article className={styles.institutionOpsCard}>
-                <span>Assistants</span>
-                <strong>{roomCounts.assistants}</strong>
-                <p>Support pedagogique ou encadrement additionnel.</p>
-              </article>
-              <article className={styles.institutionOpsCard}>
-                <span>Contenus</span>
-                <strong>{roomDetail.courses.length}</strong>
-                <p>Cours assignes a cette classe.</p>
-              </article>
-              <article className={styles.institutionOpsCard}>
-                <span>Remises</span>
-                <strong>{Number(roomDetail.submissionSummary?.total ?? 0)}</strong>
-                <p>{Number(roomDetail.submissionSummary?.pending ?? 0)} en attente de correction.</p>
-              </article>
+              {roomOperationalStats.map((stat) => (
+                <article key={stat.label} className={styles.institutionOpsCard}>
+                  <span>{stat.label}</span>
+                  <strong>{stat.value}</strong>
+                  <p>{stat.text}</p>
+                </article>
+              ))}
             </div>
 
             <div className={styles.institutionStudioGrid}>
@@ -1216,20 +1253,14 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
 
         <section className={styles.card}>
           <p className={styles.sectionLabel}>Recommandations produit</p>
-          <h2>Ameliorations intelligentes</h2>
+          <h2>Actions prioritaires</h2>
           <div className={styles.roadmapList}>
-            <article className={styles.roadmapItem}>
-              <strong>1 classe = 1 espace de travail</strong>
-              <p>Le professeur y retrouve cours, devoirs, liens et participants au meme endroit.</p>
-            </article>
-            <article className={styles.roadmapItem}>
-              <strong>Invitations par role</strong>
-              <p>Un lien distinct pour les etudiants, un autre pour les professeurs.</p>
-            </article>
-            <article className={styles.roadmapItem}>
-              <strong>Cours affectes avant les devoirs</strong>
-              <p>L&apos;etablissement peut structurer les classes puis laisser les enseignants diffuser les contenus.</p>
-            </article>
+            {campusActionCards.map((card) => (
+              <article key={card.title} className={styles.roadmapItem}>
+                <strong>{card.title}</strong>
+                <p>{card.text}</p>
+              </article>
+            ))}
           </div>
         </section>
 
