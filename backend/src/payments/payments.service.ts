@@ -10,9 +10,40 @@ type AuthUser = {
   role?: string;
 };
 
+type InstitutionPlanName = 'starter' | 'growth' | 'campus';
+
 @Injectable()
 export class PaymentsService {
   constructor(private readonly supabaseService: SupabaseService) {}
+
+  private readonly institutionPlans: Record<
+    InstitutionPlanName,
+    {
+      amountFcfa: number;
+      maxStudents: number;
+      maxRooms: number;
+      label: string;
+    }
+  > = {
+    starter: {
+      amountFcfa: 25000,
+      maxStudents: 100,
+      maxRooms: 10,
+      label: 'Starter',
+    },
+    growth: {
+      amountFcfa: 65000,
+      maxStudents: 500,
+      maxRooms: 30,
+      label: 'Growth',
+    },
+    campus: {
+      amountFcfa: 120000,
+      maxStudents: 2000,
+      maxRooms: 120,
+      label: 'Campus',
+    },
+  };
 
   async createCourseCheckout(user: AuthUser, courseId?: string) {
     if (!courseId) {
@@ -171,6 +202,92 @@ export class PaymentsService {
     };
   }
 
+  async createInstitutionCheckout(
+    user: AuthUser,
+    institutionId: string,
+    planName?: string,
+  ) {
+    const membershipRole = await this.getInstitutionAccessRole(user.id, institutionId);
+    if (!membershipRole || !['owner', 'admin'].includes(membershipRole)) {
+      throw new ForbiddenException(
+        "Seuls les responsables d'etablissement peuvent preparer un abonnement.",
+      );
+    }
+
+    const normalizedPlan = this.normalizeInstitutionPlan(planName);
+    const plan = this.institutionPlans[normalizedPlan];
+    const institution = await this.getInstitutionForBilling(institutionId);
+
+    return {
+      provider: 'demo',
+      providerLabel: 'Abonnement de demonstration',
+      institution: {
+        id: institution.id,
+        name: institution.name ?? 'Etablissement',
+      },
+      plan: {
+        code: normalizedPlan,
+        label: plan.label,
+        amountFcfa: plan.amountFcfa,
+        maxStudents: plan.maxStudents,
+        maxRooms: plan.maxRooms,
+      },
+      instructions:
+        "Flux d'abonnement pret pour integration. La confirmation s'effectue actuellement en mode demo.",
+    };
+  }
+
+  async activateInstitutionSubscription(
+    user: AuthUser,
+    institutionId: string,
+    planName?: string,
+  ) {
+    const membershipRole = await this.getInstitutionAccessRole(user.id, institutionId);
+    if (!membershipRole || !['owner', 'admin'].includes(membershipRole)) {
+      throw new ForbiddenException(
+        "Seuls les responsables d'etablissement peuvent activer un abonnement.",
+      );
+    }
+
+    const normalizedPlan = this.normalizeInstitutionPlan(planName);
+    const plan = this.institutionPlans[normalizedPlan];
+
+    const { data, error } = await this.supabaseService.client
+      .from('institutions')
+      .update({
+        plan_name: normalizedPlan,
+        subscription_status: 'active',
+        max_students: plan.maxStudents,
+        max_rooms: plan.maxRooms,
+        is_active: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', institutionId)
+      .select(
+        'id, name, slug, plan_name, subscription_status, max_students, max_rooms, updated_at',
+      )
+      .single();
+
+    if (error || !data) {
+      throw new BadRequestException(
+        error?.message ?? "Impossible d'activer l'abonnement etablissement.",
+      );
+    }
+
+    return {
+      institution: data,
+      plan: {
+        code: normalizedPlan,
+        label: plan.label,
+        amountFcfa: plan.amountFcfa,
+        maxStudents: plan.maxStudents,
+        maxRooms: plan.maxRooms,
+      },
+      status: 'active',
+      message: "Abonnement etablissement active en mode demo.",
+    };
+  }
+
   private async resolveRole(user: AuthUser) {
     if (user.role === 'teacher' || user.role === 'admin' || user.role === 'student') {
       return user.role;
@@ -189,5 +306,54 @@ export class PaymentsService {
     }
 
     return data?.role ?? user.role ?? null;
+  }
+
+  private normalizeInstitutionPlan(planName?: string): InstitutionPlanName {
+    const normalized = String(planName ?? 'starter').trim().toLowerCase();
+
+    if (normalized === 'growth' || normalized === 'campus') {
+      return normalized;
+    }
+
+    return 'starter';
+  }
+
+  private async getInstitutionForBilling(institutionId: string) {
+    const { data, error } = await this.supabaseService.client
+      .from('institutions')
+      .select('id, name, owner_user_id')
+      .eq('id', institutionId)
+      .maybeSingle();
+
+    if (error || !data) {
+      throw new BadRequestException(
+        error?.message ?? "Impossible de retrouver l'etablissement.",
+      );
+    }
+
+    return data;
+  }
+
+  private async getInstitutionAccessRole(userId: string, institutionId: string) {
+    const institution = await this.getInstitutionForBilling(institutionId);
+
+    if (institution.owner_user_id === userId) {
+      return 'owner';
+    }
+
+    const { data, error } = await this.supabaseService.client
+      .from('institution_members')
+      .select('role')
+      .eq('institution_id', institutionId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error) {
+      throw new BadRequestException(
+        error.message ?? "Impossible de verifier l'acces etablissement.",
+      );
+    }
+
+    return data?.role ?? null;
   }
 }

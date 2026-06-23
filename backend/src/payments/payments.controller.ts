@@ -32,4 +32,30 @@ export class PaymentsController {
   ) {
     return this.paymentsService.confirmCoursePayment(req.user, paymentId);
   }
+
+  @Post('institutions/:institutionId/checkout')
+  createInstitutionCheckout(
+    @Req() req: RequestUser,
+    @Param('institutionId') institutionId: string,
+    @Body() body: { planName?: string },
+  ) {
+    return this.paymentsService.createInstitutionCheckout(
+      req.user,
+      institutionId,
+      body.planName?.trim(),
+    );
+  }
+
+  @Post('institutions/:institutionId/activate-demo')
+  activateInstitutionDemo(
+    @Req() req: RequestUser,
+    @Param('institutionId') institutionId: string,
+    @Body() body: { planName?: string },
+  ) {
+    return this.paymentsService.activateInstitutionSubscription(
+      req.user,
+      institutionId,
+      body.planName?.trim(),
+    );
+  }
 }

@@ -346,6 +346,18 @@ export class CoursesService {
               duration_seconds,
               is_preview,
               order_index
+            ),
+            exercises (
+              id,
+              title,
+              instructions,
+              correction,
+              exercise_files (
+                id,
+                name,
+                file_path,
+                file_type
+              )
             )
           )
         `,
@@ -397,6 +409,18 @@ export class CoursesService {
             isPreview: Boolean(lesson.is_preview),
             progressStatus: progressMap.get(lesson.id) ?? 'not_started',
           })),
+        exercises: (module.exercises ?? []).map((exercise: any) => ({
+          id: exercise.id,
+          title: exercise.title ?? 'Exercice',
+          instructions: exercise.instructions ?? '',
+          correction: exercise.correction ?? '',
+          files: (exercise.exercise_files ?? []).map((file: any) => ({
+            id: file.id,
+            name: file.name ?? 'Fichier',
+            filePath: file.file_path ?? '',
+            fileType: file.file_type ?? 'document',
+          })),
+        })),
       }));
 
     const totalLessons = modules.reduce(

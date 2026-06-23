@@ -155,8 +155,18 @@ export class InstitutionsService {
 
   async getInstitutionDetails(user: AuthUser, institutionId: string) {
     await this.assertInstitutionAccess(user.id, institutionId);
+    const roomIds = await this.getInstitutionRoomIds(institutionId);
+    const assignmentIds = await this.getAssignmentIdsForRooms(roomIds);
 
-    const [institutionRes, roomsRes, membersRes, assignmentsRes, invitesRes] = await Promise.all([
+    const [
+      institutionRes,
+      roomsRes,
+      membersRes,
+      assignmentsRes,
+      invitesRes,
+      roomCoursesRes,
+      submissionsRes,
+    ] = await Promise.all([
       this.supabaseService.client
         .from('institutions')
         .select('*')
@@ -175,10 +185,7 @@ export class InstitutionsService {
       this.supabaseService.client
         .from('assignments')
         .select('id, title, status, due_at, room_id, created_at')
-        .in(
-          'room_id',
-          await this.getInstitutionRoomIds(institutionId),
-        )
+        .in('room_id', roomIds)
         .order('created_at', { ascending: false }),
       this.supabaseService.client
         .from('room_invites')
@@ -187,6 +194,16 @@ export class InstitutionsService {
         )
         .eq('institution_id', institutionId)
         .order('created_at', { ascending: false }),
+      this.supabaseService.client
+        .from('room_courses')
+        .select('id, room_id, course_id')
+        .in('room_id', roomIds),
+      assignmentIds.length > 0
+        ? this.supabaseService.client
+            .from('assignment_submissions')
+            .select('id, status')
+            .in('assignment_id', assignmentIds)
+        : Promise.resolve({ data: [], error: null }),
     ]);
 
     if (institutionRes.error || !institutionRes.data) {
@@ -209,17 +226,59 @@ export class InstitutionsService {
       throw new BadRequestException(invitesRes.error.message);
     }
 
+    if (roomCoursesRes.error) {
+      throw new BadRequestException(roomCoursesRes.error.message);
+    }
+
+    if (submissionsRes.error) {
+      throw new BadRequestException(submissionsRes.error.message);
+    }
+
+    const members = (membersRes.data ?? []).map((row: any) => ({
+      id: row.id,
+      role: row.role,
+      joinedAt: row.joined_at,
+      profile: Array.isArray(row.profiles) ? row.profiles[0] : row.profiles,
+    }));
+    const invites = invitesRes.data ?? [];
+    const assignments = assignmentsRes.data ?? [];
+    const roomCourses = roomCoursesRes.data ?? [];
+    const submissions = submissionsRes.data ?? [];
+    const ownersCount = members.filter((member: any) => member.role === 'owner').length;
+    const adminsCount = members.filter((member: any) => member.role === 'admin').length;
+    const teachersCount = members.filter((member: any) => member.role === 'teacher').length;
+    const studentsCount = members.filter((member: any) => member.role === 'student').length;
+    const maxStudents = Number(institutionRes.data.max_students ?? 0);
+    const maxRooms = Number(institutionRes.data.max_rooms ?? 0);
+
     return {
       ...institutionRes.data,
       rooms: roomsRes.data ?? [],
-      members: (membersRes.data ?? []).map((row: any) => ({
-        id: row.id,
-        role: row.role,
-        joinedAt: row.joined_at,
-        profile: Array.isArray(row.profiles) ? row.profiles[0] : row.profiles,
-      })),
-      assignments: assignmentsRes.data ?? [],
-      invites: invitesRes.data ?? [],
+      members,
+      assignments,
+      invites,
+      stats: {
+        roomsCount: roomsRes.data?.length ?? 0,
+        assignmentsCount: assignments.length,
+        assignedCoursesCount: roomCourses.length,
+        totalMembers: members.length,
+        ownersCount,
+        adminsCount,
+        teachersCount,
+        studentsCount,
+        activeInvitesCount: invites.filter((invite: any) => invite.is_active).length,
+        totalSubmissions: submissions.length,
+        reviewedSubmissions: submissions.filter(
+          (submission: any) => submission.status === 'reviewed',
+        ).length,
+        pendingSubmissions: submissions.filter((submission: any) =>
+          ['submitted', 'returned'].includes(String(submission.status ?? '')),
+        ).length,
+        roomUsagePercentage:
+          maxRooms > 0 ? Math.round(((roomsRes.data?.length ?? 0) / maxRooms) * 100) : 0,
+        studentUsagePercentage:
+          maxStudents > 0 ? Math.round((studentsCount / maxStudents) * 100) : 0,
+      },
     };
   }
 
@@ -897,6 +956,23 @@ export class InstitutionsService {
       .from('assignments')
       .select('id')
       .eq('room_id', roomId);
+
+    if (error) {
+      throw new BadRequestException(error.message);
+    }
+
+    return (data ?? []).map((assignment: any) => assignment.id).filter(Boolean);
+  }
+
+  private async getAssignmentIdsForRooms(roomIds: string[]) {
+    if (roomIds.length === 0) {
+      return [];
+    }
+
+    const { data, error } = await this.supabaseService.client
+      .from('assignments')
+      .select('id')
+      .in('room_id', roomIds);
 
     if (error) {
       throw new BadRequestException(error.message);
