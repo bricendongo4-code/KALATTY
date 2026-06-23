@@ -207,7 +207,7 @@ export default function Home() {
                 </div>
                 <div className={styles.discoveryFooter}>
                   <strong>{course.priceFcfa} FCFA</strong>
-                  <Link href="/login" className={styles.discoveryLink}>
+                  <Link href={`/courses/${course.id}`} className={styles.discoveryLink}>
                     Voir et commencer
                   </Link>
                 </div>

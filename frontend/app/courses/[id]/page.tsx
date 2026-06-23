@@ -38,6 +38,18 @@ type CourseDetail = {
       isPreview: boolean;
       progressStatus: "not_started" | "started" | "completed";
     }>;
+    exercises: Array<{
+      id: string;
+      title: string;
+      instructions: string;
+      correction: string;
+      files: Array<{
+        id: string;
+        name: string;
+        filePath: string;
+        fileType: string;
+      }>;
+    }>;
   }>;
 };
 
@@ -52,7 +64,7 @@ type ReviewItem = {
 export default function CourseDetailPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: { id: string } | Promise<{ id: string }>;
 }) {
   const router = useRouter();
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
@@ -91,6 +103,11 @@ export default function CourseDetailPage({
 
     return `${storageBaseUrl}/${bucket}/${normalizedPath}`;
   };
+
+  const getSupportFileUrl = (path: string) =>
+    path.startsWith("http://") || path.startsWith("https://")
+      ? path
+      : buildStorageUrl("course-videos", path);
 
   const getAccessibleLessons = (nextCourse: CourseDetail) =>
     nextCourse.modules
@@ -191,7 +208,14 @@ export default function CourseDetailPage({
   };
 
   useEffect(() => {
-    void params.then((resolved) => setCourseId(resolved.id));
+    if (typeof (params as Promise<{ id: string }>).then === "function") {
+      void (params as Promise<{ id: string }>).then((resolved) =>
+        setCourseId(resolved.id),
+      );
+      return;
+    }
+
+    setCourseId((params as { id: string }).id);
   }, [params]);
 
   useEffect(() => {
@@ -1033,6 +1057,50 @@ export default function CourseDetailPage({
                       </button>
                     ))}
                   </div>
+
+                  <div className={styles.lessonList}>
+                    <strong>Exercices du module</strong>
+                    {module.exercises.length > 0 ? (
+                      module.exercises.map((exercise, exerciseIndex) => (
+                        <article key={exercise.id} className={styles.reviewCard}>
+                          <div className={styles.reviewCardTop}>
+                            <strong>
+                              Exercice {exerciseIndex + 1}: {exercise.title}
+                            </strong>
+                            <span>{exercise.files.length} fichier(s)</span>
+                          </div>
+                          <p>
+                            {exercise.instructions ||
+                              "Aucune consigne detaillee fournie pour cet exercice."}
+                          </p>
+                          {exercise.files.length > 0 ? (
+                            <div className={styles.reviewList}>
+                              {exercise.files.map((file) => (
+                                <a
+                                  key={file.id}
+                                  href={getSupportFileUrl(file.filePath)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className={styles.secondaryAction}
+                                >
+                                  Ouvrir {file.name}
+                                </a>
+                              ))}
+                            </div>
+                          ) : null}
+                          {canAccessFullCourse && exercise.correction ? (
+                            <p>
+                              <strong>Correction:</strong> {exercise.correction}
+                            </p>
+                          ) : null}
+                        </article>
+                      ))
+                    ) : (
+                      <p className={styles.reviewHint}>
+                        Aucun exercice n&apos;est encore rattache a ce module.
+                      </p>
+                    )}
+                  </div>
                 </article>
               ))
             ) : (
@@ -1048,6 +1116,7 @@ export default function CourseDetailPage({
               <li>Acces au programme du cours</li>
               <li>Lecture video directe depuis la fiche cours</li>
               <li>Suivi de progression dans ton dashboard</li>
+              <li>Exercices et supports associes aux modules</li>
               <li>Notes et commentaires apres inscription</li>
             </ul>
           </section>
