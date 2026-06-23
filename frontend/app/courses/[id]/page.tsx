@@ -95,6 +95,10 @@ export default function CourseDetailPage({
       return "";
     }
 
+    if (path.startsWith("http://") || path.startsWith("https://")) {
+      return path;
+    }
+
     const normalizedPath = path
       .split("/")
       .filter(Boolean)

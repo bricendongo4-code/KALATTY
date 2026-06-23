@@ -81,6 +81,39 @@ type DiscoveryCourse = {
   lessonsCount: number;
 };
 
+type SignedCourseFile = {
+  id: string;
+  name: string;
+  filePath: string;
+  fileType: string;
+};
+
+type SignedExercise = {
+  id: string;
+  title: string;
+  instructions: string;
+  correction: string;
+  files: SignedCourseFile[];
+};
+
+type SignedLesson = {
+  id: string;
+  title: string;
+  content: string;
+  videoPath: string;
+  durationSeconds: number;
+  isPreview: boolean;
+  progressStatus: string;
+};
+
+type SignedModule = {
+  id: string;
+  title: string;
+  description: string;
+  lessons: SignedLesson[];
+  exercises: SignedExercise[];
+};
+
 @Injectable()
 export class CoursesService {
   constructor(private readonly supabaseService: SupabaseService) {}
@@ -231,37 +264,42 @@ export class CoursesService {
       );
     }
 
-    const discoveryCourses = (courses ?? []).map((course: any) => {
-      const courseReviewRows = (courseReviews ?? []).filter(
-        (review: any) => review.course_id === course.id,
-      );
-      const teacherReviewRows = (teacherReviews ?? []).filter(
-        (review: any) => review.teacher_id === course.teacher_id,
-      );
+    const discoveryCourses = await Promise.all(
+      (courses ?? []).map(async (course: any) => {
+        const courseReviewRows = (courseReviews ?? []).filter(
+          (review: any) => review.course_id === course.id,
+        );
+        const teacherReviewRows = (teacherReviews ?? []).filter(
+          (review: any) => review.teacher_id === course.teacher_id,
+        );
 
-      return {
-        id: course.id,
-        title: course.title ?? 'Cours sans titre',
-        description: course.description ?? '',
-        shortDescription: course.short_description ?? '',
-        priceFcfa: Number(course.price_fcfa ?? 0),
-        thumbnailUrl: course.thumbnail_url ?? '',
-        teacherName: course.profiles?.fullname ?? 'Formateur Kalatty',
-        teacherExpertise: course.profiles?.expertise ?? '',
-        courseRatingAverage: this.getAverageRating(
-          courseReviewRows.map((review: any) => ({
-            rating: Number(review.rating ?? 0),
-          })),
-        ),
-        teacherRatingAverage: this.getAverageRating(
-          teacherReviewRows.map((review: any) => ({
-            rating: Number(review.rating ?? 0),
-          })),
-        ),
-        totalReviews: courseReviewRows.length,
-        lessonsCount: course.lessons?.length ?? 0,
-      } satisfies DiscoveryCourse;
-    });
+        return {
+          id: course.id,
+          title: course.title ?? 'Cours sans titre',
+          description: course.description ?? '',
+          shortDescription: course.short_description ?? '',
+          priceFcfa: Number(course.price_fcfa ?? 0),
+          thumbnailUrl: await this.resolveStorageUrl(
+            'course-thumbnails',
+            course.thumbnail_url ?? '',
+          ),
+          teacherName: course.profiles?.fullname ?? 'Formateur Kalatty',
+          teacherExpertise: course.profiles?.expertise ?? '',
+          courseRatingAverage: this.getAverageRating(
+            courseReviewRows.map((review: any) => ({
+              rating: Number(review.rating ?? 0),
+            })),
+          ),
+          teacherRatingAverage: this.getAverageRating(
+            teacherReviewRows.map((review: any) => ({
+              rating: Number(review.rating ?? 0),
+            })),
+          ),
+          totalReviews: courseReviewRows.length,
+          lessonsCount: course.lessons?.length ?? 0,
+        } satisfies DiscoveryCourse;
+      }),
+    );
 
     const topRated = discoveryCourses
       .slice()
@@ -387,41 +425,69 @@ export class CoursesService {
         ? await this.getLessonProgressMap(user.id, lessonIds)
         : new Map<string, string>();
 
-    const modules = (course.course_modules ?? [])
-      .slice()
-      .sort((a: any, b: any) => Number(a.order_index ?? 0) - Number(b.order_index ?? 0))
-      .map((module: any) => ({
-        id: module.id,
-        title: module.title ?? 'Module',
-        description: module.description ?? '',
-        lessons: (module.lessons ?? [])
-          .slice()
-          .sort(
-            (a: any, b: any) =>
-              Number(a.order_index ?? 0) - Number(b.order_index ?? 0),
-          )
-          .map((lesson: any) => ({
-            id: lesson.id,
-            title: lesson.title ?? 'Lecon',
-            content: lesson.content ?? '',
-            videoPath: lesson.video_path ?? '',
-            durationSeconds: Number(lesson.duration_seconds ?? 0),
-            isPreview: Boolean(lesson.is_preview),
-            progressStatus: progressMap.get(lesson.id) ?? 'not_started',
-          })),
-        exercises: (module.exercises ?? []).map((exercise: any) => ({
-          id: exercise.id,
-          title: exercise.title ?? 'Exercice',
-          instructions: exercise.instructions ?? '',
-          correction: exercise.correction ?? '',
-          files: (exercise.exercise_files ?? []).map((file: any) => ({
-            id: file.id,
-            name: file.name ?? 'Fichier',
-            filePath: file.file_path ?? '',
-            fileType: file.file_type ?? 'document',
-          })),
-        })),
-      }));
+    const modules = await Promise.all(
+      (course.course_modules ?? [])
+        .slice()
+        .sort(
+          (a: any, b: any) => Number(a.order_index ?? 0) - Number(b.order_index ?? 0),
+        )
+        .map(async (module: any) => {
+          const lessons = await Promise.all(
+            (module.lessons ?? [])
+              .slice()
+              .sort(
+                (a: any, b: any) =>
+                  Number(a.order_index ?? 0) - Number(b.order_index ?? 0),
+              )
+              .map(
+                async (lesson: any): Promise<SignedLesson> => ({
+                  id: lesson.id,
+                  title: lesson.title ?? 'Lecon',
+                  content: lesson.content ?? '',
+                  videoPath: await this.resolveStorageUrl(
+                    'course-videos',
+                    lesson.video_path ?? '',
+                  ),
+                  durationSeconds: Number(lesson.duration_seconds ?? 0),
+                  isPreview: Boolean(lesson.is_preview),
+                  progressStatus: progressMap.get(lesson.id) ?? 'not_started',
+                }),
+              ),
+          );
+
+          const exercises = await Promise.all(
+            (module.exercises ?? []).map(
+              async (exercise: any): Promise<SignedExercise> => ({
+                id: exercise.id,
+                title: exercise.title ?? 'Exercice',
+                instructions: exercise.instructions ?? '',
+                correction: exercise.correction ?? '',
+                files: await Promise.all(
+                  (exercise.exercise_files ?? []).map(
+                    async (file: any): Promise<SignedCourseFile> => ({
+                      id: file.id,
+                      name: file.name ?? 'Fichier',
+                      filePath: await this.resolveStorageUrl(
+                        'course-files',
+                        file.file_path ?? '',
+                      ),
+                      fileType: file.file_type ?? 'document',
+                    }),
+                  ),
+                ),
+              }),
+            ),
+          );
+
+          return {
+            id: module.id,
+            title: module.title ?? 'Module',
+            description: module.description ?? '',
+            lessons,
+            exercises,
+          } satisfies SignedModule;
+        }),
+    );
 
     const totalLessons = modules.reduce(
       (sum: number, module: { lessons: Array<unknown> }) => sum + module.lessons.length,
@@ -446,7 +512,10 @@ export class CoursesService {
       description: course.description ?? '',
       shortDescription: course.short_description ?? '',
       priceFcfa: Number(course.price_fcfa ?? 0),
-      thumbnailUrl: course.thumbnail_url ?? '',
+      thumbnailUrl: await this.resolveStorageUrl(
+        'course-thumbnails',
+        course.thumbnail_url ?? '',
+      ),
       teacherName: course.profiles?.fullname ?? 'Formateur Kalatty',
       teacherExpertise: course.profiles?.expertise ?? '',
       status: course.status ?? 'draft',
@@ -1119,5 +1188,30 @@ export class CoursesService {
       .replace(/-+/g, '-')
       .replace(/^-+|-+$/g, '')
       .slice(0, 120);
+  }
+
+  private async resolveStorageUrl(bucket: string, path: string) {
+    const normalizedPath = path.trim();
+
+    if (!normalizedPath) {
+      return '';
+    }
+
+    if (
+      normalizedPath.startsWith('http://') ||
+      normalizedPath.startsWith('https://')
+    ) {
+      return normalizedPath;
+    }
+
+    const { data, error } = await this.supabaseService.client.storage
+      .from(bucket)
+      .createSignedUrl(normalizedPath, 60 * 60 * 24 * 7);
+
+    if (error || !data?.signedUrl) {
+      return normalizedPath;
+    }
+
+    return data.signedUrl;
   }
 }
