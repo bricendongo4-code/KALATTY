@@ -13,6 +13,7 @@ type AuthUser = {
 
 type InstitutionRole = 'owner' | 'admin' | 'teacher' | 'student';
 type RoomRole = 'teacher' | 'student' | 'assistant';
+type ManagedInstitutionRole = 'admin' | 'teacher' | 'student';
 
 @Injectable()
 export class InstitutionsService {
@@ -166,6 +167,7 @@ export class InstitutionsService {
       invitesRes,
       roomCoursesRes,
       submissionsRes,
+      managedUsersRes,
     ] = await Promise.all([
       this.supabaseService.client
         .from('institutions')
@@ -204,6 +206,7 @@ export class InstitutionsService {
             .select('id, status')
             .in('assignment_id', assignmentIds)
         : Promise.resolve({ data: [], error: null }),
+      this.loadManagedUsers(institutionId),
     ]);
 
     if (institutionRes.error || !institutionRes.data) {
@@ -234,6 +237,10 @@ export class InstitutionsService {
       throw new BadRequestException(submissionsRes.error.message);
     }
 
+    if (managedUsersRes.error) {
+      throw new BadRequestException(managedUsersRes.error.message);
+    }
+
     const members = (membersRes.data ?? []).map((row: any) => ({
       id: row.id,
       role: row.role,
@@ -244,6 +251,7 @@ export class InstitutionsService {
     const assignments = assignmentsRes.data ?? [];
     const roomCourses = roomCoursesRes.data ?? [];
     const submissions = submissionsRes.data ?? [];
+    const managedUsers = managedUsersRes.data ?? [];
     const ownersCount = members.filter((member: any) => member.role === 'owner').length;
     const adminsCount = members.filter((member: any) => member.role === 'admin').length;
     const teachersCount = members.filter((member: any) => member.role === 'teacher').length;
@@ -257,6 +265,7 @@ export class InstitutionsService {
       members,
       assignments,
       invites,
+      managedUsers,
       stats: {
         roomsCount: roomsRes.data?.length ?? 0,
         assignmentsCount: assignments.length,
@@ -274,11 +283,232 @@ export class InstitutionsService {
         pendingSubmissions: submissions.filter((submission: any) =>
           ['submitted', 'returned'].includes(String(submission.status ?? '')),
         ).length,
+        managedAccountsCount: managedUsers.length,
         roomUsagePercentage:
           maxRooms > 0 ? Math.round(((roomsRes.data?.length ?? 0) / maxRooms) * 100) : 0,
         studentUsagePercentage:
           maxStudents > 0 ? Math.round((studentsCount / maxStudents) * 100) : 0,
       },
+    };
+  }
+
+  async provisionManagedUser(
+    user: AuthUser,
+    institutionId: string,
+    payload: {
+      fullname: string;
+      role: ManagedInstitutionRole;
+      email?: string;
+      level?: string;
+      expertise?: string;
+      bio?: string;
+      room_ids?: string[];
+    },
+  ) {
+    await this.assertInstitutionStaff(user.id, institutionId, ['owner', 'admin']);
+
+    const institution = await this.getInstitutionOrThrow(institutionId);
+    const fullname = payload.fullname?.trim();
+    if (!fullname) {
+      throw new BadRequestException("Le nom complet est obligatoire.");
+    }
+
+    const role = payload.role;
+    if (!['admin', 'teacher', 'student'].includes(role)) {
+      throw new BadRequestException('Le role fourni est invalide.');
+    }
+
+    const loginEmail = await this.buildManagedLoginEmail(
+      institution,
+      fullname,
+      payload.email,
+    );
+    const temporaryPassword = this.buildTemporaryPassword();
+
+    const authAdmin = this.supabaseService.client.auth?.admin;
+    if (!authAdmin?.createUser) {
+      throw new BadRequestException(
+        "La creation admin des comptes n'est pas disponible sur cette configuration Supabase.",
+      );
+    }
+
+    const { data: createdUser, error: createUserError } = await authAdmin.createUser({
+      email: loginEmail,
+      password: temporaryPassword,
+      email_confirm: true,
+      user_metadata: {
+        fullname,
+        role: role === 'teacher' ? 'teacher' : role === 'admin' ? 'institution' : 'student',
+        country: institution.country ?? 'Cameroun',
+        level: payload.level?.trim() || null,
+        school_name: institution.name ?? null,
+        expertise: payload.expertise?.trim() || null,
+        bio: payload.bio?.trim() || null,
+        institution_id: institutionId,
+        managed_by_institution: true,
+      },
+    });
+
+    if (createUserError || !createdUser?.user?.id) {
+      throw new BadRequestException(
+        createUserError?.message ?? 'Impossible de creer ce compte gere.',
+      );
+    }
+
+    const userId = createdUser.user.id;
+    const globalRole =
+      role === 'teacher' ? 'teacher' : role === 'admin' ? 'institution' : 'student';
+
+    const { error: profileError } = await this.supabaseService.client.from('profiles').upsert(
+      {
+        id: userId,
+        email: loginEmail,
+        fullname,
+        role: globalRole,
+        country: institution.country ?? 'Cameroun',
+        level: payload.level?.trim() || null,
+        school_name: institution.name ?? null,
+        expertise: payload.expertise?.trim() || null,
+        bio: payload.bio?.trim() || null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'id' },
+    );
+
+    if (profileError) {
+      throw new BadRequestException(
+        profileError.message ?? 'Impossible de creer le profil du compte gere.',
+      );
+    }
+
+    const institutionMemberRole: InstitutionRole =
+      role === 'admin' ? 'admin' : role === 'teacher' ? 'teacher' : 'student';
+
+    const { error: institutionMemberError } = await this.supabaseService.client
+      .from('institution_members')
+      .upsert(
+        {
+          institution_id: institutionId,
+          user_id: userId,
+          role: institutionMemberRole,
+        },
+        { onConflict: 'institution_id,user_id' },
+      );
+
+    if (institutionMemberError) {
+      throw new BadRequestException(
+        institutionMemberError.message ??
+          "Impossible de rattacher ce compte a l'etablissement.",
+      );
+    }
+
+    await this.persistManagedUserRecord({
+      institutionId,
+      userId,
+      loginEmail,
+      fullname,
+      role,
+      createdBy: user.id,
+      source: 'manual',
+    });
+
+    const roomIds = Array.isArray(payload.room_ids)
+      ? payload.room_ids.filter((roomId) => String(roomId ?? '').trim())
+      : [];
+
+    if (roomIds.length > 0) {
+      for (const roomId of roomIds) {
+        const room = await this.getRoomOrThrow(roomId);
+        if (room.institution_id !== institutionId) {
+          continue;
+        }
+
+        const roomRole: RoomRole =
+          role === 'teacher' ? 'teacher' : role === 'admin' ? 'assistant' : 'student';
+
+        const { error: roomMemberError } = await this.supabaseService.client
+          .from('room_members')
+          .upsert(
+            {
+              room_id: roomId,
+              user_id: userId,
+              role: roomRole,
+            },
+            { onConflict: 'room_id,user_id' },
+          );
+
+        if (roomMemberError) {
+          throw new BadRequestException(
+            roomMemberError.message ??
+              "Impossible de rattacher le compte gere a la salle.",
+          );
+        }
+      }
+    }
+
+    return {
+      userId,
+      loginEmail,
+      temporaryPassword,
+      fullname,
+      role,
+      mustResetPassword: true,
+      roomIds,
+      message:
+        "Compte genere avec succes. Remets l'identifiant et le mot de passe provisoire a l'apprenant ou au professeur.",
+    };
+  }
+
+  async resetManagedUserPassword(
+    user: AuthUser,
+    institutionId: string,
+    managedUserId: string,
+  ) {
+    await this.assertInstitutionStaff(user.id, institutionId, ['owner', 'admin']);
+
+    const managedUser = await this.getManagedUserOrThrow(institutionId, managedUserId);
+    const authAdmin = this.supabaseService.client.auth?.admin;
+    if (!authAdmin?.updateUserById) {
+      throw new BadRequestException(
+        'La reinitialisation admin du mot de passe est indisponible.',
+      );
+    }
+
+    const temporaryPassword = this.buildTemporaryPassword();
+    const { error } = await authAdmin.updateUserById(managedUser.user_id, {
+      password: temporaryPassword,
+      user_metadata: {
+        must_reset_password: true,
+      },
+    });
+
+    if (error) {
+      throw new BadRequestException(
+        error.message ?? 'Impossible de reinitialiser ce mot de passe.',
+      );
+    }
+
+    if (!(await this.managedUserTableExists())) {
+      return {
+        loginEmail: managedUser.login_email,
+        temporaryPassword,
+        message: 'Mot de passe provisoire regenere.',
+      };
+    }
+
+    await this.supabaseService.client
+      .from('institution_managed_users')
+      .update({
+        must_reset_password: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('institution_id', institutionId)
+      .eq('id', managedUserId);
+
+    return {
+      loginEmail: managedUser.login_email,
+      temporaryPassword,
+      message: 'Mot de passe provisoire regenere.',
     };
   }
 
@@ -919,6 +1149,24 @@ export class InstitutionsService {
     return (data?.role as InstitutionRole | undefined) ?? null;
   }
 
+  private async getInstitutionOrThrow(institutionId: string) {
+    const { data, error } = await this.supabaseService.client
+      .from('institutions')
+      .select('id, name, slug, country')
+      .eq('id', institutionId)
+      .maybeSingle();
+
+    if (error) {
+      throw new BadRequestException(error.message);
+    }
+
+    if (!data) {
+      throw new NotFoundException('Etablissement introuvable.');
+    }
+
+    return data;
+  }
+
   private async getRoomOrThrow(roomId: string) {
     const { data, error } = await this.supabaseService.client
       .from('rooms')
@@ -994,5 +1242,155 @@ export class InstitutionsService {
 
   private buildInviteToken() {
     return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
+  }
+
+  private async loadManagedUsers(institutionId: string) {
+    if (!(await this.managedUserTableExists())) {
+      return { data: [], error: null };
+    }
+
+    return this.supabaseService.client
+      .from('institution_managed_users')
+      .select(
+        `
+          id,
+          institution_id,
+          user_id,
+          login_email,
+          full_name,
+          managed_role,
+          source,
+          status,
+          must_reset_password,
+          created_at,
+          profiles:user_id (
+            id,
+            fullname,
+            email,
+            level,
+            expertise,
+            school_name
+          )
+        `,
+      )
+      .eq('institution_id', institutionId)
+      .order('created_at', { ascending: false });
+  }
+
+  private async persistManagedUserRecord(payload: {
+    institutionId: string;
+    userId: string;
+    loginEmail: string;
+    fullname: string;
+    role: ManagedInstitutionRole;
+    createdBy: string;
+    source: 'manual' | 'csv' | 'api';
+  }) {
+    if (!(await this.managedUserTableExists())) {
+      return;
+    }
+
+    const { error } = await this.supabaseService.client
+      .from('institution_managed_users')
+      .upsert(
+        {
+          institution_id: payload.institutionId,
+          user_id: payload.userId,
+          login_email: payload.loginEmail,
+          full_name: payload.fullname,
+          managed_role: payload.role,
+          source: payload.source,
+          status: 'active',
+          must_reset_password: true,
+          created_by: payload.createdBy,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'institution_id,user_id' },
+      );
+
+    if (error) {
+      throw new BadRequestException(
+        error.message ?? 'Impossible de stocker le compte gere.',
+      );
+    }
+  }
+
+  private async getManagedUserOrThrow(institutionId: string, managedUserId: string) {
+    if (!(await this.managedUserTableExists())) {
+      throw new NotFoundException(
+        "La table des comptes geres n'est pas encore disponible.",
+      );
+    }
+
+    const { data, error } = await this.supabaseService.client
+      .from('institution_managed_users')
+      .select('id, institution_id, user_id, login_email')
+      .eq('institution_id', institutionId)
+      .eq('id', managedUserId)
+      .maybeSingle();
+
+    if (error) {
+      throw new BadRequestException(error.message);
+    }
+
+    if (!data) {
+      throw new NotFoundException('Compte gere introuvable.');
+    }
+
+    return data;
+  }
+
+  private async managedUserTableExists() {
+    const { error } = await this.supabaseService.client
+      .from('institution_managed_users')
+      .select('id')
+      .limit(1);
+
+    return !this.isMissingManagedTableError(error);
+  }
+
+  private isMissingManagedTableError(error: { message?: string } | null | undefined) {
+    const message = String(error?.message ?? '').toLowerCase();
+    return (
+      message.includes("could not find the table") ||
+      message.includes('schema cache') ||
+      message.includes('institution_managed_users')
+    );
+  }
+
+  private async buildManagedLoginEmail(
+    institution: { slug?: string | null },
+    fullname: string,
+    preferredEmail?: string,
+  ) {
+    const explicitEmail = preferredEmail?.trim().toLowerCase();
+    if (explicitEmail) {
+      return explicitEmail;
+    }
+
+    const baseName = this.buildSlug(fullname || 'compte-campus') || 'compte-campus';
+    const scope = this.buildSlug(institution.slug || 'campus') || 'campus';
+
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const suffix = attempt === 0 ? '' : `-${Math.random().toString(36).slice(2, 6)}`;
+      const candidate = `${baseName}${suffix}@${scope}.kalatty.app`;
+      const { data } = await this.supabaseService.client
+        .from('profiles')
+        .select('id')
+        .eq('email', candidate)
+        .maybeSingle();
+
+      if (!data?.id) {
+        return candidate;
+      }
+    }
+
+    return `${Date.now().toString(36)}@${scope}.kalatty.app`;
+  }
+
+  private buildTemporaryPassword() {
+    const seed = Math.random().toString(36).slice(2, 8).toUpperCase();
+    const stamp = Date.now().toString(36).slice(-4);
+    return `Kalatty!${seed}${stamp}`;
   }
 }

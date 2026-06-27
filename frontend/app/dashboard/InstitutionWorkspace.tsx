@@ -22,6 +22,23 @@ type InstitutionDetail = {
   subscription_status?: string | null;
   max_students?: number;
   max_rooms?: number;
+  stats?: {
+    roomsCount: number;
+    assignmentsCount: number;
+    assignedCoursesCount: number;
+    totalMembers: number;
+    ownersCount: number;
+    adminsCount: number;
+    teachersCount: number;
+    studentsCount: number;
+    activeInvitesCount: number;
+    totalSubmissions: number;
+    reviewedSubmissions: number;
+    pendingSubmissions: number;
+    managedAccountsCount?: number;
+    roomUsagePercentage: number;
+    studentUsagePercentage: number;
+  };
   rooms: Array<{
     id: string;
     name: string;
@@ -55,6 +72,26 @@ type InstitutionDetail = {
     max_uses: number;
     used_count: number;
     is_active: boolean;
+  }>;
+  managedUsers?: Array<{
+    id: string;
+    institution_id: string;
+    user_id: string;
+    login_email: string;
+    full_name: string;
+    managed_role: string;
+    source: string;
+    status: string;
+    must_reset_password: boolean;
+    created_at?: string;
+    profiles?: {
+      id?: string;
+      fullname?: string | null;
+      email?: string | null;
+      level?: string | null;
+      expertise?: string | null;
+      school_name?: string | null;
+    } | null;
   }>;
 };
 
@@ -182,6 +219,20 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
   const [inviteRole, setInviteRole] = useState<"student" | "teacher" | "assistant">("student");
   const [generatedLink, setGeneratedLink] = useState("");
   const [assignedCourseId, setAssignedCourseId] = useState("");
+  const [billingLoading, setBillingLoading] = useState(false);
+  const [managedUserFullname, setManagedUserFullname] = useState("");
+  const [managedUserRole, setManagedUserRole] = useState<"student" | "teacher" | "admin">("student");
+  const [managedUserLevel, setManagedUserLevel] = useState("");
+  const [managedUserExpertise, setManagedUserExpertise] = useState("");
+  const [managedUserRoomId, setManagedUserRoomId] = useState("");
+  const [provisioningUser, setProvisioningUser] = useState(false);
+  const [lastProvisionedAccess, setLastProvisionedAccess] = useState<{
+    loginEmail: string;
+    temporaryPassword: string;
+    fullname: string;
+    role: string;
+  } | null>(null);
+  const [resettingManagedUserId, setResettingManagedUserId] = useState("");
 
   const token =
     typeof window !== "undefined" ? localStorage.getItem("kalatty_token") : null;
@@ -240,27 +291,74 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
       students: members.filter((member) => member.role === "student").length,
     };
   }, [detail]);
+  const managedUsers = detail?.managedUsers ?? [];
+  const filteredManagedUsers = useMemo(
+    () =>
+      managedUsers.filter((managedUser) =>
+        [
+          managedUser.full_name,
+          managedUser.login_email,
+          managedUser.managed_role,
+          managedUser.status,
+          managedUser.profiles?.level,
+          managedUser.profiles?.expertise,
+        ]
+          .map((value) => String(value ?? ""))
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedQuery),
+      ),
+    [managedUsers, normalizedQuery],
+  );
   const activeInvitesCount = (detail?.invites ?? []).filter((invite) => invite.is_active).length;
   const campusQuickStats = [
     {
       label: "Classes",
-      value: detail?.rooms.length ?? 0,
+      value: detail?.stats?.roomsCount ?? detail?.rooms.length ?? 0,
       note: `Capacite plan: ${detail?.max_rooms ?? 0}`,
     },
     {
       label: "Professeurs",
-      value: institutionCounts.teachers,
+      value: detail?.stats?.teachersCount ?? institutionCounts.teachers,
       note: `${institutionCounts.admins + institutionCounts.owners} admin / owner`,
     },
     {
       label: "Etudiants",
-      value: institutionCounts.students,
+      value: detail?.stats?.studentsCount ?? institutionCounts.students,
       note: `Capacite plan: ${detail?.max_students ?? 0}`,
     },
     {
+      label: "Comptes geres",
+      value: detail?.stats?.managedAccountsCount ?? managedUsers.length,
+      note: "Acces crees par l'etablissement",
+    },
+    {
       label: "Devoirs",
-      value: detail?.assignments.length ?? 0,
+      value: detail?.stats?.assignmentsCount ?? detail?.assignments.length ?? 0,
       note: "Travaux diffuses",
+    },
+  ];
+  const institutionPlanCards = [
+    {
+      code: "starter",
+      label: "Starter",
+      amountFcfa: 25000,
+      studentCap: 100,
+      roomCap: 10,
+    },
+    {
+      code: "growth",
+      label: "Growth",
+      amountFcfa: 65000,
+      studentCap: 500,
+      roomCap: 30,
+    },
+    {
+      code: "campus",
+      label: "Campus",
+      amountFcfa: 120000,
+      studentCap: 2000,
+      roomCap: 120,
     },
   ];
   const campusActionCards = [
@@ -377,6 +475,7 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
       const defaultRoomId = data.rooms[0]?.id || "";
       setAssignmentRoomId((current) => current || defaultRoomId);
       setInviteRoomId((current) => current || defaultRoomId);
+      setManagedUserRoomId((current) => current || defaultRoomId);
       setSelectedRoomId((current) => current || defaultRoomId);
     } catch {
       setMessage("Le detail de l'etablissement n'a pas pu etre charge.");
@@ -619,6 +718,167 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
     }
   };
 
+  const handleProvisionManagedUser = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!token || !selectedInstitutionId) {
+      setMessage("Choisis d'abord un etablissement actif.");
+      return;
+    }
+
+    setProvisioningUser(true);
+    setMessage("");
+    setLastProvisionedAccess(null);
+
+    try {
+      const res = await fetch(
+        `${apiBaseUrl}/institutions/${selectedInstitutionId}/provision-user`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            fullname: managedUserFullname,
+            role: managedUserRole,
+            level: managedUserRole === "student" ? managedUserLevel : undefined,
+            expertise: managedUserRole !== "student" ? managedUserExpertise : undefined,
+            room_ids: managedUserRoomId ? [managedUserRoomId] : [],
+          }),
+        },
+      );
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMessage(
+          typeof data.message === "string"
+            ? data.message
+            : "La creation du compte gere a echoue.",
+        );
+        return;
+      }
+
+      setLastProvisionedAccess({
+        loginEmail: String(data.loginEmail ?? ""),
+        temporaryPassword: String(data.temporaryPassword ?? ""),
+        fullname: String(data.fullname ?? managedUserFullname),
+        role: String(data.role ?? managedUserRole),
+      });
+      setManagedUserFullname("");
+      setManagedUserLevel("");
+      setManagedUserExpertise("");
+      setMessage("Compte gere cree avec succes.");
+      await loadInstitutionDetails(selectedInstitutionId);
+      if (managedUserRoomId) {
+        await loadRoomDetails(managedUserRoomId);
+      }
+    } catch {
+      setMessage("La creation du compte gere a echoue.");
+    } finally {
+      setProvisioningUser(false);
+    }
+  };
+
+  const handleResetManagedPassword = async (managedUserId: string) => {
+    if (!token || !selectedInstitutionId) {
+      setMessage("Choisis d'abord un etablissement actif.");
+      return;
+    }
+
+    setResettingManagedUserId(managedUserId);
+    setMessage("");
+
+    try {
+      const res = await fetch(
+        `${apiBaseUrl}/institutions/${selectedInstitutionId}/managed-users/${managedUserId}/reset-password`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMessage(
+          typeof data.message === "string"
+            ? data.message
+            : "La regeneration du mot de passe a echoue.",
+        );
+        return;
+      }
+
+      setLastProvisionedAccess({
+        loginEmail: String(data.loginEmail ?? ""),
+        temporaryPassword: String(data.temporaryPassword ?? ""),
+        fullname: "Compte gere",
+        role: "reset",
+      });
+      setMessage("Mot de passe provisoire regenere.");
+      await loadInstitutionDetails(selectedInstitutionId);
+    } catch {
+      setMessage("La regeneration du mot de passe a echoue.");
+    } finally {
+      setResettingManagedUserId("");
+    }
+  };
+
+  const handleActivatePlan = async (planName: string) => {
+    if (!token || !selectedInstitutionId) return;
+
+    setBillingLoading(true);
+    setMessage("");
+
+    try {
+      const checkoutRes = await fetch(
+        `${apiBaseUrl}/payments/institutions/${selectedInstitutionId}/checkout`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ planName }),
+        },
+      );
+      const checkoutData = await checkoutRes.json();
+
+      if (!checkoutRes.ok) {
+        setMessage(checkoutData.message ?? "Preparation de l'abonnement impossible.");
+        return;
+      }
+
+      const activateRes = await fetch(
+        `${apiBaseUrl}/payments/institutions/${selectedInstitutionId}/activate-demo`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ planName }),
+        },
+      );
+      const activateData = await activateRes.json();
+
+      if (!activateRes.ok) {
+        setMessage(activateData.message ?? "Activation de l'abonnement impossible.");
+        return;
+      }
+
+      setMessage(
+        `Abonnement ${checkoutData.plan?.label ?? planName} active. Capacite: ${activateData.plan?.maxStudents ?? 0} etudiants / ${activateData.plan?.maxRooms ?? 0} classes.`,
+      );
+      await loadInstitutions();
+      await loadInstitutionDetails(selectedInstitutionId);
+    } catch {
+      setMessage("L'activation de l'abonnement a echoue.");
+    } finally {
+      setBillingLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <section className={styles.grid}>
@@ -722,6 +982,62 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
         <section className={styles.card}>
           <div className={styles.sectionHeader}>
             <div>
+              <p className={styles.sectionLabel}>Abonnement et pilotage</p>
+              <h2>Capacite campus et plan actif</h2>
+            </div>
+            <span className={styles.sectionHint}>
+              Active un plan etablissement pour augmenter les capacites de classes et d&apos;etudiants.
+            </span>
+          </div>
+
+          <div className={styles.statsRow}>
+            <article className={styles.statCard}>
+              <span>Plan actif</span>
+              <strong>{detail?.plan_name ?? selectedInstitution?.plan_name ?? "starter"}</strong>
+              <small>{detail?.subscription_status ?? selectedInstitution?.subscription_status ?? "trial"}</small>
+            </article>
+            <article className={styles.statCard}>
+              <span>Occupation classes</span>
+              <strong>{detail?.stats?.roomUsagePercentage ?? 0}%</strong>
+              <small>{detail?.stats?.roomsCount ?? 0} / {detail?.max_rooms ?? 0}</small>
+            </article>
+            <article className={styles.statCard}>
+              <span>Occupation etudiants</span>
+              <strong>{detail?.stats?.studentUsagePercentage ?? 0}%</strong>
+              <small>{detail?.stats?.studentsCount ?? 0} / {detail?.max_students ?? 0}</small>
+            </article>
+            <article className={styles.statCard}>
+              <span>Remises a traiter</span>
+              <strong>{detail?.stats?.pendingSubmissions ?? 0}</strong>
+              <small>{detail?.stats?.reviewedSubmissions ?? 0} deja corrigees</small>
+            </article>
+          </div>
+
+          <div className={styles.institutionRoomBoard}>
+            {institutionPlanCards.map((plan) => (
+              <article key={plan.code} className={styles.institutionRoomBoardCard}>
+                <div className={styles.institutionRoomBoardTop}>
+                  <span>Plan {plan.label}</span>
+                  <small>{plan.amountFcfa} FCFA</small>
+                </div>
+                <h3>{plan.studentCap} etudiants</h3>
+                <p>{plan.roomCap} classes incluses pour structurer le campus.</p>
+                <button
+                  type="button"
+                  className={styles.secondaryButton}
+                  disabled={billingLoading || !selectedInstitutionId}
+                  onClick={() => void handleActivatePlan(plan.code)}
+                >
+                  {billingLoading ? "Activation..." : `Activer ${plan.label}`}
+                </button>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className={styles.card}>
+          <div className={styles.sectionHeader}>
+            <div>
               <p className={styles.sectionLabel}>Classes du campus</p>
               <h2>Hub des classes et filieres</h2>
             </div>
@@ -754,6 +1070,149 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
             ) : (
               <p className={styles.paragraph}>Aucune classe ne correspond a cette recherche.</p>
             )}
+          </div>
+        </section>
+
+        <section className={styles.card}>
+          <div className={styles.sectionHeader}>
+            <div>
+              <p className={styles.sectionLabel}>Comptes campus</p>
+              <h2>Eleves et professeurs crees par l&apos;etablissement</h2>
+            </div>
+            <span className={styles.sectionHint}>
+              Ici, l&apos;ecole cree directement les acces sans attendre une inscription externe.
+            </span>
+          </div>
+
+          <div className={styles.institutionActionGrid}>
+            <section className={styles.card}>
+              <div className={styles.sectionHeader}>
+                <div>
+                  <p className={styles.sectionLabel}>Provisionnement</p>
+                  <h3>Creer un compte gere</h3>
+                </div>
+              </div>
+              <form onSubmit={handleProvisionManagedUser} className={styles.teacherForm}>
+                <label className={styles.formField}>
+                  <span>Nom complet</span>
+                  <input
+                    type="text"
+                    value={managedUserFullname}
+                    onChange={(event) => setManagedUserFullname(event.target.value)}
+                    placeholder="Marie Ndongo"
+                  />
+                </label>
+                <div className={styles.metaFields}>
+                  <label className={styles.formField}>
+                    <span>Role</span>
+                    <select
+                      className={styles.selectField}
+                      value={managedUserRole}
+                      onChange={(event) =>
+                        setManagedUserRole(
+                          event.target.value as "student" | "teacher" | "admin",
+                        )
+                      }
+                    >
+                      <option value="student">Etudiant</option>
+                      <option value="teacher">Professeur</option>
+                      <option value="admin">Administrateur</option>
+                    </select>
+                  </label>
+                  <label className={styles.formField}>
+                    <span>Classe de rattachement</span>
+                    <select
+                      className={styles.selectField}
+                      value={managedUserRoomId}
+                      onChange={(event) => setManagedUserRoomId(event.target.value)}
+                    >
+                      <option value="">Aucune classe pour l&apos;instant</option>
+                      {(detail?.rooms ?? []).map((room) => (
+                        <option key={room.id} value={room.id}>
+                          {room.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                {managedUserRole === "student" ? (
+                  <label className={styles.formField}>
+                    <span>Niveau / filiere</span>
+                    <input
+                      type="text"
+                      value={managedUserLevel}
+                      onChange={(event) => setManagedUserLevel(event.target.value)}
+                      placeholder="Terminale C, Licence 1, BTS..."
+                    />
+                  </label>
+                ) : (
+                  <label className={styles.formField}>
+                    <span>Matiere / expertise</span>
+                    <input
+                      type="text"
+                      value={managedUserExpertise}
+                      onChange={(event) => setManagedUserExpertise(event.target.value)}
+                      placeholder="Maths, Histoire, Informatique..."
+                    />
+                  </label>
+                )}
+                <button
+                  type="submit"
+                  className={styles.submitButton}
+                  disabled={provisioningUser}
+                >
+                  {provisioningUser ? "Creation..." : "Creer le compte"}
+                </button>
+              </form>
+              {lastProvisionedAccess ? (
+                <div className={styles.inlineAssetStatus}>
+                  Identifiant: {lastProvisionedAccess.loginEmail} | Mot de passe provisoire:{" "}
+                  {lastProvisionedAccess.temporaryPassword}
+                </div>
+              ) : null}
+            </section>
+
+            <section className={styles.card}>
+              <div className={styles.sectionHeader}>
+                <div>
+                  <p className={styles.sectionLabel}>Registre</p>
+                  <h3>Comptes deja crees</h3>
+                </div>
+              </div>
+              <div className={styles.roadmapList}>
+                {filteredManagedUsers.length > 0 ? (
+                  filteredManagedUsers.map((managedUser) => (
+                    <article key={managedUser.id} className={styles.roadmapItem}>
+                      <strong>{managedUser.full_name}</strong>
+                      <p>
+                        {formatRoleLabel(managedUser.managed_role)} • {managedUser.login_email}
+                      </p>
+                      <small>
+                        {managedUser.profiles?.level || managedUser.profiles?.expertise || "Profil interne"}
+                        {" • "}
+                        {managedUser.must_reset_password
+                          ? "Mot de passe provisoire actif"
+                          : "Acces actif"}
+                      </small>
+                      <button
+                        type="button"
+                        className={styles.secondaryButton}
+                        disabled={resettingManagedUserId === managedUser.id}
+                        onClick={() => void handleResetManagedPassword(managedUser.id)}
+                      >
+                        {resettingManagedUserId === managedUser.id
+                          ? "Regeneration..."
+                          : "Regenerer le mot de passe"}
+                      </button>
+                    </article>
+                  ))
+                ) : (
+                  <p className={styles.paragraph}>
+                    Aucun compte gere n&apos;est encore cree pour cet etablissement.
+                  </p>
+                )}
+              </div>
+            </section>
           </div>
         </section>
 

@@ -59,6 +59,37 @@ export class InstitutionsController {
     return this.institutionsService.addInstitutionMember(req.user, institutionId, body);
   }
 
+  @Post(':institutionId/provision-user')
+  provisionManagedUser(
+    @Req() req: RequestUser,
+    @Param('institutionId') institutionId: string,
+    @Body()
+    body: {
+      fullname: string;
+      role: 'admin' | 'teacher' | 'student';
+      email?: string;
+      level?: string;
+      expertise?: string;
+      bio?: string;
+      room_ids?: string[];
+    },
+  ) {
+    return this.institutionsService.provisionManagedUser(req.user, institutionId, body);
+  }
+
+  @Post(':institutionId/managed-users/:managedUserId/reset-password')
+  resetManagedUserPassword(
+    @Req() req: RequestUser,
+    @Param('institutionId') institutionId: string,
+    @Param('managedUserId') managedUserId: string,
+  ) {
+    return this.institutionsService.resetManagedUserPassword(
+      req.user,
+      institutionId,
+      managedUserId,
+    );
+  }
+
   @Post(':institutionId/rooms')
   createRoom(
     @Req() req: RequestUser,
