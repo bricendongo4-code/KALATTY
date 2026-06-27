@@ -178,6 +178,8 @@ type Props = {
   apiBaseUrl: string;
 };
 
+type InstitutionView = "overview" | "accounts" | "classes" | "courses" | "billing";
+
 const formatRoleLabel = (role: string) => {
   if (role === "student") return "Etudiant";
   if (role === "teacher") return "Professeur";
@@ -214,6 +216,7 @@ const formatSubscriptionStatus = (value?: string | null) => {
 };
 
 export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
+  const [activeView, setActiveView] = useState<InstitutionView>("overview");
   const [institutions, setInstitutions] = useState<InstitutionSummary[]>([]);
   const [selectedInstitutionId, setSelectedInstitutionId] = useState("");
   const [selectedRoomId, setSelectedRoomId] = useState("");
@@ -999,8 +1002,47 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
               </article>
             ))}
           </div>
+
+          <div className={styles.studentTabs}>
+            <button
+              type="button"
+              className={activeView === "overview" ? styles.activeTab : styles.studentTab}
+              onClick={() => setActiveView("overview")}
+            >
+              Vue d&apos;ensemble
+            </button>
+            <button
+              type="button"
+              className={activeView === "accounts" ? styles.activeTab : styles.studentTab}
+              onClick={() => setActiveView("accounts")}
+            >
+              Comptes
+            </button>
+            <button
+              type="button"
+              className={activeView === "classes" ? styles.activeTab : styles.studentTab}
+              onClick={() => setActiveView("classes")}
+            >
+              Classes
+            </button>
+            <button
+              type="button"
+              className={activeView === "courses" ? styles.activeTab : styles.studentTab}
+              onClick={() => setActiveView("courses")}
+            >
+              Cours
+            </button>
+            <button
+              type="button"
+              className={activeView === "billing" ? styles.activeTab : styles.studentTab}
+              onClick={() => setActiveView("billing")}
+            >
+              Abonnement
+            </button>
+          </div>
         </section>
 
+        {activeView === "billing" ? (
         <section className={styles.card}>
           <div className={styles.sectionHeader}>
             <div>
@@ -1069,7 +1111,9 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
             ))}
           </div>
         </section>
+        ) : null}
 
+        {(activeView === "overview" || activeView === "classes") ? (
         <section className={styles.card}>
           <div className={styles.sectionHeader}>
             <div>
@@ -1107,7 +1151,9 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
             )}
           </div>
         </section>
+        ) : null}
 
+        {(activeView === "overview" || activeView === "accounts") ? (
         <section className={styles.card}>
           <div className={styles.sectionHeader}>
             <div>
@@ -1250,8 +1296,9 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
             </section>
           </div>
         </section>
+        ) : null}
 
-        {roomDetail ? (
+        {roomDetail && (activeView === "overview" || activeView === "classes" || activeView === "courses") ? (
           <section className={styles.card}>
             <div className={styles.sectionHeader}>
               <div>
@@ -1438,6 +1485,7 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
           </section>
         ) : null}
 
+        {(activeView === "classes" || activeView === "courses") ? (
         <section className={styles.institutionActionGrid}>
           <section className={styles.card}>
             <div className={styles.sectionHeader}>
@@ -1472,6 +1520,7 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
             </form>
           </section>
 
+          {activeView === "courses" ? (
           <section className={styles.card}>
             <div className={styles.sectionHeader}>
               <div>
@@ -1515,8 +1564,11 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
               </button>
             </form>
           </section>
+          ) : null}
         </section>
+        ) : null}
 
+        {(activeView === "courses" || activeView === "overview") ? (
         <section className={styles.institutionActionGrid}>
           <section className={styles.card}>
             <div className={styles.sectionHeader}>
@@ -1592,6 +1644,7 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
             </form>
           </section>
 
+          {activeView === "overview" ? (
           <section className={styles.card}>
             <div className={styles.sectionHeader}>
               <div>
@@ -1647,8 +1700,11 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
               </div>
             ) : null}
           </section>
+          ) : null}
         </section>
+        ) : null}
 
+        {activeView === "overview" ? (
         <section className={styles.card}>
           <div className={styles.sectionHeader}>
             <div>
@@ -1695,9 +1751,11 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
             </section>
           </div>
         </section>
+        ) : null}
       </div>
 
       <div className={styles.sideColumn}>
+        {activeView === "overview" ? (
         <section className={styles.cardAccent}>
           <p className={styles.sectionLabel}>Campus</p>
           <h2>Creer un etablissement</h2>
@@ -1725,18 +1783,20 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
             </button>
           </form>
         </section>
+        ) : null}
 
+        {(activeView === "overview" || activeView === "accounts") ? (
         <section className={styles.card}>
           <p className={styles.sectionLabel}>Annuaire campus</p>
           <h2>Repartition des roles</h2>
           <div className={styles.roadmapList}>
             <article className={styles.roadmapItem}>
               <strong>{institutionCounts.teachers} professeurs</strong>
-              <p>Peuvent etre invites classe par classe avec un lien dedie.</p>
+              <p>Encadrent les cours et les devoirs des classes attribuees.</p>
             </article>
             <article className={styles.roadmapItem}>
               <strong>{institutionCounts.students} etudiants</strong>
-              <p>Rejoignent leurs classes sans saisie manuelle via invitation.</p>
+              <p>Peuvent recevoir un acces genere directement par l&apos;etablissement.</p>
             </article>
             <article className={styles.roadmapItem}>
               <strong>{institutionCounts.admins + institutionCounts.owners} administrateurs</strong>
@@ -1744,7 +1804,9 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
             </article>
           </div>
         </section>
+        ) : null}
 
+        {activeView === "overview" ? (
         <section className={styles.card}>
           <p className={styles.sectionLabel}>Recommandations produit</p>
           <h2>Actions prioritaires</h2>
@@ -1757,7 +1819,9 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
             ))}
           </div>
         </section>
+        ) : null}
 
+        {(activeView === "overview" || activeView === "courses") ? (
         <section className={styles.card}>
           <p className={styles.sectionLabel}>Catalogue</p>
           <h2>Cours disponibles a affecter</h2>
@@ -1775,6 +1839,28 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
             )}
           </div>
         </section>
+        ) : null}
+
+        {activeView === "billing" ? (
+        <section className={styles.cardAccent}>
+          <p className={styles.sectionLabel}>Abonnement campus</p>
+          <h2>Comprendre les plans</h2>
+          <div className={styles.roadmapList}>
+            <article className={styles.roadmapItem}>
+              <strong>Starter</strong>
+              <p>Pour demarrer avec quelques classes et un volume limite d&apos;apprenants.</p>
+            </article>
+            <article className={styles.roadmapItem}>
+              <strong>Growth</strong>
+              <p>Pour un etablissement qui gere plusieurs niveaux, options ou promotions.</p>
+            </article>
+            <article className={styles.roadmapItem}>
+              <strong>Campus</strong>
+              <p>Pour une structure importante avec beaucoup de classes et de comptes internes.</p>
+            </article>
+          </div>
+        </section>
+        ) : null}
 
         {message ? <p className={styles.inlineMessage}>{message}</p> : null}
       </div>
