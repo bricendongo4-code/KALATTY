@@ -9,6 +9,12 @@ import TeacherCourseBuilder from "./TeacherCourseBuilder";
 import styles from "./dashboard.module.css";
 
 type DashboardRole = "student" | "teacher" | "institution";
+type WorkspaceKind =
+  | "public-student"
+  | "public-teacher"
+  | "institution-admin"
+  | "institution-teacher"
+  | "institution-student";
 type StudentView = "home" | "progress" | "institutions" | "profile";
 type TeacherView = "overview" | "profile";
 type StoredUser = {
@@ -22,6 +28,13 @@ type StoredUser = {
 };
 type DashboardResponse = {
   role: DashboardRole;
+  workspace?: {
+    kind: WorkspaceKind;
+    institutionId?: string | null;
+    institutionName?: string | null;
+    institutionRole?: string | null;
+    managed?: boolean;
+  };
   profile: StoredUser;
   stats: Record<string, number>;
   courses: Array<Record<string, unknown>>;
@@ -108,7 +121,6 @@ export default function DashboardPage() {
     }
   });
   const [dashboardData, setDashboardData] = useState<DashboardResponse | null>(null);
-  const [hasInstitutionAccess, setHasInstitutionAccess] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [studentView, setStudentView] = useState<StudentView>("home");
@@ -183,66 +195,58 @@ export default function DashboardPage() {
     void fetchDashboard();
   }, [apiBaseUrl, router]);
 
-  useEffect(() => {
-    const token = localStorage.getItem("kalatty_token");
-    if (!token) {
-      return;
-    }
-
-    const detectInstitutionAccess = async () => {
-      try {
-        const res = await fetch(`${apiBaseUrl}/institutions/mine`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        const data = await res.json();
-        if (!res.ok) {
-          setHasInstitutionAccess(false);
-          return;
-        }
-
-        const hasAccess = Array.isArray(data) && data.length > 0;
-        setHasInstitutionAccess(hasAccess);
-
-        if (hasAccess) {
-          const rawUser = localStorage.getItem("kalatty_user");
-          if (rawUser) {
-            try {
-              const parsedUser = JSON.parse(rawUser) as StoredUser;
-              localStorage.setItem(
-                "kalatty_user",
-                JSON.stringify({
-                  ...parsedUser,
-                  role: "institution",
-                }),
-              );
-            } catch {
-              // Ignore malformed local cache and keep runtime detection.
-            }
-          }
-        }
-      } catch {
-        setHasInstitutionAccess(false);
-      }
-    };
-
-    void detectInstitutionAccess();
-  }, [apiBaseUrl]);
-
   const role: DashboardRole = dashboardData?.role === "institution"
     ? "institution"
     : dashboardData?.role === "teacher"
       ? "teacher"
-      : hasInstitutionAccess || user?.role === "institution"
-        ? "institution"
-        : user?.role === "teacher"
+      : user?.role === "teacher"
           ? "teacher"
           : "student";
+  const workspace = dashboardData?.workspace;
+  const isInstitutionAdmin = workspace?.kind === "institution-admin" || role === "institution";
+  const isInstitutionTeacher = workspace?.kind === "institution-teacher";
+  const isInstitutionStudent = workspace?.kind === "institution-student";
+  const workspaceInstitutionName = String(
+    workspace?.institutionName ??
+      dashboardData?.studentInstitutions?.[0]?.name ??
+      dashboardData?.teacherRooms?.[0]?.institutionName ??
+      user?.school_name ??
+      "",
+  ).trim();
   const profile = dashboardData?.profile ?? user;
   const displayName =
-    profile?.fullname?.trim() || (role === "teacher" ? "Formateur" : role === "institution" ? "Etablissement" : "Apprenant");
+    (isInstitutionAdmin ? workspaceInstitutionName : profile?.fullname?.trim()) ||
+    (role === "teacher" ? "Formateur" : role === "institution" ? "Etablissement" : "Apprenant");
+  const workspaceTitle =
+    role === "institution"
+      ? "Espace administrateur etablissement"
+      : role === "teacher"
+        ? isInstitutionTeacher
+          ? "Espace professeur d'etablissement"
+          : "Espace formateur"
+        : isInstitutionStudent
+          ? "Espace etudiant d'etablissement"
+          : "Espace etudiant";
+  const workspaceHeroTitle =
+    role === "institution"
+      ? `Campus digital, ${displayName}`
+      : role === "teacher"
+        ? isInstitutionTeacher
+          ? `Classes et cours campus, ${displayName}`
+          : `Espace formateur, ${displayName}`
+        : isInstitutionStudent
+          ? `Suivi campus, ${displayName}`
+          : `Bon retour, ${displayName}`;
+  const workspaceHeroText =
+    role === "institution"
+      ? "Regroupe tes eleves, cree des salles, equipe tes professeurs et pilote les devoirs."
+      : role === "teacher"
+        ? isInstitutionTeacher
+          ? "Retrouve tes classes rattachees, publie les devoirs et gere les cours diffuses dans ton etablissement."
+          : "Pilote tes contenus, retrouve tes cours et filtre rapidement."
+        : isInstitutionStudent
+          ? "Retrouve tes cours Kalatty, tes classes d'etablissement et les devoirs diffuses par ton campus."
+          : "Accueil catalogue, reprise des cours et lien avec l'etablissement.";
   const studentCourses = dashboardData?.courses ?? [];
   const teacherCourses = dashboardData?.courses ?? [];
   const teacherRooms = dashboardData?.teacherRooms ?? [];
@@ -792,7 +796,7 @@ export default function DashboardPage() {
           </div>
         </Link>
         <div className={styles.dashboardMastheadMeta}>
-          <span>{role === "student" ? "Espace etudiant" : role === "teacher" ? "Espace formateur" : "Espace etablissement"}</span>
+          <span>{workspaceTitle}</span>
           <span>{displayName}</span>
         </div>
       </section>
@@ -817,35 +821,27 @@ export default function DashboardPage() {
               </div>
             </Link>
             <h1>
-              {role === "student"
-                ? `Bon retour, ${displayName}`
-                : role === "teacher"
-                  ? `Espace formateur, ${displayName}`
-                  : `Campus digital, ${displayName}`}
+              {workspaceHeroTitle}
             </h1>
             <p className={styles.heroText}>
-              {role === "student"
-                ? "Accueil catalogue, reprise des cours et lien avec l'etablissement."
-                : role === "teacher"
-                  ? "Pilote tes contenus, retrouve tes cours et filtre rapidement."
-                  : "Regroupe tes eleves, cree des salles et organise les exercices."}
+              {workspaceHeroText}
             </p>
           </div>
 
           <div className={styles.actions}>
             {role === "student" ? (
               <label className={styles.viewPicker}>
-                <span>Menu etudiant</span>
+                <span>{isInstitutionStudent ? "Menu etudiant campus" : "Menu etudiant"}</span>
                 <select value={studentView} onChange={(event) => setStudentView(event.target.value as StudentView)}>
                   <option value="home">Accueil</option>
                   <option value="progress">Suivi des cours</option>
-                  <option value="institutions">Etablissements</option>
+                  <option value="institutions">{isInstitutionStudent ? "Mon campus" : "Etablissements"}</option>
                   <option value="profile">Mon profil</option>
                 </select>
               </label>
             ) : role === "teacher" ? (
               <label className={styles.viewPicker}>
-                <span>Menu enseignant</span>
+                <span>{isInstitutionTeacher ? "Menu professeur campus" : "Menu enseignant"}</span>
                 <select value={teacherView} onChange={(event) => setTeacherView(event.target.value as TeacherView)}>
                   <option value="overview">Pilotage</option>
                   <option value="profile">Mon profil</option>
@@ -853,7 +849,7 @@ export default function DashboardPage() {
               </label>
             ) : null}
             <div className={styles.roleBadge}>
-              {role === "student" ? "Interface etudiant" : role === "teacher" ? "Interface enseignant" : "Interface etablissement"}
+              {workspaceTitle}
             </div>
             <button type="button" className={styles.logoutButton} onClick={handleLogout}>
               Se deconnecter
@@ -869,7 +865,17 @@ export default function DashboardPage() {
           </div>
           <div className={styles.profileCard}>
             <span className={styles.profileLabel}>Profil Kalatty</span>
-            <strong>{role === "student" ? "Etudiant" : role === "teacher" ? "Enseignant" : "Etablissement"}</strong>
+            <strong>
+              {role === "student"
+                ? isInstitutionStudent
+                  ? "Etudiant d'etablissement"
+                  : "Etudiant"
+                : role === "teacher"
+                  ? isInstitutionTeacher
+                    ? "Professeur d'etablissement"
+                    : "Enseignant"
+                  : "Etablissement"}
+            </strong>
             <span>
               {role === "student"
                 ? profile?.level || "Niveau a completer dans le profil"
@@ -887,7 +893,7 @@ export default function DashboardPage() {
             <div className={styles.studentTabs}>
               <button type="button" className={studentView === "home" ? styles.activeTab : styles.studentTab} onClick={() => setStudentView("home")}>Accueil</button>
               <button type="button" className={studentView === "progress" ? styles.activeTab : styles.studentTab} onClick={() => setStudentView("progress")}>Suivi des cours</button>
-              <button type="button" className={studentView === "institutions" ? styles.activeTab : styles.studentTab} onClick={() => setStudentView("institutions")}>Etablissements</button>
+              <button type="button" className={studentView === "institutions" ? styles.activeTab : styles.studentTab} onClick={() => setStudentView("institutions")}>{isInstitutionStudent ? "Mon campus" : "Etablissements"}</button>
               <button type="button" className={studentView === "profile" ? styles.activeTab : styles.studentTab} onClick={() => setStudentView("profile")}>Mon profil</button>
             </div>
           </section>
@@ -897,10 +903,12 @@ export default function DashboardPage() {
               <div className={styles.primaryColumn}>
                 <section className={styles.studentShowcase}>
                   <div className={styles.showcaseCopy}>
-                    <p className={styles.sectionLabel}>Accueil etudiant</p>
-                    <h2>Reprendre, apprendre, avancer</h2>
+                    <p className={styles.sectionLabel}>{isInstitutionStudent ? "Accueil campus" : "Accueil etudiant"}</p>
+                    <h2>{isInstitutionStudent ? "Apprendre avec ton campus" : "Reprendre, apprendre, avancer"}</h2>
                     <p className={styles.paragraph}>
-                      Ton espace regroupe les cours suivis, les prochaines lecons, les recommandations et le lien avec ton etablissement.
+                      {isInstitutionStudent
+                        ? "Ton espace regroupe les cours Kalatty, les consignes de tes classes et les actions diffusees par ton etablissement."
+                        : "Ton espace regroupe les cours suivis, les prochaines lecons, les recommandations et le lien avec ton etablissement."}
                     </p>
                     <div className={styles.showcaseStats}>
                       {studentQuickStats.map((stat) => (
@@ -1036,8 +1044,8 @@ export default function DashboardPage() {
                   </div>
                 </section>
                 <section className={styles.card}>
-                  <p className={styles.sectionLabel}>Etablissement</p>
-                  <h2>{String(studentInstitutions[0]?.name ?? profile?.school_name ?? "Aucun rattachement")}</h2>
+                  <p className={styles.sectionLabel}>{isInstitutionStudent ? "Campus actif" : "Etablissement"}</p>
+                  <h2>{String(studentInstitutions[0]?.name ?? workspaceInstitutionName ?? profile?.school_name ?? "Aucun rattachement")}</h2>
                   <p className={styles.paragraph}>
                     {studentInstitutions.length > 0
                       ? "Tes salles, devoirs et cours diffuses par ton etablissement sont maintenant regroupes dans cet espace."
@@ -1115,8 +1123,8 @@ export default function DashboardPage() {
               <div className={styles.primaryColumn}>
                 <section className={styles.card}>
                   <div className={styles.sectionHeader}>
-                    <div><p className={styles.sectionLabel}>Etablissements</p><h2>Mes salles et groupes</h2></div>
-                    <span className={styles.sectionHint}>Lycees, universites et centres partenaires</span>
+                    <div><p className={styles.sectionLabel}>{isInstitutionStudent ? "Campus" : "Etablissements"}</p><h2>{isInstitutionStudent ? "Mes classes et mon etablissement" : "Mes salles et groupes"}</h2></div>
+                    <span className={styles.sectionHint}>{isInstitutionStudent ? "Organisation pedagogique de ton etablissement" : "Lycees, universites et centres partenaires"}</span>
                   </div>
                   <label className={styles.searchBar}>
                     <span>Recherche institutionnelle</span>
@@ -1129,7 +1137,7 @@ export default function DashboardPage() {
                         <h3>{String(institution.name ?? "Etablissement")}</h3>
                         <p>
                           {String(institution.institutionType ?? "Structure partenaire")}
-                          {institution.planName ? ` • plan ${String(institution.planName)}` : ""}
+                          {institution.planName ? ` | plan ${String(institution.planName)}` : ""}
                         </p>
                       </article>
                     )) : (
@@ -1149,7 +1157,7 @@ export default function DashboardPage() {
                     {filteredInstitutionRooms.length > 0 ? filteredInstitutionRooms.map((room) => (
                       <article key={String(room.id ?? room.name ?? "room")} className={styles.roadmapItem}>
                         <strong>{String(room.name ?? "Salle")}</strong>
-                        <p>{String(room.institutionName ?? "Etablissement")} • role {String(room.role ?? "student")}</p>
+                        <p>{String(room.institutionName ?? "Etablissement")} | role {String(room.role ?? "student")}</p>
                         <p>
                           {Number(room.pendingAssignments ?? 0) > 0
                             ? `${Number(room.pendingAssignments ?? 0)} devoir(s) publie(s) a consulter.`
@@ -1170,7 +1178,7 @@ export default function DashboardPage() {
               <div className={styles.sideColumn}>
                 <section className={styles.cardAccent}>
                   <p className={styles.sectionLabel}>Profil rattache</p>
-                  <h2>Mon etablissement</h2>
+                  <h2>{isInstitutionStudent ? "Mon campus" : "Mon etablissement"}</h2>
                   <p className={styles.paragraph}>
                     {studentInstitutions[0]?.name
                       ? `Compte actuellement relie a ${String(studentInstitutions[0].name)} avec ${linkedRoomsCount} salle(s) active(s).`
@@ -1198,10 +1206,12 @@ export default function DashboardPage() {
           <div className={styles.primaryColumn}>
             <section className={styles.studentShowcase}>
               <div className={styles.showcaseCopy}>
-                <p className={styles.sectionLabel}>Espace enseignant</p>
-                <h2>Produire, suivre, corriger</h2>
+                <p className={styles.sectionLabel}>{isInstitutionTeacher ? "Espace professeur campus" : "Espace enseignant"}</p>
+                <h2>{isInstitutionTeacher ? "Enseigner, diffuser, corriger" : "Produire, suivre, corriger"}</h2>
                 <p className={styles.paragraph}>
-                  Un tableau de bord pour retrouver tes cours, suivre les apprenants et travailler avec les classes rattachees aux etablissements.
+                  {isInstitutionTeacher
+                    ? "Un tableau de bord centre sur tes classes, tes devoirs et les cours diffuses dans ton etablissement."
+                    : "Un tableau de bord pour retrouver tes cours, suivre les apprenants et travailler avec les classes rattachees aux etablissements."}
                 </p>
                 <div className={styles.showcaseStats}>
                   {teacherQuickStats.map((stat) => (
@@ -1290,7 +1300,7 @@ export default function DashboardPage() {
 
             <section className={styles.card}>
               <div className={styles.sectionHeader}>
-                <div><p className={styles.sectionLabel}>Classes</p><h2>Mes classes d&apos;etablissement</h2></div>
+                <div><p className={styles.sectionLabel}>Classes</p><h2>{isInstitutionTeacher ? "Mes classes campus" : "Mes classes d&apos;etablissement"}</h2></div>
                 <span className={styles.sectionHint}>{activeClassesCount} classes actives</span>
               </div>
               <div className={styles.teacherCourseGrid}>

@@ -1266,11 +1266,11 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
                     <article key={managedUser.id} className={styles.roadmapItem}>
                       <strong>{managedUser.full_name}</strong>
                       <p>
-                        {formatRoleLabel(managedUser.managed_role)} • {managedUser.login_email}
+                        {formatRoleLabel(managedUser.managed_role)} | {managedUser.login_email}
                       </p>
                       <small>
                         {managedUser.profiles?.level || managedUser.profiles?.expertise || "Profil interne"}
-                        {" • "}
+                        {" | "}
                         {managedUser.must_reset_password
                           ? "Mot de passe provisoire actif"
                           : "Acces actif"}

@@ -9,26 +9,47 @@ type ProfileUpdatePayload = {
   bio?: string | null;
 };
 
+type DashboardRole = 'student' | 'teacher' | 'institution';
+type WorkspaceKind =
+  | 'public-student'
+  | 'public-teacher'
+  | 'institution-admin'
+  | 'institution-teacher'
+  | 'institution-student';
+
+type WorkspacePayload = {
+  kind: WorkspaceKind;
+  institutionId: string | null;
+  institutionName: string | null;
+  institutionRole: string | null;
+  managed: boolean;
+};
+
+type DashboardContext = {
+  dashboardRole: DashboardRole;
+  workspace: WorkspacePayload;
+};
+
 @Injectable()
 export class DashboardService {
   constructor(private readonly supabaseService: SupabaseService) {}
 
   async getDashboard(userId: string) {
     const profile = await this.getProfile(userId);
-    const effectiveRole = await this.resolveDashboardRole(
+    const context = await this.resolveDashboardContext(
       userId,
       String(profile.role ?? ''),
     );
 
-    if (effectiveRole === 'teacher') {
-      return this.getTeacherDashboard(profile);
+    if (context.dashboardRole === 'teacher') {
+      return this.getTeacherDashboard(profile, context.workspace);
     }
 
-    if (effectiveRole === 'institution') {
+    if (context.dashboardRole === 'institution') {
       return this.getInstitutionDashboard(userId, profile);
     }
 
-    return this.getStudentDashboard(profile);
+    return this.getStudentDashboard(profile, context.workspace);
   }
 
   private async getProfile(userId: string) {
@@ -76,7 +97,10 @@ export class DashboardService {
     return data;
   }
 
-  private async getStudentDashboard(profile: Record<string, unknown>) {
+  private async getStudentDashboard(
+    profile: Record<string, unknown>,
+    workspace: WorkspacePayload,
+  ) {
     const { data: enrollments } = await this.supabaseService.client
       .from('enrollments')
       .select(
@@ -348,6 +372,7 @@ export class DashboardService {
 
     return {
       role: 'student',
+      workspace,
       profile,
       stats: {
         enrolledCourses: enrollmentsList.length,
@@ -392,7 +417,10 @@ export class DashboardService {
     );
   }
 
-  private async getTeacherDashboard(profile: Record<string, unknown>) {
+  private async getTeacherDashboard(
+    profile: Record<string, unknown>,
+    workspace: WorkspacePayload,
+  ) {
     const { data: courses } = await this.supabaseService.client
       .from('courses')
       .select(
@@ -431,6 +459,7 @@ export class DashboardService {
 
     return {
       role: 'teacher',
+      workspace,
       profile,
       stats: {
         publishedCourses: coursesList.length,
@@ -451,22 +480,149 @@ export class DashboardService {
     };
   }
 
-  private async resolveDashboardRole(userId: string, profileRole: string) {
-    if (profileRole === 'teacher' || profileRole === 'institution') {
-      return profileRole;
+  private async resolveDashboardContext(
+    userId: string,
+    profileRole: string,
+  ): Promise<DashboardContext> {
+    const [memberContext, managedContext] = await Promise.all([
+      this.getInstitutionMemberContext(userId),
+      this.getManagedInstitutionContext(userId),
+    ]);
+
+    const institutionId =
+      memberContext?.institutionId ?? managedContext?.institutionId ?? null;
+    const institutionName =
+      memberContext?.institutionName ?? managedContext?.institutionName ?? null;
+    const institutionRole =
+      memberContext?.role ?? managedContext?.role ?? null;
+    const managed = Boolean(managedContext);
+
+    if (
+      profileRole === 'institution' ||
+      institutionRole === 'owner' ||
+      institutionRole === 'admin' ||
+      (await this.userOwnsInstitution(userId)) ||
+      (await this.userManagesInstitution(userId))
+    ) {
+      return {
+        dashboardRole: 'institution',
+        workspace: {
+          kind: 'institution-admin',
+          institutionId,
+          institutionName,
+          institutionRole: institutionRole ?? 'admin',
+          managed,
+        },
+      };
     }
 
-    const ownsInstitution = await this.userOwnsInstitution(userId);
-    if (ownsInstitution) {
-      return 'institution';
+    if (profileRole === 'teacher' || institutionRole === 'teacher') {
+      return {
+        dashboardRole: 'teacher',
+        workspace: {
+          kind: institutionRole === 'teacher' ? 'institution-teacher' : 'public-teacher',
+          institutionId,
+          institutionName,
+          institutionRole,
+          managed,
+        },
+      };
     }
 
-    const managesInstitution = await this.userManagesInstitution(userId);
-    if (managesInstitution) {
-      return 'institution';
+    if (institutionRole === 'student') {
+      return {
+        dashboardRole: 'student',
+        workspace: {
+          kind: 'institution-student',
+          institutionId,
+          institutionName,
+          institutionRole,
+          managed,
+        },
+      };
     }
 
-    return 'student';
+    return {
+      dashboardRole: 'student',
+      workspace: {
+        kind: 'public-student',
+        institutionId: null,
+        institutionName: null,
+        institutionRole: null,
+        managed: false,
+      },
+    };
+  }
+
+  private async getInstitutionMemberContext(userId: string) {
+    const { data, error } = await this.supabaseService.client
+      .from('institution_members')
+      .select(
+        `
+          role,
+          joined_at,
+          institutions (
+            id,
+            name
+          )
+        `,
+      )
+      .eq('user_id', userId)
+      .order('joined_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !data) {
+      return null;
+    }
+
+    const institution = Array.isArray(data.institutions)
+      ? data.institutions[0]
+      : data.institutions;
+
+    return {
+      role: String(data.role ?? ''),
+      institutionId: institution?.id ? String(institution.id) : null,
+      institutionName: institution?.name ? String(institution.name) : null,
+    };
+  }
+
+  private async getManagedInstitutionContext(userId: string) {
+    const hasManagedUserTable = await this.hasTable('institution_managed_users');
+    if (!hasManagedUserTable) {
+      return null;
+    }
+
+    const { data, error } = await this.supabaseService.client
+      .from('institution_managed_users')
+      .select(
+        `
+          managed_role,
+          created_at,
+          institutions (
+            id,
+            name
+          )
+        `,
+      )
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !data) {
+      return null;
+    }
+
+    const institution = Array.isArray(data.institutions)
+      ? data.institutions[0]
+      : data.institutions;
+
+    return {
+      role: String(data.managed_role ?? ''),
+      institutionId: institution?.id ? String(institution.id) : null,
+      institutionName: institution?.name ? String(institution.name) : null,
+    };
   }
 
   private async userOwnsInstitution(userId: string) {
@@ -498,6 +654,19 @@ export class DashboardService {
     }
 
     return Boolean(data?.id);
+  }
+
+  private async hasTable(tableName: string) {
+    const { error } = await this.supabaseService.client
+      .from(tableName)
+      .select('id')
+      .limit(1);
+
+    if (!error) {
+      return true;
+    }
+
+    return !this.isMissingTableError(error);
   }
 
   private async getTeacherRevenue(teacherId: string) {
@@ -693,6 +862,13 @@ export class DashboardService {
 
     return {
       role: 'institution',
+      workspace: {
+        kind: 'institution-admin',
+        institutionId: institutions[0]?.id ?? null,
+        institutionName: institutions[0]?.name ?? null,
+        institutionRole: institutions[0]?.membershipRole ?? 'owner',
+        managed: false,
+      },
       profile,
       stats: {
         activeStudents: studentCount,
