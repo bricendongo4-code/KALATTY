@@ -125,6 +125,7 @@ export default function DashboardPage() {
   const [teacherAssignmentTitle, setTeacherAssignmentTitle] = useState("");
   const [teacherAssignmentInstructions, setTeacherAssignmentInstructions] = useState("");
   const [teacherActionMessage, setTeacherActionMessage] = useState("");
+  const [editingTeacherCourseId, setEditingTeacherCourseId] = useState("");
   const [reviewForm, setReviewForm] = useState({
     submissionId: "",
     score: "",
@@ -1258,6 +1259,13 @@ export default function DashboardPage() {
                       <span>{String(course.thumbnailUrl ?? "") ? "Miniature prete" : "Miniature manquante"}</span>
                     </div>
                     <div className={styles.courseActionRow}>
+                      <button
+                        type="button"
+                        className={styles.secondaryButton}
+                        onClick={() => setEditingTeacherCourseId(String(course.id ?? ""))}
+                      >
+                        Modifier le cours
+                      </button>
                       <Link href={`/courses/${String(course.id)}`} className={styles.catalogDetailLink}>
                         Voir la fiche publique
                       </Link>
@@ -1478,6 +1486,8 @@ export default function DashboardPage() {
             <TeacherCourseBuilder
               apiBaseUrl={apiBaseUrl}
               onCourseCreated={fetchDashboard}
+              editingCourseId={editingTeacherCourseId || null}
+              onCancelEdit={() => setEditingTeacherCourseId("")}
             />
           </div>
 

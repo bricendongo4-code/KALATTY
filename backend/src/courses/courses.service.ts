@@ -24,6 +24,7 @@ type ExercisePayload = {
 };
 
 type LessonPayload = {
+  id?: string;
   title: string;
   content?: string;
   video_path?: string;
@@ -32,6 +33,7 @@ type LessonPayload = {
 };
 
 type ModulePayload = {
+  id?: string;
   title: string;
   description?: string;
   lessons?: LessonPayload[];
@@ -205,6 +207,48 @@ export class CoursesService {
       lessonsCount: course.lessons?.length ?? 0,
       learners: course.enrollments?.length ?? 0,
     }));
+  }
+
+  async getTeacherCourseForEdit(user: AuthUser, courseId: string) {
+    const course = await this.assertTeacherCourseAccess(user, courseId);
+
+    return {
+      id: course.id,
+      title: course.title ?? '',
+      description: course.description ?? '',
+      short_description: course.short_description ?? '',
+      price_fcfa: Number(course.price_fcfa ?? 0),
+      thumbnail_path: course.thumbnail_url ?? '',
+      status: course.status ?? 'published',
+      modules: (course.course_modules ?? [])
+        .slice()
+        .sort(
+          (a: any, b: any) => Number(a.order_index ?? 0) - Number(b.order_index ?? 0),
+        )
+        .map((module: any) => ({
+          id: module.id,
+          title: module.title ?? '',
+          description: module.description ?? '',
+          lessons: (module.lessons ?? [])
+            .slice()
+            .sort(
+              (a: any, b: any) =>
+                Number(a.order_index ?? 0) - Number(b.order_index ?? 0),
+            )
+            .map((lesson: any) => ({
+              id: lesson.id,
+              title: lesson.title ?? '',
+              content: lesson.content ?? '',
+              video_path: lesson.video_path ?? '',
+              duration_seconds:
+                lesson.duration_seconds !== null &&
+                lesson.duration_seconds !== undefined
+                  ? Number(lesson.duration_seconds)
+                  : null,
+              is_preview: Boolean(lesson.is_preview),
+            })),
+        })),
+    };
   }
 
   async getPublicDiscovery() {
@@ -1005,130 +1049,7 @@ export class CoursesService {
       );
     }
 
-    for (let moduleIndex = 0; moduleIndex < modules.length; moduleIndex += 1) {
-      const modulePayload = modules[moduleIndex];
-      const { data: moduleRow, error: moduleError } =
-        await this.supabaseService.client
-          .from('course_modules')
-          .insert({
-            course_id: course.id,
-            title: modulePayload.title.trim(),
-            description: modulePayload.description?.trim() || null,
-            order_index: moduleIndex,
-          })
-          .select('id')
-          .single();
-
-      if (moduleError || !moduleRow) {
-        throw new BadRequestException(
-          moduleError?.message ??
-            `Impossible de creer le module ${modulePayload.title}.`,
-        );
-      }
-
-      const files = (modulePayload.files ?? []).filter(
-        (file) => file?.name?.trim() && file?.file_path?.trim(),
-      );
-
-      if (files.length > 0) {
-        const { error: filesError } = await this.supabaseService.client
-          .from('course_assets')
-          .insert(
-            files.map((file) => ({
-              course_id: course.id,
-              module_id: moduleRow.id,
-              name: file.name.trim(),
-              file_path: file.file_path.trim(),
-              file_type: file.file_type?.trim() || 'document',
-            })),
-          );
-
-        if (filesError) {
-          throw new BadRequestException(
-            filesError.message ??
-              `Impossible d'ajouter les fichiers du module ${modulePayload.title}.`,
-          );
-        }
-      }
-
-      const lessons = (modulePayload.lessons ?? []).filter((lesson) =>
-        lesson?.title?.trim(),
-      );
-
-      for (let lessonIndex = 0; lessonIndex < lessons.length; lessonIndex += 1) {
-        const lesson = lessons[lessonIndex];
-        const { error: lessonError } = await this.supabaseService.client
-          .from('lessons')
-          .insert({
-            course_id: course.id,
-            module_id: moduleRow.id,
-            title: lesson.title.trim(),
-            content: lesson.content?.trim() || null,
-            order_index: lessonIndex,
-            lesson_type: 'video',
-            video_path: lesson.video_path?.trim() || null,
-            duration_seconds: lesson.duration_seconds ?? null,
-            is_preview: lesson.is_preview ?? false,
-          });
-
-        if (lessonError) {
-          throw new BadRequestException(
-            lessonError.message ??
-              `Impossible d'ajouter la lecon ${lesson.title}.`,
-          );
-        }
-      }
-
-      const exercises = (modulePayload.exercises ?? []).filter((exercise) =>
-        exercise?.title?.trim(),
-      );
-
-      for (const exercise of exercises) {
-        const { data: exerciseRow, error: exerciseError } =
-          await this.supabaseService.client
-            .from('exercises')
-            .insert({
-              course_id: course.id,
-              module_id: moduleRow.id,
-              title: exercise.title.trim(),
-              instructions: exercise.instructions?.trim() || null,
-              correction: exercise.correction?.trim() || null,
-            })
-            .select('id')
-            .single();
-
-        if (exerciseError || !exerciseRow) {
-          throw new BadRequestException(
-            exerciseError?.message ??
-              `Impossible d'ajouter l'exercice ${exercise.title}.`,
-          );
-        }
-
-        const exerciseFiles = (exercise.files ?? []).filter(
-          (file) => file?.name?.trim() && file?.file_path?.trim(),
-        );
-
-        if (exerciseFiles.length > 0) {
-          const { error: exerciseFilesError } = await this.supabaseService.client
-            .from('exercise_files')
-            .insert(
-              exerciseFiles.map((file) => ({
-                exercise_id: exerciseRow.id,
-                name: file.name.trim(),
-                file_path: file.file_path.trim(),
-                file_type: file.file_type?.trim() || 'document',
-              })),
-            );
-
-          if (exerciseFilesError) {
-            throw new BadRequestException(
-              exerciseFilesError.message ??
-                `Impossible d'ajouter les fichiers de l'exercice ${exercise.title}.`,
-            );
-          }
-        }
-      }
-    }
+    await this.upsertCourseContent(course.id, modules, { allowUpdates: false });
 
     return {
       id: course.id,
@@ -1145,6 +1066,71 @@ export class CoursesService {
         0,
       ),
       learners: 0,
+    };
+  }
+
+  async updateCourse(user: AuthUser, courseId: string, payload: CreateCoursePayload) {
+    const course = await this.assertTeacherCourseAccess(user, courseId);
+
+    const title =
+      typeof payload.title === 'string' ? payload.title.trim() : '';
+    const description = payload.description?.trim() || null;
+    const shortDescription = payload.short_description?.trim() || null;
+    const thumbnailPath = payload.thumbnail_path?.trim() || null;
+    const priceFcfa = Number(payload.price_fcfa ?? 0);
+    const modules = (payload.modules ?? []).filter((module) =>
+      module?.title?.trim(),
+    );
+
+    if (!title) {
+      throw new BadRequestException('Le titre du cours est obligatoire.');
+    }
+
+    if (Number.isNaN(priceFcfa) || priceFcfa < 0) {
+      throw new BadRequestException('Le prix du cours est invalide.');
+    }
+
+    const { data: updatedCourse, error: updateError } = await this.supabaseService.client
+      .from('courses')
+      .update({
+        title,
+        description,
+        short_description: shortDescription,
+        price_fcfa: priceFcfa,
+        thumbnail_url: thumbnailPath,
+      })
+      .eq('id', course.id)
+      .select(
+        'id, title, description, short_description, price_fcfa, thumbnail_url, status, created_at',
+      )
+      .single();
+
+    if (updateError || !updatedCourse) {
+      throw new BadRequestException(
+        updateError?.message ?? 'Impossible de mettre a jour ce cours.',
+      );
+    }
+
+    await this.upsertCourseContent(course.id, modules, { allowUpdates: true });
+
+    return {
+      id: updatedCourse.id,
+      title: updatedCourse.title,
+      description: updatedCourse.description ?? '',
+      shortDescription: updatedCourse.short_description ?? '',
+      priceFcfa: Number(updatedCourse.price_fcfa ?? 0),
+      thumbnailPath: updatedCourse.thumbnail_url ?? '',
+      status: updatedCourse.status ?? 'published',
+      createdAt: updatedCourse.created_at,
+      modulesCount: modules.length,
+      lessonsCount: modules.reduce(
+        (sum, module) =>
+          sum + (module.lessons?.filter((lesson) => lesson?.title?.trim()).length ?? 0),
+        0,
+      ),
+      learners: 0,
+      message:
+        "Cours mis a jour. Les suppressions de modules et lecons existants ne sont pas encore appliquees automatiquement.",
     };
   }
 
@@ -1188,6 +1174,189 @@ export class CoursesService {
       .replace(/-+/g, '-')
       .replace(/^-+|-+$/g, '')
       .slice(0, 120);
+  }
+
+  private async assertTeacherCourseAccess(user: AuthUser, courseId: string) {
+    const role = await this.resolveRole(user);
+
+    if (role !== 'teacher' && role !== 'admin') {
+      throw new ForbiddenException(
+        'Cette action est reservee aux enseignants.',
+      );
+    }
+
+    const { data, error } = await this.supabaseService.client
+      .from('courses')
+      .select(
+        `
+          id,
+          teacher_id,
+          title,
+          description,
+          short_description,
+          price_fcfa,
+          thumbnail_url,
+          status,
+          course_modules (
+            id,
+            title,
+            description,
+            order_index,
+            lessons (
+              id,
+              title,
+              content,
+              video_path,
+              duration_seconds,
+              is_preview,
+              order_index
+            )
+          )
+        `,
+      )
+      .eq('id', courseId)
+      .maybeSingle();
+
+    if (error || !data) {
+      throw new BadRequestException(
+        error?.message ?? 'Cours introuvable.',
+      );
+    }
+
+    if (role !== 'admin' && data.teacher_id !== user.id) {
+      throw new ForbiddenException(
+        "Tu ne peux modifier que tes propres cours.",
+      );
+    }
+
+    return data;
+  }
+
+  private async upsertCourseContent(
+    courseId: string,
+    modules: ModulePayload[],
+    options: { allowUpdates: boolean },
+  ) {
+    const existingCourse = options.allowUpdates
+      ? await this.assertTeacherCourseAccess({ id: '', role: 'admin' }, courseId)
+      : null;
+
+    const existingModulesById = new Map<string, any>(
+      (existingCourse?.course_modules ?? []).map((module: any) => [module.id, module]),
+    );
+    const existingLessonsById = new Map<string, any>();
+
+    for (const module of existingCourse?.course_modules ?? []) {
+      for (const lesson of module.lessons ?? []) {
+        existingLessonsById.set(lesson.id, {
+          ...lesson,
+          module_id: module.id,
+        });
+      }
+    }
+
+    for (let moduleIndex = 0; moduleIndex < modules.length; moduleIndex += 1) {
+      const modulePayload = modules[moduleIndex];
+      let moduleId = modulePayload.id?.trim() || '';
+
+      if (options.allowUpdates && moduleId && existingModulesById.has(moduleId)) {
+        const { error: moduleUpdateError } = await this.supabaseService.client
+          .from('course_modules')
+          .update({
+            title: modulePayload.title.trim(),
+            description: modulePayload.description?.trim() || null,
+            order_index: moduleIndex,
+          })
+          .eq('id', moduleId)
+          .eq('course_id', courseId);
+
+        if (moduleUpdateError) {
+          throw new BadRequestException(
+            moduleUpdateError.message ??
+              `Impossible de mettre a jour le module ${modulePayload.title}.`,
+          );
+        }
+      } else {
+        const { data: moduleRow, error: moduleError } =
+          await this.supabaseService.client
+            .from('course_modules')
+            .insert({
+              course_id: courseId,
+              title: modulePayload.title.trim(),
+              description: modulePayload.description?.trim() || null,
+              order_index: moduleIndex,
+            })
+            .select('id')
+            .single();
+
+        if (moduleError || !moduleRow) {
+          throw new BadRequestException(
+            moduleError?.message ??
+              `Impossible de creer le module ${modulePayload.title}.`,
+          );
+        }
+
+        moduleId = moduleRow.id;
+      }
+
+      const lessons = (modulePayload.lessons ?? []).filter((lesson) =>
+        lesson?.title?.trim(),
+      );
+
+      for (let lessonIndex = 0; lessonIndex < lessons.length; lessonIndex += 1) {
+        const lesson = lessons[lessonIndex];
+        const lessonId = lesson.id?.trim() || '';
+
+        if (
+          options.allowUpdates &&
+          lessonId &&
+          existingLessonsById.has(lessonId)
+        ) {
+          const { error: lessonUpdateError } = await this.supabaseService.client
+            .from('lessons')
+            .update({
+              module_id: moduleId,
+              title: lesson.title.trim(),
+              content: lesson.content?.trim() || null,
+              order_index: lessonIndex,
+              lesson_type: 'video',
+              video_path: lesson.video_path?.trim() || null,
+              duration_seconds: lesson.duration_seconds ?? null,
+              is_preview: lesson.is_preview ?? false,
+            })
+            .eq('id', lessonId)
+            .eq('course_id', courseId);
+
+          if (lessonUpdateError) {
+            throw new BadRequestException(
+              lessonUpdateError.message ??
+                `Impossible de mettre a jour la lecon ${lesson.title}.`,
+            );
+          }
+        } else {
+          const { error: lessonError } = await this.supabaseService.client
+            .from('lessons')
+            .insert({
+              course_id: courseId,
+              module_id: moduleId,
+              title: lesson.title.trim(),
+              content: lesson.content?.trim() || null,
+              order_index: lessonIndex,
+              lesson_type: 'video',
+              video_path: lesson.video_path?.trim() || null,
+              duration_seconds: lesson.duration_seconds ?? null,
+              is_preview: lesson.is_preview ?? false,
+            });
+
+          if (lessonError) {
+            throw new BadRequestException(
+              lessonError.message ??
+                `Impossible d'ajouter la lecon ${lesson.title}.`,
+            );
+          }
+        }
+      }
+    }
   }
 
   private async resolveStorageUrl(bucket: string, path: string) {

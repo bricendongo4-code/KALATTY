@@ -45,6 +45,15 @@ export class CoursesController {
   }
 
   @UseGuards(AuthGuard('jwt'))
+  @Get(':courseId/edit')
+  getCourseForEdit(
+    @Req() req: RequestUser,
+    @Param('courseId') courseId: string,
+  ) {
+    return this.coursesService.getTeacherCourseForEdit(req.user, courseId);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
   @Get(':courseId')
   getCourseDetail(
     @Req() req: RequestUser,
@@ -63,6 +72,20 @@ export class CoursesController {
     return this.coursesService.createCourse(
       req.user,
       body as Parameters<CoursesService['createCourse']>[1],
+    );
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Patch(':courseId')
+  update(
+    @Req() req: RequestUser,
+    @Param('courseId') courseId: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    return this.coursesService.updateCourse(
+      req.user,
+      courseId,
+      body as Parameters<CoursesService['updateCourse']>[2],
     );
   }
 

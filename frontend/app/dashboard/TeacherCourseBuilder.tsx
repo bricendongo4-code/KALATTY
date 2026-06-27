@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import styles from "./dashboard.module.css";
 
 type LessonDraft = {
+  id?: string;
   title: string;
   video_path: string;
   content: string;
@@ -13,6 +14,7 @@ type LessonDraft = {
 };
 
 type ModuleDraft = {
+  id?: string;
   title: string;
   description: string;
   lessons: LessonDraft[];
@@ -38,11 +40,15 @@ const createModule = (): ModuleDraft => ({
 type Props = {
   apiBaseUrl: string;
   onCourseCreated: () => Promise<void> | void;
+  editingCourseId?: string | null;
+  onCancelEdit?: () => void;
 };
 
 export default function TeacherCourseBuilder({
   apiBaseUrl,
   onCourseCreated,
+  editingCourseId,
+  onCancelEdit,
 }: Props) {
   const [step, setStep] = useState<BuilderStep>("landing");
   const [courseTitle, setCourseTitle] = useState("");
@@ -54,6 +60,7 @@ export default function TeacherCourseBuilder({
   const [modules, setModules] = useState<ModuleDraft[]>([createModule()]);
   const [courseMessage, setCourseMessage] = useState("");
   const [courseLoading, setCourseLoading] = useState(false);
+  const [loadingCourseDraft, setLoadingCourseDraft] = useState(false);
 
   const totalLessons = useMemo(
     () =>
@@ -103,6 +110,96 @@ export default function TeacherCourseBuilder({
   );
 
   const completedChecklist = checklist.filter((item) => item.done).length;
+
+  const resetBuilder = () => {
+    setCourseTitle("");
+    setCourseDescription("");
+    setCourseShortDescription("");
+    setCoursePrice("");
+    setThumbnailPath("");
+    setModules([createModule()]);
+    setStep("landing");
+  };
+
+  useEffect(() => {
+    const token = localStorage.getItem("kalatty_token");
+
+    if (!editingCourseId) {
+      resetBuilder();
+      return;
+    }
+
+    if (!token) {
+      setCourseMessage("Session introuvable. Reconnecte-toi.");
+      return;
+    }
+
+    const loadCourseDraft = async () => {
+      setLoadingCourseDraft(true);
+      setCourseMessage("");
+
+      try {
+        const res = await fetch(`${apiBaseUrl}/courses/${editingCourseId}/edit`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          setCourseMessage(
+            typeof data.message === "string"
+              ? data.message
+              : "Impossible de charger ce cours pour modification.",
+          );
+          return;
+        }
+
+        setCourseTitle(String(data.title ?? ""));
+        setCourseDescription(String(data.description ?? ""));
+        setCourseShortDescription(String(data.short_description ?? ""));
+        setCoursePrice(
+          data.price_fcfa !== null && data.price_fcfa !== undefined
+            ? String(data.price_fcfa)
+            : "",
+        );
+        setThumbnailPath(String(data.thumbnail_path ?? ""));
+        setModules(
+          Array.isArray(data.modules) && data.modules.length > 0
+            ? data.modules.map((module: Record<string, unknown>) => ({
+                id: String(module.id ?? ""),
+                title: String(module.title ?? ""),
+                description: String(module.description ?? ""),
+                lessons:
+                  Array.isArray(module.lessons) && module.lessons.length > 0
+                    ? module.lessons.map((lesson: Record<string, unknown>) => ({
+                        id: String(lesson.id ?? ""),
+                        title: String(lesson.title ?? ""),
+                        video_path: String(lesson.video_path ?? ""),
+                        content: String(lesson.content ?? ""),
+                        duration_seconds:
+                          lesson.duration_seconds !== null &&
+                          lesson.duration_seconds !== undefined
+                            ? String(lesson.duration_seconds)
+                            : "",
+                        is_preview: Boolean(lesson.is_preview),
+                        uploading: false,
+                      }))
+                    : [createLesson()],
+              }))
+            : [createModule()],
+        );
+        setStep("basics");
+        setCourseMessage("Cours charge dans le studio. Tu peux le modifier.");
+      } catch {
+        setCourseMessage("Le cours n'a pas pu etre charge pour edition.");
+      } finally {
+        setLoadingCourseDraft(false);
+      }
+    };
+
+    void loadCourseDraft();
+  }, [apiBaseUrl, editingCourseId]);
 
   const updateModule = (index: number, nextModule: ModuleDraft) => {
     setModules((current) =>
@@ -228,8 +325,12 @@ export default function TeacherCourseBuilder({
     setCourseMessage("");
 
     try {
-      const res = await fetch(`${apiBaseUrl}/courses`, {
-        method: "POST",
+      const isEditing = Boolean(editingCourseId);
+      const endpoint = isEditing
+        ? `${apiBaseUrl}/courses/${editingCourseId}`
+        : `${apiBaseUrl}/courses`;
+      const res = await fetch(endpoint, {
+        method: isEditing ? "PATCH" : "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
@@ -241,11 +342,13 @@ export default function TeacherCourseBuilder({
           price_fcfa: Number(coursePrice || 0),
           thumbnail_path: thumbnailPath,
           modules: modules.map((currentModule) => ({
+            id: currentModule.id,
             title: currentModule.title,
             description: currentModule.description,
             lessons: currentModule.lessons
               .filter((lesson) => lesson.title.trim())
               .map((lesson) => ({
+                id: lesson.id,
                 title: lesson.title,
                 content: lesson.content,
                 video_path: lesson.video_path,
@@ -264,23 +367,25 @@ export default function TeacherCourseBuilder({
         setCourseMessage(
           typeof data.message === "string"
             ? data.message
-            : "Impossible de creer le cours pour le moment.",
+            : isEditing
+              ? "Impossible de modifier le cours pour le moment."
+              : "Impossible de creer le cours pour le moment.",
         );
         return;
       }
 
       await onCourseCreated();
-
-      setCourseTitle("");
-      setCourseDescription("");
-      setCourseShortDescription("");
-      setCoursePrice("");
-      setThumbnailPath("");
-      setModules([createModule()]);
-      setStep("landing");
-      setCourseMessage("Cours cree avec succes.");
+      resetBuilder();
+      setCourseMessage(
+        isEditing ? "Cours modifie avec succes." : "Cours cree avec succes.",
+      );
+      onCancelEdit?.();
     } catch {
-      setCourseMessage("Le cours n'a pas pu etre cree.");
+      setCourseMessage(
+        editingCourseId
+          ? "Le cours n'a pas pu etre modifie."
+          : "Le cours n'a pas pu etre cree.",
+      );
     } finally {
       setCourseLoading(false);
     }
@@ -310,11 +415,24 @@ export default function TeacherCourseBuilder({
       <div className={styles.courseStudioShell}>
         <aside className={styles.courseStudioSidebar}>
           <p className={styles.sectionLabel}>Kalatty instructor studio</p>
-          <h2>Creation de cours</h2>
+          <h2>{editingCourseId ? "Modification de cours" : "Creation de cours"}</h2>
           <p className={styles.paragraph}>
             Une experience plus proche d&apos;Udemy pour construire le cours,
             charger les videos et verifier l&apos;etat avant publication.
           </p>
+          {editingCourseId ? (
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              onClick={() => {
+                resetBuilder();
+                setCourseMessage("");
+                onCancelEdit?.();
+              }}
+            >
+              Quitter l&apos;edition
+            </button>
+          ) : null}
 
           <div className={styles.courseStudioSnapshot}>
             <span>Progression du setup</span>
@@ -353,6 +471,14 @@ export default function TeacherCourseBuilder({
         </aside>
 
         <form onSubmit={handleCreateCourse} className={styles.courseStudioMain}>
+          {loadingCourseDraft ? (
+            <section className={styles.courseStudioPanel}>
+              <p className={styles.paragraph}>Chargement du cours en cours...</p>
+            </section>
+          ) : null}
+
+          {!loadingCourseDraft ? (
+            <>
           {step === "landing" ? (
             <section className={styles.courseStudioPanel}>
               <div className={styles.courseStudioTopbar}>
@@ -360,7 +486,9 @@ export default function TeacherCourseBuilder({
                   <p className={styles.sectionLabel}>Plan du cours</p>
                   <h3>Configure ton espace enseignant</h3>
                 </div>
-                <span className={styles.courseStudioChip}>Brouillon</span>
+                <span className={styles.courseStudioChip}>
+                  {editingCourseId ? "Edition" : "Brouillon"}
+                </span>
               </div>
 
               <p className={styles.paragraph}>
@@ -818,10 +946,18 @@ export default function TeacherCourseBuilder({
                   className={styles.submitButton}
                   disabled={courseLoading}
                 >
-                  {courseLoading ? "Publication..." : "Creer le cours"}
+                  {courseLoading
+                    ? editingCourseId
+                      ? "Mise a jour..."
+                      : "Publication..."
+                    : editingCourseId
+                      ? "Enregistrer les modifications"
+                      : "Creer le cours"}
                 </button>
               </div>
             </section>
+          ) : null}
+            </>
           ) : null}
 
           {courseMessage ? <p className={styles.inlineMessage}>{courseMessage}</p> : null}
