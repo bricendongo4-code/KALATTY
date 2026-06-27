@@ -386,6 +386,24 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
       highlight: "2 000 apprenants et 120 classes.",
     },
   ];
+  const currentPlanCode = String(
+    detail?.plan_name ?? selectedInstitution?.plan_name ?? "starter",
+  );
+  const selectedPlan =
+    institutionPlanCards.find((plan) => plan.code === currentPlanCode) ??
+    institutionPlanCards[0];
+  const recommendedPlan =
+    institutionPlanCards.find(
+      (plan) =>
+        Number(detail?.stats?.studentsCount ?? institutionCounts.students) <= plan.studentCap &&
+        Number(detail?.stats?.roomsCount ?? detail?.rooms.length ?? 0) <= plan.roomCap,
+    ) ?? institutionPlanCards[institutionPlanCards.length - 1];
+  const billingHighlights = [
+    `Plan actif: ${formatPlanLabel(currentPlanCode)}`,
+    `${detail?.stats?.roomsCount ?? 0} classe(s) utilisee(s) sur ${detail?.max_rooms ?? 0}`,
+    `${detail?.stats?.studentsCount ?? 0} etudiant(s) rattache(s) sur ${detail?.max_students ?? 0}`,
+    `${detail?.stats?.pendingSubmissions ?? 0} copie(s) a corriger`,
+  ];
   const campusActionCards = [
     {
       title: "Structurer les classes",
@@ -434,6 +452,22 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
       label: "Remises",
       value: Number(roomDetail?.submissionSummary?.total ?? 0),
       text: `${Number(roomDetail?.submissionSummary?.pending ?? 0)} en attente de correction.`,
+    },
+  ];
+  const campusAdminCards = [
+    {
+      title: "Direction campus",
+      text:
+        institutions.length > 0
+          ? "Ton espace campus est deja actif. Tu peux maintenant le structurer, ajouter des comptes et diffuser les cours."
+          : "Cree un premier campus Kalatty pour separer administration, classes, professeurs et etudiants.",
+    },
+    {
+      title: "Plan recommande",
+      text:
+        recommendedPlan.code === currentPlanCode
+          ? `${recommendedPlan.label} couvre deja la taille actuelle du campus.`
+          : `${recommendedPlan.label} serait plus adapte au volume actuel des classes et etudiants.`,
     },
   ];
 
@@ -1047,26 +1081,26 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
           <div className={styles.sectionHeader}>
             <div>
               <p className={styles.sectionLabel}>Abonnement</p>
-              <h2>Choisir un plan clair pour ton campus</h2>
+              <h2>Choisir le bon plan pour ton campus</h2>
             </div>
             <span className={styles.sectionHint}>
-              Compare les capacites et active le plan adapte au volume reel de ton etablissement.
+              Lis les capacites, compare l'usage actuel et active le niveau adapte a ton etablissement.
             </span>
           </div>
 
           <div className={styles.statsRow}>
             <article className={styles.statCard}>
               <span>Plan actif</span>
-              <strong>{formatPlanLabel(detail?.plan_name ?? selectedInstitution?.plan_name)}</strong>
+              <strong>{selectedPlan.label}</strong>
               <small>{formatSubscriptionStatus(detail?.subscription_status ?? selectedInstitution?.subscription_status)}</small>
             </article>
             <article className={styles.statCard}>
-              <span>Utilisation des classes</span>
+              <span>Classes utilisees</span>
               <strong>{detail?.stats?.roomUsagePercentage ?? 0}%</strong>
               <small>{detail?.stats?.roomsCount ?? 0} / {detail?.max_rooms ?? 0}</small>
             </article>
             <article className={styles.statCard}>
-              <span>Utilisation des comptes eleves</span>
+              <span>Comptes etudiants utilises</span>
               <strong>{detail?.stats?.studentUsagePercentage ?? 0}%</strong>
               <small>{detail?.stats?.studentsCount ?? 0} / {detail?.max_students ?? 0}</small>
             </article>
@@ -1075,6 +1109,43 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
               <strong>{detail?.stats?.pendingSubmissions ?? 0}</strong>
               <small>{detail?.stats?.reviewedSubmissions ?? 0} deja traitees</small>
             </article>
+          </div>
+
+          <div className={styles.institutionActionGrid}>
+            <section className={styles.card}>
+              <div className={styles.sectionHeader}>
+                <div>
+                  <p className={styles.sectionLabel}>Lecture rapide</p>
+                  <h3>Ce que ton abonnement couvre</h3>
+                </div>
+              </div>
+              <div className={styles.roadmapList}>
+                {billingHighlights.map((item) => (
+                  <article key={item} className={styles.roadmapItem}>
+                    <strong>{item}</strong>
+                    <p>Ces chiffres t'aident a voir rapidement s'il faut garder le plan actuel ou passer au niveau suivant.</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            <section className={styles.card}>
+              <div className={styles.sectionHeader}>
+                <div>
+                  <p className={styles.sectionLabel}>Recommendation</p>
+                  <h3>Plan conseille aujourd&apos;hui</h3>
+                </div>
+              </div>
+              <div className={styles.roadmapList}>
+                <article className={styles.roadmapItem}>
+                  <strong>{recommendedPlan.label}</strong>
+                  <p>{recommendedPlan.target}</p>
+                  <small>
+                    {recommendedPlan.studentCap} apprenants | {recommendedPlan.roomCap} classes
+                  </small>
+                </article>
+              </div>
+            </section>
           </div>
 
           <div className={styles.institutionRoomBoard}>
@@ -1103,9 +1174,11 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
                 >
                   {billingLoading
                     ? "Activation..."
-                    : plan.code === (detail?.plan_name ?? selectedInstitution?.plan_name)
-                      ? `${plan.label} deja actif`
-                      : `Choisir ${plan.label}`}
+                    : plan.code === currentPlanCode
+                      ? `${plan.label} actif`
+                      : recommendedPlan.code === plan.code
+                        ? `Passer a ${plan.label}`
+                        : `Choisir ${plan.label}`}
                 </button>
               </article>
             ))}
@@ -1758,30 +1831,41 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
         {activeView === "overview" ? (
         <section className={styles.cardAccent}>
           <p className={styles.sectionLabel}>Campus</p>
-          <h2>Creer un etablissement</h2>
-          <form onSubmit={handleCreateInstitution} className={styles.teacherForm}>
-            <label className={styles.formField}>
-              <span>Nom de l&apos;etablissement</span>
-              <input
-                type="text"
-                value={institutionName}
-                onChange={(event) => setInstitutionName(event.target.value)}
-                placeholder="Institut Horizon"
-              />
-            </label>
-            <label className={styles.formField}>
-              <span>Type</span>
-              <input
-                type="text"
-                value={institutionType}
-                onChange={(event) => setInstitutionType(event.target.value)}
-                placeholder="Lycee, universite, centre"
-              />
-            </label>
-            <button type="submit" className={styles.submitButton}>
-              Creer l&apos;etablissement
-            </button>
-          </form>
+          <h2>{institutions.length > 0 ? "Pilotage administrateur" : "Creer un etablissement"}</h2>
+          {institutions.length > 0 ? (
+            <div className={styles.roadmapList}>
+              {campusAdminCards.map((card) => (
+                <article key={card.title} className={styles.roadmapItem}>
+                  <strong>{card.title}</strong>
+                  <p>{card.text}</p>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <form onSubmit={handleCreateInstitution} className={styles.teacherForm}>
+              <label className={styles.formField}>
+                <span>Nom de l&apos;etablissement</span>
+                <input
+                  type="text"
+                  value={institutionName}
+                  onChange={(event) => setInstitutionName(event.target.value)}
+                  placeholder="Institut Horizon"
+                />
+              </label>
+              <label className={styles.formField}>
+                <span>Type</span>
+                <input
+                  type="text"
+                  value={institutionType}
+                  onChange={(event) => setInstitutionType(event.target.value)}
+                  placeholder="Lycee, universite, centre"
+                />
+              </label>
+              <button type="submit" className={styles.submitButton}>
+                Creer l&apos;etablissement
+              </button>
+            </form>
+          )}
         </section>
         ) : null}
 
@@ -1844,19 +1928,19 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
         {activeView === "billing" ? (
         <section className={styles.cardAccent}>
           <p className={styles.sectionLabel}>Abonnement campus</p>
-          <h2>Comprendre les plans</h2>
+          <h2>Comprendre les differences</h2>
           <div className={styles.roadmapList}>
             <article className={styles.roadmapItem}>
               <strong>Starter</strong>
-              <p>Pour demarrer avec quelques classes et un volume limite d&apos;apprenants.</p>
+              <p>Bon choix pour demarrer avec peu de classes et une premiere equipe pedagogique.</p>
             </article>
             <article className={styles.roadmapItem}>
               <strong>Growth</strong>
-              <p>Pour un etablissement qui gere plusieurs niveaux, options ou promotions.</p>
+              <p>Adapte si le campus gere plusieurs niveaux, sections ou promotions en meme temps.</p>
             </article>
             <article className={styles.roadmapItem}>
               <strong>Campus</strong>
-              <p>Pour une structure importante avec beaucoup de classes et de comptes internes.</p>
+              <p>Concu pour une structure importante avec beaucoup de classes, d&apos;eleves et de comptes internes.</p>
             </article>
           </div>
         </section>

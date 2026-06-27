@@ -865,8 +865,12 @@ export default function CourseDetailPage({
                     key={activeLesson.id}
                     className={styles.videoPlayer}
                     controls
+                    controlsList="nodownload noplaybackrate"
+                    disablePictureInPicture
+                    playsInline
                     preload="metadata"
                     src={buildStorageUrl("course-videos", activeLesson.videoPath)}
+                    onContextMenu={(event) => event.preventDefault()}
                     onLoadedMetadata={(event) => {
                       if (!course) {
                         return;
@@ -950,6 +954,9 @@ export default function CourseDetailPage({
                   <p>
                     {activeLesson.content || "Le professeur n'a pas encore ajoute de description pour cette lecon."}
                   </p>
+                  <small className={styles.playerNotice}>
+                    Lecture securisee Kalatty: la video est diffusee dans le lecteur et n&apos;est pas proposee au telechargement direct depuis l&apos;interface.
+                  </small>
                   {nextLesson ? (
                     <p>
                       Suite conseillee: <strong>{nextLesson.title}</strong>
