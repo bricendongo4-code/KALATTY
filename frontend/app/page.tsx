@@ -122,7 +122,7 @@ export default function Home() {
             </div>
           </Link>
 
-          <nav className={styles.nav}>
+          <nav className={styles.nav} aria-label="Navigation principale">
             <Link href="/login" className={styles.navLink}>
               Connexion
             </Link>

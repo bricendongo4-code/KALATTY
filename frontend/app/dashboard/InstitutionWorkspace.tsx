@@ -1084,7 +1084,7 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
               <h2>Choisir le bon plan pour ton campus</h2>
             </div>
             <span className={styles.sectionHint}>
-              Lis les capacites, compare l'usage actuel et active le niveau adapte a ton etablissement.
+              Lis les capacites, compare l&apos;usage actuel et active le niveau adapte a ton etablissement.
             </span>
           </div>
 
@@ -1123,7 +1123,7 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
                 {billingHighlights.map((item) => (
                   <article key={item} className={styles.roadmapItem}>
                     <strong>{item}</strong>
-                    <p>Ces chiffres t'aident a voir rapidement s'il faut garder le plan actuel ou passer au niveau suivant.</p>
+                    <p>Ces chiffres t&apos;aident a voir rapidement s&apos;il faut garder le plan actuel ou passer au niveau suivant.</p>
                   </article>
                 ))}
               </div>

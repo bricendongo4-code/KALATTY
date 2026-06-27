@@ -1598,7 +1598,25 @@
 
 @media (max-width: 860px) {
   .dashboardShell {
+    gap: 1rem;
     padding: 1rem;
+  }
+
+  .dashboardMasthead {
+    align-items: stretch;
+  }
+
+  .dashboardMastheadMeta {
+    width: 100%;
+  }
+
+  .dashboardMastheadMeta span {
+    flex: 1 1 10rem;
+    text-align: center;
+  }
+
+  .hero {
+    padding: 1.25rem;
   }
 
   .heroTop,
@@ -1610,7 +1628,12 @@
   }
 
   .actions {
+    width: 100%;
     justify-items: stretch;
+  }
+
+  .viewPicker {
+    width: 100%;
   }
 
   .revenueGrid {
@@ -1630,11 +1653,22 @@
 
   .studentTabs {
     width: 100%;
+    flex-wrap: nowrap;
+    gap: 0.5rem;
+    padding: 0.2rem 0 0.55rem;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: thin;
+    scroll-snap-type: inline proximity;
   }
 
   .studentTab,
   .activeTab {
-    width: 100%;
+    flex: 0 0 auto;
+    width: auto;
+    min-height: 2.75rem;
+    white-space: nowrap;
+    scroll-snap-align: start;
   }
 
   .moduleHeader,
@@ -1644,4 +1678,162 @@
     align-items: stretch;
   }
 
+  .card,
+  .cardAccent {
+    padding: 1.15rem;
+  }
+
+  .courseStudioSidebar,
+  .courseStudioPanel {
+    padding: 1rem;
+  }
+
+  .institutionToolbar,
+  .institutionToolbarExpanded {
+    align-items: stretch;
+  }
+
+}
+
+@media (max-width: 640px) {
+  .dashboardShell {
+    padding: max(0.75rem, env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-right)) max(0.75rem, env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
+  }
+
+  .dashboardMasthead {
+    padding: 0.85rem;
+  }
+
+  .dashboardMastheadLogo {
+    width: 2.75rem;
+  }
+
+  .dashboardMastheadTag {
+    display: none;
+  }
+
+  .dashboardMastheadMeta span {
+    flex-basis: 100%;
+  }
+
+  .hero {
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .heroBrandLogo {
+    width: 3.25rem;
+  }
+
+  .hero h1 {
+    font-size: clamp(1.9rem, 10vw, 2.65rem);
+  }
+
+  .heroText {
+    margin-top: 0.75rem;
+    line-height: 1.65;
+  }
+
+  .roleBadge,
+  .logoutButton,
+  .logoutButtonDark,
+  .submitButton,
+  .catalogActionButton,
+  .catalogDetailLink {
+    width: 100%;
+    min-height: 2.9rem;
+    justify-content: center;
+  }
+
+  .heroMeta,
+  .highlightList,
+  .institutionRoomHero,
+  .institutionStatsGrid,
+  .institutionOpsGrid,
+  .institutionRoomBoard,
+  .institutionStudioGrid,
+  .institutionActionGrid,
+  .institutionFeedGrid,
+  .institutionMemberGrid,
+  .institutionCourseBoard,
+  .showcaseStats,
+  .courseStudioMetrics,
+  .publishChecklist,
+  .revenueGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sectionHeader h2,
+  .card h2,
+  .cardAccent h2 {
+    font-size: 1.35rem;
+  }
+
+  .sectionHeader {
+    margin-bottom: 1rem;
+  }
+
+  .institutionHeroV2,
+  .institutionHero,
+  .studentShowcase,
+  .courseStudioHero {
+    padding: 1rem;
+  }
+
+  .institutionHeroLead h2 {
+    font-size: clamp(1.8rem, 9vw, 2.35rem);
+  }
+
+  .institutionHeroMeta,
+  .courseStudioBadgeStack {
+    width: 100%;
+  }
+
+  .courseHead,
+  .discoveryTop,
+  .discoveryFooter,
+  .institutionRoomBoardTop,
+  .courseStudioTopbar {
+    align-items: stretch;
+  }
+
+  .courseActionRow,
+  .courseStudioActions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+  }
+
+  .courseActionRow > *,
+  .courseStudioActions > * {
+    width: 100%;
+  }
+
+  .courseStudioChecklistItem {
+    grid-template-columns: 1fr;
+  }
+
+  .courseStudioChecklistItem strong {
+    min-width: 0;
+    text-align: left;
+  }
+
+  .formField,
+  .searchBar,
+  .selectField,
+  .formField input,
+  .formTextarea {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .inviteLinkBox,
+  .institutionMemberCard,
+  .institutionInviteCard,
+  .institutionCourseCard,
+  .teacherCourseCard,
+  .courseCard,
+  .discoveryCard {
+    overflow-wrap: anywhere;
+  }
 }

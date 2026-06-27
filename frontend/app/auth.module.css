@@ -344,10 +344,15 @@
 }
 
 @media (max-width: 640px) {
+  .shell {
+    gap: 0.85rem;
+    padding: max(0.75rem, env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-right)) max(0.75rem, env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
+  }
+
   .hero,
   .panel {
-    padding: 1.5rem;
-    border-radius: 24px;
+    padding: 1.1rem;
+    border-radius: var(--radius);
   }
 
   .inlineFields {
@@ -355,10 +360,26 @@
   }
 
   .highlights {
-    grid-template-columns: 1fr;
+    display: none;
   }
 
   .panelHeader h2 {
     font-size: 1.7rem;
+  }
+
+  .hero {
+    gap: 0.85rem;
+  }
+
+  .brandLogo {
+    width: 4.5rem;
+  }
+
+  .title {
+    font-size: clamp(2rem, 12vw, 3rem);
+  }
+
+  .subtitle {
+    line-height: 1.6;
   }
 }
