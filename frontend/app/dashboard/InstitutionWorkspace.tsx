@@ -197,6 +197,22 @@ const formatDate = (value?: string | null) => {
   }).format(new Date(value));
 };
 
+const formatCurrency = (value: number) =>
+  `${new Intl.NumberFormat("fr-FR").format(value)} FCFA`;
+
+const formatPlanLabel = (value?: string | null) => {
+  if (value === "growth") return "Growth";
+  if (value === "campus") return "Campus";
+  return "Starter";
+};
+
+const formatSubscriptionStatus = (value?: string | null) => {
+  if (value === "active") return "Actif";
+  if (value === "past_due") return "Paiement en attente";
+  if (value === "cancelled") return "Suspendu";
+  return "Essai";
+};
+
 export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
   const [institutions, setInstitutions] = useState<InstitutionSummary[]>([]);
   const [selectedInstitutionId, setSelectedInstitutionId] = useState("");
@@ -345,6 +361,8 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
       amountFcfa: 25000,
       studentCap: 100,
       roomCap: 10,
+      target: "Pour lancer un petit campus numerique proprement.",
+      highlight: "100 apprenants et 10 classes.",
     },
     {
       code: "growth",
@@ -352,6 +370,8 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
       amountFcfa: 65000,
       studentCap: 500,
       roomCap: 30,
+      target: "Pour plusieurs niveaux, sections ou filieres.",
+      highlight: "500 apprenants et 30 classes.",
     },
     {
       code: "campus",
@@ -359,6 +379,8 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
       amountFcfa: 120000,
       studentCap: 2000,
       roomCap: 120,
+      target: "Pour un grand etablissement ou un reseau de formation.",
+      highlight: "2 000 apprenants et 120 classes.",
     },
   ];
   const campusActionCards = [
@@ -868,7 +890,7 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
       }
 
       setMessage(
-        `Abonnement ${checkoutData.plan?.label ?? planName} active. Capacite: ${activateData.plan?.maxStudents ?? 0} etudiants / ${activateData.plan?.maxRooms ?? 0} classes.`,
+        `Abonnement ${checkoutData.plan?.label ?? planName} active. Capacite disponible: ${activateData.plan?.maxStudents ?? 0} apprenants et ${activateData.plan?.maxRooms ?? 0} classes.`,
       );
       await loadInstitutions();
       await loadInstitutionDetails(selectedInstitutionId);
@@ -898,12 +920,12 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
               <p className={styles.sectionLabel}>Pilotage etablissement</p>
               <h2>{selectedInstitution?.name || "Espace etablissement"}</h2>
               <p className={styles.paragraph}>
-                Un cockpit pour organiser les classes, inviter les professeurs,
-                rattacher les etudiants, affecter les cours et suivre les devoirs.
+                Gere les classes, les comptes internes, les cours attribues et le
+                suivi pedagogique depuis un seul espace.
               </p>
               <div className={styles.courseMetaGrid}>
-                <span>{detail?.rooms.length ?? 0} classes</span>
-                <span>{activeInvitesCount} liens actifs</span>
+                <span>{detail?.rooms.length ?? 0} classes actives</span>
+                <span>{activeInvitesCount} liens encore valides</span>
                 <span>{catalogCourses.length} cours disponibles</span>
               </div>
             </div>
@@ -911,11 +933,11 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
             <div className={styles.institutionHeroStack}>
               <article className={styles.institutionHeroBadge}>
                 <span>Plan</span>
-                <strong>{selectedInstitution?.plan_name || "Starter"}</strong>
+                <strong>{formatPlanLabel(selectedInstitution?.plan_name)}</strong>
               </article>
               <article className={styles.institutionHeroBadge}>
                 <span>Statut</span>
-                <strong>{selectedInstitution?.subscription_status || "trial"}</strong>
+                <strong>{formatSubscriptionStatus(selectedInstitution?.subscription_status)}</strong>
               </article>
               <article className={styles.institutionHeroBadge}>
                 <span>Type</span>
@@ -982,34 +1004,34 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
         <section className={styles.card}>
           <div className={styles.sectionHeader}>
             <div>
-              <p className={styles.sectionLabel}>Abonnement et pilotage</p>
-              <h2>Capacite campus et plan actif</h2>
+              <p className={styles.sectionLabel}>Abonnement</p>
+              <h2>Choisir un plan clair pour ton campus</h2>
             </div>
             <span className={styles.sectionHint}>
-              Active un plan etablissement pour augmenter les capacites de classes et d&apos;etudiants.
+              Compare les capacites et active le plan adapte au volume reel de ton etablissement.
             </span>
           </div>
 
           <div className={styles.statsRow}>
             <article className={styles.statCard}>
               <span>Plan actif</span>
-              <strong>{detail?.plan_name ?? selectedInstitution?.plan_name ?? "starter"}</strong>
-              <small>{detail?.subscription_status ?? selectedInstitution?.subscription_status ?? "trial"}</small>
+              <strong>{formatPlanLabel(detail?.plan_name ?? selectedInstitution?.plan_name)}</strong>
+              <small>{formatSubscriptionStatus(detail?.subscription_status ?? selectedInstitution?.subscription_status)}</small>
             </article>
             <article className={styles.statCard}>
-              <span>Occupation classes</span>
+              <span>Utilisation des classes</span>
               <strong>{detail?.stats?.roomUsagePercentage ?? 0}%</strong>
               <small>{detail?.stats?.roomsCount ?? 0} / {detail?.max_rooms ?? 0}</small>
             </article>
             <article className={styles.statCard}>
-              <span>Occupation etudiants</span>
+              <span>Utilisation des comptes eleves</span>
               <strong>{detail?.stats?.studentUsagePercentage ?? 0}%</strong>
               <small>{detail?.stats?.studentsCount ?? 0} / {detail?.max_students ?? 0}</small>
             </article>
             <article className={styles.statCard}>
-              <span>Remises a traiter</span>
+              <span>Copies a corriger</span>
               <strong>{detail?.stats?.pendingSubmissions ?? 0}</strong>
-              <small>{detail?.stats?.reviewedSubmissions ?? 0} deja corrigees</small>
+              <small>{detail?.stats?.reviewedSubmissions ?? 0} deja traitees</small>
             </article>
           </div>
 
@@ -1018,17 +1040,30 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
               <article key={plan.code} className={styles.institutionRoomBoardCard}>
                 <div className={styles.institutionRoomBoardTop}>
                   <span>Plan {plan.label}</span>
-                  <small>{plan.amountFcfa} FCFA</small>
+                  <small>{formatCurrency(plan.amountFcfa)}</small>
                 </div>
-                <h3>{plan.studentCap} etudiants</h3>
-                <p>{plan.roomCap} classes incluses pour structurer le campus.</p>
+                <h3>{plan.highlight}</h3>
+                <p>{plan.target}</p>
+                <div className={styles.courseMetaGrid}>
+                  <span>{plan.studentCap} apprenants</span>
+                  <span>{plan.roomCap} classes</span>
+                  <span>
+                    {plan.code === (detail?.plan_name ?? selectedInstitution?.plan_name)
+                      ? "Plan actuel"
+                      : "Disponible"}
+                  </span>
+                </div>
                 <button
                   type="button"
                   className={styles.secondaryButton}
                   disabled={billingLoading || !selectedInstitutionId}
                   onClick={() => void handleActivatePlan(plan.code)}
                 >
-                  {billingLoading ? "Activation..." : `Activer ${plan.label}`}
+                  {billingLoading
+                    ? "Activation..."
+                    : plan.code === (detail?.plan_name ?? selectedInstitution?.plan_name)
+                      ? `${plan.label} deja actif`
+                      : `Choisir ${plan.label}`}
                 </button>
               </article>
             ))}
@@ -1039,10 +1074,10 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
           <div className={styles.sectionHeader}>
             <div>
               <p className={styles.sectionLabel}>Classes du campus</p>
-              <h2>Hub des classes et filieres</h2>
+              <h2>Classes et groupes</h2>
             </div>
             <span className={styles.sectionHint}>
-              Chaque classe peut recevoir des professeurs, des etudiants, des cours et des devoirs.
+              Chaque classe peut recevoir des professeurs, des eleves, des cours et des devoirs.
             </span>
           </div>
 
@@ -1064,7 +1099,7 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
                     <small>#{room.slug || "sans-slug"}</small>
                   </div>
                   <h3>{room.name}</h3>
-                  <p>{room.description || "Classe prete pour centraliser les cours et les devoirs."}</p>
+                  <p>{room.description || "Classe prete a recevoir cours, devoirs et membres."}</p>
                 </button>
               ))
             ) : (
