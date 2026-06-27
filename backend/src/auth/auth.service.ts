@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -20,6 +21,8 @@ type RegisterPayload = {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly supabaseService: SupabaseService,
     private readonly jwtService: JwtService,
@@ -110,8 +113,7 @@ export class AuthService {
             school_name:
               (authData.user.user_metadata?.school_name as
                 | string
-                | undefined) ??
-              schoolName,
+                | undefined) ?? schoolName,
             expertise:
               (authData.user.user_metadata?.expertise as string | undefined) ??
               expertise,
@@ -150,7 +152,10 @@ export class AuthService {
 
     const metadataRole =
       (authData.user.user_metadata?.role as string | undefined) ?? 'student';
-    const effectiveRole = await this.resolveAccountRole(authData.user.id, metadataRole);
+    const effectiveRole = await this.resolveAccountRole(
+      authData.user.id,
+      metadataRole,
+    );
 
     await this.syncProfileRecord(authData.user.id, {
       email: authData.user.email ?? email,
@@ -160,10 +165,10 @@ export class AuthService {
       country:
         (authData.user.user_metadata?.country as string | undefined) ??
         'Cameroun',
-      level:
-        (authData.user.user_metadata?.level as string | undefined) ?? null,
+      level: (authData.user.user_metadata?.level as string | undefined) ?? null,
       school_name:
-        (authData.user.user_metadata?.school_name as string | undefined) ?? null,
+        (authData.user.user_metadata?.school_name as string | undefined) ??
+        null,
       expertise:
         (authData.user.user_metadata?.expertise as string | undefined) ?? null,
       bio: (authData.user.user_metadata?.bio as string | undefined) ?? null,
@@ -177,7 +182,8 @@ export class AuthService {
           'Etablissement Kalatty',
         contact_email: authData.user.email ?? email,
         institution_type:
-          (authData.user.user_metadata?.expertise as string | undefined) ?? null,
+          (authData.user.user_metadata?.expertise as string | undefined) ??
+          null,
         description:
           (authData.user.user_metadata?.bio as string | undefined) ?? null,
         country:
@@ -213,6 +219,73 @@ export class AuthService {
           (authData.user.user_metadata?.expertise as string | undefined) ??
           null,
       },
+    };
+  }
+
+  async forgotPassword(rawEmail: string) {
+    const email = rawEmail?.trim().toLowerCase();
+
+    if (!email || !email.includes('@')) {
+      throw new BadRequestException('Saisissez une adresse email valide.');
+    }
+
+    const frontendUrl = (
+      process.env.FRONTEND_URL ?? 'https://kalatty-frontend.vercel.app'
+    ).replace(/\/$/, '');
+    const { error } =
+      await this.supabaseService.authClient.auth.resetPasswordForEmail(email, {
+        redirectTo: `${frontendUrl}/reset-password`,
+      });
+
+    if (error) {
+      this.logger.warn(`Password recovery request failed: ${error.message}`);
+    }
+
+    return {
+      message:
+        "Si cette adresse est associee a un compte, un lien de recuperation vient d'etre envoye.",
+    };
+  }
+
+  async resetPassword(data: { accessToken: string; password: string }) {
+    const accessToken = data.accessToken?.trim();
+    const password = data.password ?? '';
+
+    if (!accessToken) {
+      throw new UnauthorizedException(
+        'Le lien de recuperation est absent ou invalide.',
+      );
+    }
+
+    if (password.length < 8) {
+      throw new BadRequestException(
+        'Le nouveau mot de passe doit contenir au moins 8 caracteres.',
+      );
+    }
+
+    const { data: userData, error: userError } =
+      await this.supabaseService.authClient.auth.getUser(accessToken);
+
+    if (userError || !userData.user) {
+      throw new UnauthorizedException(
+        'Ce lien de recuperation a expire ou a deja ete utilise.',
+      );
+    }
+
+    const { error: updateError } =
+      await this.supabaseService.client.auth.admin.updateUserById(
+        userData.user.id,
+        { password },
+      );
+
+    if (updateError) {
+      throw new BadRequestException(
+        updateError.message ?? 'Impossible de modifier le mot de passe.',
+      );
+    }
+
+    return {
+      message: 'Mot de passe modifie. Vous pouvez maintenant vous connecter.',
     };
   }
 
@@ -306,11 +379,17 @@ export class AuthService {
     return this.mergeRoles(existingProfile?.role, normalizedRequestedRole);
   }
 
-  private mergeRoles(existingRole?: string | null, incomingRole?: string | null) {
+  private mergeRoles(
+    existingRole?: string | null,
+    incomingRole?: string | null,
+  ) {
     const normalizedExisting = this.normalizeRole(existingRole ?? undefined);
     const normalizedIncoming = this.normalizeRole(incomingRole ?? undefined);
 
-    if (normalizedExisting === 'institution' || normalizedIncoming === 'institution') {
+    if (
+      normalizedExisting === 'institution' ||
+      normalizedIncoming === 'institution'
+    ) {
       return 'institution';
     }
 

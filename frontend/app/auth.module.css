@@ -188,6 +188,41 @@
   box-shadow: 0 0 0 4px rgba(29, 111, 95, 0.1);
 }
 
+.passwordField {
+  position: relative;
+  display: block;
+}
+
+.passwordField input {
+  width: 100%;
+  padding-right: 6.5rem;
+}
+
+.passwordToggle {
+  position: absolute;
+  top: 50%;
+  right: 0.55rem;
+  min-height: 2.75rem;
+  padding: 0 0.75rem;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 12px;
+  background: rgba(29, 111, 95, 0.1);
+  color: var(--primary-dark);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.formLinks {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.formLinks a {
+  color: var(--primary);
+  font-weight: 800;
+}
+
 .textarea {
   min-height: 7rem;
   padding: 0.9rem 1rem;
@@ -208,6 +243,10 @@
 
 .primaryButton {
   min-height: 3.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 1rem;
   border: none;
   border-radius: 18px;
   background: linear-gradient(135deg, var(--secondary), #a85f18);

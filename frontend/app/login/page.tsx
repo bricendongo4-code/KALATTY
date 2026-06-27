@@ -10,6 +10,7 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -115,14 +116,30 @@ export default function LoginPage() {
 
           <label className={styles.field}>
             <span>Mot de passe</span>
-            <input
-              type="password"
-              placeholder="Votre mot de passe"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+            <span className={styles.passwordField}>
+              <input
+                type={showPassword ? "text" : "password"}
+                placeholder="Votre mot de passe"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+                required
+              />
+              <button
+                type="button"
+                className={styles.passwordToggle}
+                aria-pressed={showPassword}
+                aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                onClick={() => setShowPassword((current) => !current)}
+              >
+                {showPassword ? "Masquer" : "Afficher"}
+              </button>
+            </span>
           </label>
+
+          <div className={styles.formLinks}>
+            <Link href="/forgot-password">Mot de passe oublie ?</Link>
+          </div>
 
           <button
             className={styles.primaryButton}

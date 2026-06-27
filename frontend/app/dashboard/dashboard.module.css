@@ -250,6 +250,10 @@
   gap: 1.5rem;
 }
 
+.singleColumn {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .studentSwitch {
   display: flex;
   justify-content: flex-start;

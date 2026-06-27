@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { startTransition, useEffect, useState } from "react";
+import { startTransition, useEffect, useEffectEvent, useState } from "react";
 import InstitutionWorkspace from "./InstitutionWorkspace";
 import TeacherCourseBuilder from "./TeacherCourseBuilder";
 import styles from "./dashboard.module.css";
@@ -16,7 +16,7 @@ type WorkspaceKind =
   | "institution-teacher"
   | "institution-student";
 type StudentView = "home" | "progress" | "institutions" | "profile";
-type TeacherView = "overview" | "profile";
+type TeacherView = "overview" | "courses" | "classes" | "studio" | "profile";
 type StoredUser = {
   email?: string;
   fullname?: string;
@@ -106,6 +106,9 @@ const fallbackDiscovery = [
 ];
 const includesSearch = (values: unknown[], query: string) =>
   values.map((value) => String(value ?? "")).join(" ").toLowerCase().includes(query);
+const studentViews: StudentView[] = ["home", "progress", "institutions", "profile"];
+const teacherViews: TeacherView[] = ["overview", "courses", "classes", "studio", "profile"];
+const emptyRecords: Array<Record<string, unknown>> = [];
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -152,6 +155,39 @@ export default function DashboardPage() {
     bio: "",
   });
 
+  const updateDashboardUrl = (view: StudentView | TeacherView) => {
+    const nextUrl = new URL(window.location.href);
+    nextUrl.searchParams.set("view", view);
+    window.history.pushState({}, "", `${nextUrl.pathname}${nextUrl.search}`);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const changeStudentView = (view: StudentView) => {
+    setStudentView(view);
+    updateDashboardUrl(view);
+  };
+
+  const changeTeacherView = (view: TeacherView) => {
+    setTeacherView(view);
+    updateDashboardUrl(view);
+  };
+
+  useEffect(() => {
+    const syncViewFromUrl = () => {
+      const requestedView = new URLSearchParams(window.location.search).get("view");
+      if (studentViews.includes(requestedView as StudentView)) {
+        setStudentView(requestedView as StudentView);
+      }
+      if (teacherViews.includes(requestedView as TeacherView)) {
+        setTeacherView(requestedView as TeacherView);
+      }
+    };
+
+    syncViewFromUrl();
+    window.addEventListener("popstate", syncViewFromUrl);
+    return () => window.removeEventListener("popstate", syncViewFromUrl);
+  }, []);
+
   const fetchDashboard = async () => {
     const token = localStorage.getItem("kalatty_token");
     if (!token) {
@@ -191,8 +227,10 @@ export default function DashboardPage() {
     }
   };
 
+  const fetchDashboardOnLoad = useEffectEvent(fetchDashboard);
+
   useEffect(() => {
-    void fetchDashboard();
+    void fetchDashboardOnLoad();
   }, [apiBaseUrl, router]);
 
   const role: DashboardRole = dashboardData?.role === "institution"
@@ -249,7 +287,7 @@ export default function DashboardPage() {
           : "Accueil catalogue, reprise des cours et lien avec l'etablissement.";
   const studentCourses = dashboardData?.courses ?? [];
   const teacherCourses = dashboardData?.courses ?? [];
-  const teacherRooms = dashboardData?.teacherRooms ?? [];
+  const teacherRooms = dashboardData?.teacherRooms ?? emptyRecords;
   const studentInstitutions = dashboardData?.studentInstitutions ?? [];
   const studentRooms = dashboardData?.studentRooms ?? [];
   const heroCourse = studentCourses[0];
@@ -873,7 +911,7 @@ export default function DashboardPage() {
             {role === "student" ? (
               <label className={styles.viewPicker}>
                 <span>{isInstitutionStudent ? "Menu etudiant campus" : "Menu etudiant"}</span>
-                <select value={studentView} onChange={(event) => setStudentView(event.target.value as StudentView)}>
+                <select value={studentView} onChange={(event) => changeStudentView(event.target.value as StudentView)}>
                   <option value="home">Accueil</option>
                   <option value="progress">Suivi des cours</option>
                   <option value="institutions">{isInstitutionStudent ? "Mon campus" : "Etablissements"}</option>
@@ -883,8 +921,11 @@ export default function DashboardPage() {
             ) : role === "teacher" ? (
               <label className={styles.viewPicker}>
                 <span>{isInstitutionTeacher ? "Menu professeur campus" : "Menu enseignant"}</span>
-                <select value={teacherView} onChange={(event) => setTeacherView(event.target.value as TeacherView)}>
+                <select value={teacherView} onChange={(event) => changeTeacherView(event.target.value as TeacherView)}>
                   <option value="overview">Pilotage</option>
+                  <option value="courses">Mes cours</option>
+                  <option value="classes">Mes classes</option>
+                  <option value="studio">Studio de creation</option>
                   <option value="profile">Mon profil</option>
                 </select>
               </label>
@@ -932,10 +973,10 @@ export default function DashboardPage() {
         <>
           <section className={styles.studentSwitch}>
             <div className={styles.studentTabs}>
-              <button type="button" className={studentView === "home" ? styles.activeTab : styles.studentTab} onClick={() => setStudentView("home")}>Accueil</button>
-              <button type="button" className={studentView === "progress" ? styles.activeTab : styles.studentTab} onClick={() => setStudentView("progress")}>Suivi des cours</button>
-              <button type="button" className={studentView === "institutions" ? styles.activeTab : styles.studentTab} onClick={() => setStudentView("institutions")}>{isInstitutionStudent ? "Mon campus" : "Etablissements"}</button>
-              <button type="button" className={studentView === "profile" ? styles.activeTab : styles.studentTab} onClick={() => setStudentView("profile")}>Mon profil</button>
+              <button type="button" className={studentView === "home" ? styles.activeTab : styles.studentTab} aria-current={studentView === "home" ? "page" : undefined} onClick={() => changeStudentView("home")}>Accueil</button>
+              <button type="button" className={studentView === "progress" ? styles.activeTab : styles.studentTab} aria-current={studentView === "progress" ? "page" : undefined} onClick={() => changeStudentView("progress")}>Suivi des cours</button>
+              <button type="button" className={studentView === "institutions" ? styles.activeTab : styles.studentTab} aria-current={studentView === "institutions" ? "page" : undefined} onClick={() => changeStudentView("institutions")}>{isInstitutionStudent ? "Mon campus" : "Etablissements"}</button>
+              <button type="button" className={studentView === "profile" ? styles.activeTab : styles.studentTab} aria-current={studentView === "profile" ? "page" : undefined} onClick={() => changeStudentView("profile")}>Mon profil</button>
             </div>
           </section>
 
@@ -974,7 +1015,7 @@ export default function DashboardPage() {
                         Reprendre ce cours
                       </Link>
                     ) : (
-                      <button type="button" className={styles.catalogDetailLink} onClick={() => setStudentView("progress")}>
+                      <button type="button" className={styles.catalogDetailLink} onClick={() => changeStudentView("progress")}>
                         Voir mon suivi
                       </button>
                     )}
@@ -1107,7 +1148,7 @@ export default function DashboardPage() {
                       ? "Tes salles, devoirs et cours diffuses par ton etablissement sont maintenant regroupes dans cet espace."
                       : "Complete ton profil ou rejoins une salle pour relier ton compte a un etablissement."}
                   </p>
-                  <button type="button" className={styles.secondaryButton} onClick={() => setStudentView("institutions")}>
+                  <button type="button" className={styles.secondaryButton} onClick={() => changeStudentView("institutions")}>
                     Voir les liaisons
                   </button>
                 </section>
@@ -1245,7 +1286,7 @@ export default function DashboardPage() {
                       ? `${linkedInstitutionsCount} etablissement(s) et ${linkedRoomsCount} salle(s) relies a ce profil.`
                       : "Tu pourras rejoindre un campus via un lien d'invitation d'etablissement."}
                   </p>
-                  <button type="button" className={styles.secondaryButton} onClick={() => setStudentView("profile")}>
+                  <button type="button" className={styles.secondaryButton} onClick={() => changeStudentView("profile")}>
                     Completer mon profil
                   </button>
                 </section>
@@ -1255,11 +1296,22 @@ export default function DashboardPage() {
 
           {studentView === "profile" ? renderProfileEditor() : null}
         </>
-      ) : role === "teacher" ? teacherView === "profile" ? (
-        renderProfileEditor()
-      ) : (
-        <section className={styles.grid}>
+      ) : role === "teacher" ? (
+        <>
+          <section className={styles.studentSwitch}>
+            <div className={styles.studentTabs} aria-label="Sections de l'espace formateur">
+              <button type="button" className={teacherView === "overview" ? styles.activeTab : styles.studentTab} aria-current={teacherView === "overview" ? "page" : undefined} onClick={() => changeTeacherView("overview")}>Vue d&apos;ensemble</button>
+              <button type="button" className={teacherView === "courses" ? styles.activeTab : styles.studentTab} aria-current={teacherView === "courses" ? "page" : undefined} onClick={() => changeTeacherView("courses")}>Mes cours</button>
+              <button type="button" className={teacherView === "classes" ? styles.activeTab : styles.studentTab} aria-current={teacherView === "classes" ? "page" : undefined} onClick={() => changeTeacherView("classes")}>Mes classes</button>
+              <button type="button" className={teacherView === "studio" ? styles.activeTab : styles.studentTab} aria-current={teacherView === "studio" ? "page" : undefined} onClick={() => changeTeacherView("studio")}>Studio</button>
+              <button type="button" className={teacherView === "profile" ? styles.activeTab : styles.studentTab} aria-current={teacherView === "profile" ? "page" : undefined} onClick={() => changeTeacherView("profile")}>Mon profil</button>
+            </div>
+          </section>
+
+          {teacherView === "profile" ? renderProfileEditor() : (
+        <section className={`${styles.grid} ${teacherView !== "overview" ? styles.singleColumn : ""}`}>
           <div className={styles.primaryColumn}>
+            {teacherView === "overview" ? (
             <section className={styles.studentShowcase}>
               <div className={styles.showcaseCopy}>
                 <p className={styles.sectionLabel}>{isInstitutionTeacher ? "Espace professeur campus" : "Espace enseignant"}</p>
@@ -1294,7 +1346,9 @@ export default function DashboardPage() {
                 </div>
               </div>
             </section>
+            ) : null}
 
+            {teacherView === "courses" ? (
             <section className={styles.card}>
               <div className={styles.sectionHeader}>
                 <div><p className={styles.sectionLabel}>Cours</p><h2>Mes contenus publies</h2></div>
@@ -1328,7 +1382,10 @@ export default function DashboardPage() {
                       <button
                         type="button"
                         className={styles.secondaryButton}
-                        onClick={() => setEditingTeacherCourseId(String(course.id ?? ""))}
+                        onClick={() => {
+                          setEditingTeacherCourseId(String(course.id ?? ""));
+                          changeTeacherView("studio");
+                        }}
                       >
                         Modifier le cours
                       </button>
@@ -1340,7 +1397,9 @@ export default function DashboardPage() {
                 )) : <p className={styles.paragraph}>{teacherCourses.length > 0 ? "Aucun cours ne correspond a cette recherche." : "Aucun cours n'est encore rattache a cet enseignant."}</p>}
               </div>
             </section>
+            ) : null}
 
+            {teacherView === "overview" ? (
             <section className={styles.card}>
               <div className={styles.sectionHeader}>
                 <div><p className={styles.sectionLabel}>Insights</p><h2>Tendances utiles</h2></div>
@@ -1353,7 +1412,10 @@ export default function DashboardPage() {
                 ))}
               </div>
             </section>
+            ) : null}
 
+            {teacherView === "classes" ? (
+            <>
             <section className={styles.card}>
               <div className={styles.sectionHeader}>
                 <div><p className={styles.sectionLabel}>Classes</p><h2>{isInstitutionTeacher ? "Mes classes campus" : "Mes classes d&apos;etablissement"}</h2></div>
@@ -1548,15 +1610,20 @@ export default function DashboardPage() {
                 </section>
               </section>
             ) : null}
+            </>
+            ) : null}
 
+            {teacherView === "studio" ? (
             <TeacherCourseBuilder
               apiBaseUrl={apiBaseUrl}
               onCourseCreated={fetchDashboard}
               editingCourseId={editingTeacherCourseId || null}
               onCancelEdit={() => setEditingTeacherCourseId("")}
             />
+            ) : null}
           </div>
 
+          {teacherView === "overview" ? (
           <div className={styles.sideColumn}>
             <section className={styles.cardAccent}>
               <p className={styles.sectionLabel}>Operations du jour</p>
@@ -1595,7 +1662,10 @@ export default function DashboardPage() {
               </div>
             </section>
           </div>
+          ) : null}
         </section>
+          )}
+        </>
       ) : (
         <InstitutionWorkspace apiBaseUrl={apiBaseUrl} />
       )}
