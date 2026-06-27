@@ -61,6 +61,14 @@ type ReviewItem = {
   authorName: string;
 };
 
+type PaymentPreview = {
+  providerLabel: string;
+  instructions: string;
+  amountFcfa: number;
+  platformFeeFcfa: number;
+  teacherEarningFcfa: number;
+};
+
 export default function CourseDetailPage({
   params,
 }: {
@@ -77,6 +85,7 @@ export default function CourseDetailPage({
   const [message, setMessage] = useState("");
   const [enrolling, setEnrolling] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentPreview, setPaymentPreview] = useState<PaymentPreview | null>(null);
   const [role, setRole] = useState("");
   const [courseRating, setCourseRating] = useState("5");
   const [courseComment, setCourseComment] = useState("");
@@ -349,6 +358,7 @@ export default function CourseDetailPage({
 
     setPaymentLoading(true);
     setMessage("");
+    setPaymentPreview(null);
 
     try {
       const checkoutRes = await fetch(`${apiBaseUrl}/payments/course-checkout`, {
@@ -376,6 +386,17 @@ export default function CourseDetailPage({
         return;
       }
 
+      setPaymentPreview({
+        providerLabel: String(checkoutData.providerLabel ?? "Paiement de demonstration"),
+        instructions: String(
+          checkoutData.instructions ??
+            "Confirmation automatique en mode demonstration.",
+        ),
+        amountFcfa: Number(checkoutData.amountFcfa ?? 0),
+        platformFeeFcfa: Number(checkoutData.platformFeeFcfa ?? 0),
+        teacherEarningFcfa: Number(checkoutData.teacherEarningFcfa ?? 0),
+      });
+
       const confirmRes = await fetch(
         `${apiBaseUrl}/payments/${checkoutData.paymentId}/confirm-demo`,
         {
@@ -397,7 +418,7 @@ export default function CourseDetailPage({
       }
 
       setCourse((current) => (current ? { ...current, enrolled: true } : current));
-      setMessage("Paiement confirme. Le cours est maintenant disponible.");
+      setMessage("Paiement demo confirme. Le cours est maintenant disponible.");
       await reloadCourse();
     } catch {
       setMessage("Le paiement n'a pas pu etre finalise.");
@@ -825,6 +846,32 @@ export default function CourseDetailPage({
             </div>
 
             {message ? <p className={styles.inlineMessage}>{message}</p> : null}
+            {course.priceFcfa > 0 && !course.enrolled ? (
+              <section className={styles.paymentPanel}>
+                <div className={styles.paymentPanelTop}>
+                  <strong>{paymentPreview?.providerLabel ?? "Paiement de demonstration"}</strong>
+                  <span>{course.priceFcfa} FCFA</span>
+                </div>
+                <p>
+                  {paymentPreview?.instructions ??
+                    "Le paiement reel n'est pas encore connecte. Le parcours actuel simule la validation pour tester le flux complet."}
+                </p>
+                <div className={styles.paymentGrid}>
+                  <article className={styles.paymentCard}>
+                    <span>Prix du cours</span>
+                    <strong>{paymentPreview?.amountFcfa ?? course.priceFcfa} FCFA</strong>
+                  </article>
+                  <article className={styles.paymentCard}>
+                    <span>Commission plateforme</span>
+                    <strong>{paymentPreview?.platformFeeFcfa ?? Math.round(course.priceFcfa * 0.15)} FCFA</strong>
+                  </article>
+                  <article className={styles.paymentCard}>
+                    <span>Part formateur</span>
+                    <strong>{paymentPreview?.teacherEarningFcfa ?? Math.max(course.priceFcfa - Math.round(course.priceFcfa * 0.15), 0)} FCFA</strong>
+                  </article>
+                </div>
+              </section>
+            ) : null}
           </div>
 
           <aside className={styles.heroCard}>

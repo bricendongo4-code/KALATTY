@@ -168,6 +168,53 @@
   color: rgba(255, 244, 229, 0.82);
 }
 
+.paymentPanel {
+  display: grid;
+  gap: 0.85rem;
+  max-width: 42rem;
+  padding: 1rem 1.1rem;
+  border-radius: var(--radius);
+  background: rgba(255, 248, 239, 0.12);
+  border: 1px solid rgba(255, 248, 239, 0.16);
+}
+
+.paymentPanelTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.paymentPanelTop strong,
+.paymentPanelTop span,
+.paymentPanel p {
+  color: #ffffff;
+  margin: 0;
+}
+
+.paymentGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.paymentCard {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.9rem;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.paymentCard span {
+  color: rgba(255, 244, 229, 0.82);
+  font-size: 0.82rem;
+}
+
+.paymentCard strong {
+  color: #ffffff;
+}
+
 .actions {
   display: flex;
   gap: 0.85rem;
@@ -517,6 +564,10 @@
   .heroGrid,
   .contentGrid,
   .reviewGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .paymentGrid {
     grid-template-columns: 1fr;
   }
 }

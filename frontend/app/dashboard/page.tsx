@@ -329,6 +329,28 @@ export default function DashboardPage() {
     { label: "Moyenne", value: `${progressAverage}%`, note: "Avancement global" },
     { label: "Salles", value: linkedRoomsCount, note: "Classes rattachees" },
   ];
+  const campusStudentHighlights = [
+    {
+      label: "Campus",
+      value: workspaceInstitutionName || "Non relie",
+      note: isInstitutionStudent
+        ? "Compte eleve pilote par un etablissement"
+        : "Compte personnel Kalatty",
+    },
+    {
+      label: "Devoirs campus",
+      value: studentRooms.reduce(
+        (sum, room) => sum + Number(room.pendingAssignments ?? 0),
+        0,
+      ),
+      note: "Travaux diffuses dans tes classes",
+    },
+    {
+      label: "Classe prioritaire",
+      value: String(studentRooms[0]?.name ?? "Aucune"),
+      note: String(studentRooms[0]?.latestAssignmentTitle ?? "Aucun devoir recent"),
+    },
+  ];
   const publishedCoursesCount = Number(dashboardData?.stats.publishedCourses ?? teacherCourses.length ?? 0);
   const totalLearnersCount = Number(dashboardData?.stats.totalLearners ?? 0);
   const averageLearnersCount = Number(dashboardData?.stats.averageLearners ?? 0);
@@ -345,6 +367,25 @@ export default function DashboardPage() {
     { label: "Cours publies", value: publishedCoursesCount, note: "Catalogue formateur" },
     { label: "Apprenants", value: totalLearnersCount, note: "Tous cours confondus" },
     { label: "Classes", value: activeClassesCount, note: "Salles affectees" },
+  ];
+  const campusTeacherHighlights = [
+    {
+      label: "Campus principal",
+      value: workspaceInstitutionName || "Non precise",
+      note: isInstitutionTeacher
+        ? "Espace de diffusion lie a ton etablissement"
+        : "Intervention libre sur la plateforme",
+    },
+    {
+      label: "Classe a suivre",
+      value: String(teacherRooms[0]?.name ?? "Aucune"),
+      note: String(teacherRooms[0]?.institutionName ?? "Aucun campus rattache"),
+    },
+    {
+      label: "Copies en attente",
+      value: Number(teacherRoomDetail?.submissionSummary?.pending ?? 0),
+      note: "Remises a corriger en priorite",
+    },
   ];
 
   useEffect(() => {
@@ -1027,6 +1068,21 @@ export default function DashboardPage() {
                   <h2>A faire maintenant</h2>
                   <ul className={styles.simpleList}>{studentTasks.map((task) => <li key={task}>{task}</li>)}</ul>
                 </section>
+                {isInstitutionStudent ? (
+                  <section className={styles.card}>
+                    <p className={styles.sectionLabel}>Repere campus</p>
+                    <h2>Vue rapide etablissement</h2>
+                    <div className={styles.revenueGrid}>
+                      {campusStudentHighlights.map((item) => (
+                        <article key={item.label} className={styles.revenueCard}>
+                          <span>{item.label}</span>
+                          <strong>{item.value}</strong>
+                          <small>{item.note}</small>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
                 <section className={styles.card}>
                   <div className={styles.sectionHeader}>
                     <div>
@@ -1504,15 +1560,38 @@ export default function DashboardPage() {
           <div className={styles.sideColumn}>
             <section className={styles.cardAccent}>
               <p className={styles.sectionLabel}>Operations du jour</p>
-              <h2>Checklist formateur</h2>
+              <h2>{isInstitutionTeacher ? "Checklist professeur campus" : "Checklist formateur"}</h2>
               <ul className={styles.simpleList}>{teacherTasks.map((task) => <li key={task}>{task}</li>)}</ul>
             </section>
+            {isInstitutionTeacher ? (
+              <section className={styles.card}>
+                <p className={styles.sectionLabel}>Repere campus</p>
+                <h2>Vue rapide d&apos;etablissement</h2>
+                <div className={styles.revenueGrid}>
+                  {campusTeacherHighlights.map((item) => (
+                    <article key={item.label} className={styles.revenueCard}>
+                      <span>{item.label}</span>
+                      <strong>{item.value}</strong>
+                      <small>{item.note}</small>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ) : null}
             <section className={styles.card}>
-              <p className={styles.sectionLabel}>Revenus</p>
-              <h2>Remuneration enseignant</h2>
+              <p className={styles.sectionLabel}>{isInstitutionTeacher ? "Activite formateur" : "Revenus"}</p>
+              <h2>{isInstitutionTeacher ? "Indicateurs de diffusion" : "Remuneration enseignant"}</h2>
               <div className={styles.revenueGrid}>
-                <article className={styles.revenueCard}><span>Montant cumule</span><strong>{dashboardData?.stats.totalRevenue ?? 0} FCFA</strong><small>Somme totale generee par tes cours</small></article>
-                <article className={styles.revenueCard}><span>Ce mois-ci</span><strong>{dashboardData?.stats.monthRevenue ?? 0} FCFA</strong><small>Revenus recents des inscriptions payantes</small></article>
+                <article className={styles.revenueCard}>
+                  <span>{isInstitutionTeacher ? "Revenus cumules" : "Montant cumule"}</span>
+                  <strong>{dashboardData?.stats.totalRevenue ?? 0} FCFA</strong>
+                  <small>{isInstitutionTeacher ? "Suivi personnel de tes cours, meme en diffusion campus" : "Somme totale generee par tes cours"}</small>
+                </article>
+                <article className={styles.revenueCard}>
+                  <span>{isInstitutionTeacher ? "Ce mois-ci" : "Ce mois-ci"}</span>
+                  <strong>{dashboardData?.stats.monthRevenue ?? 0} FCFA</strong>
+                  <small>{isInstitutionTeacher ? "Montant recent genere sur Kalatty" : "Revenus recents des inscriptions payantes"}</small>
+                </article>
               </div>
             </section>
           </div>
