@@ -23,7 +23,6 @@ jobs:
         run: test -n "${{ secrets.RAILWAY_TOKEN }}" || (echo "Missing RAILWAY_TOKEN secret" && exit 1)
 
       - name: Deploy Backend
-        working-directory: backend
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: >-
