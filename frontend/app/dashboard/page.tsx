@@ -362,10 +362,10 @@ export default function DashboardPage() {
           "Verifier les exercices transmis par ton etablissement.",
         ];
   const studentQuickStats = [
-    { label: "Cours actifs", value: enrolledCoursesCount, note: "Parcours suivis" },
-    { label: "Lecons terminees", value: completedLessonsCount, note: "Progression personnelle" },
-    { label: "Moyenne", value: `${progressAverage}%`, note: "Avancement global" },
-    { label: "Salles", value: linkedRoomsCount, note: "Classes rattachees" },
+    { label: "Cours actifs", value: enrolledCoursesCount, note: "Parcours suivis", view: "progress" as StudentView },
+    { label: "Lecons terminees", value: completedLessonsCount, note: "Progression personnelle", view: "progress" as StudentView },
+    { label: "Moyenne", value: `${progressAverage}%`, note: "Avancement global", view: "progress" as StudentView },
+    { label: "Salles", value: linkedRoomsCount, note: "Classes rattachees", view: "institutions" as StudentView },
   ];
   const campusStudentHighlights = [
     {
@@ -994,11 +994,18 @@ export default function DashboardPage() {
                     </p>
                     <div className={styles.showcaseStats}>
                       {studentQuickStats.map((stat) => (
-                        <article key={stat.label} className={styles.showcaseStat}>
+                        <button
+                          key={stat.label}
+                          type="button"
+                          className={`${styles.showcaseStat} ${styles.interactiveStat}`}
+                          onClick={() => changeStudentView(stat.view)}
+                          aria-label={`${stat.label}: ${stat.value}. Voir les details`}
+                        >
                           <span>{stat.label}</span>
                           <strong>{stat.value}</strong>
                           <small>{stat.note}</small>
-                        </article>
+                          <b>Voir les details</b>
+                        </button>
                       ))}
                     </div>
                   </div>
@@ -1021,6 +1028,24 @@ export default function DashboardPage() {
                     )}
                   </div>
                 </section>
+
+                <nav className={styles.studentQuickNav} aria-label="Acces rapides etudiant">
+                  <button type="button" onClick={() => changeStudentView("progress")}>
+                    <span>01</span>
+                    <strong>Mes apprentissages</strong>
+                    <small>Reprendre une video et consulter ma progression</small>
+                  </button>
+                  <button type="button" onClick={() => changeStudentView("institutions")}>
+                    <span>02</span>
+                    <strong>Mon campus</strong>
+                    <small>Voir mes classes, devoirs et etablissements</small>
+                  </button>
+                  <button type="button" onClick={() => changeStudentView("profile")}>
+                    <span>03</span>
+                    <strong>Mon profil</strong>
+                    <small>Completer mes informations et preferences</small>
+                  </button>
+                </nav>
 
                 <section className={styles.card}>
                   <div className={styles.sectionHeader}>
@@ -1170,11 +1195,18 @@ export default function DashboardPage() {
                   </label>
                   <div className={styles.statsRow}>
                     {studentQuickStats.map((stat) => (
-                      <article key={stat.label} className={styles.statCard}>
+                      <button
+                        key={stat.label}
+                        type="button"
+                        className={`${styles.statCard} ${styles.interactiveStat}`}
+                        onClick={() => changeStudentView(stat.view)}
+                        aria-label={`${stat.label}: ${stat.value}. Afficher les details`}
+                      >
                         <span>{stat.label}</span>
                         <strong>{stat.value}</strong>
                         <small>{stat.note}</small>
-                      </article>
+                        <b>Ouvrir</b>
+                      </button>
                     ))}
                   </div>
                   <div className={styles.courseList}>

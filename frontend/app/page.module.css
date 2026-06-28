@@ -20,6 +20,11 @@
   display: grid;
   gap: 1.5rem;
   padding: 1.25rem;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 92% 8%, rgba(255, 107, 40, 0.12), transparent 22rem),
+    radial-gradient(circle at 5% 70%, rgba(0, 143, 149, 0.1), transparent 24rem),
+    var(--surface);
 }
 
 .topbar {
@@ -98,9 +103,10 @@
 .navButton,
 .primaryCta,
 .discoveryLink {
-  border: 1px solid var(--primary);
-  background: var(--primary);
+  border: 1px solid var(--secondary);
+  background: linear-gradient(135deg, var(--secondary), #ff8a2b);
   color: #ffffff;
+  box-shadow: 0 8px 20px rgba(255, 107, 40, 0.2);
 }
 
 .heroGrid {
@@ -196,13 +202,44 @@
 }
 
 .heroCard {
-  background: #102a43;
+  background:
+    radial-gradient(circle at 90% 5%, rgba(0, 211, 194, 0.28), transparent 9rem),
+    linear-gradient(145deg, #092f43, #005b63);
   color: #ffffff;
 }
 
 .heroCardAccent {
-  background: var(--secondary);
+  background: linear-gradient(145deg, var(--secondary), #ef2f62);
   color: #ffffff;
+}
+
+.heroCard,
+.heroCardAccent,
+.discoveryCard,
+.rankCard,
+.benefitCard,
+.guideCard {
+  min-width: 0;
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.heroCard:hover,
+.heroCardAccent:hover,
+.discoveryCard:hover,
+.rankCard:hover,
+.benefitCard:hover,
+.guideCard:hover {
+  transform: translateY(-4px);
+  border-color: var(--secondary);
+  box-shadow: var(--shadow-strong);
+}
+
+.heroCard b,
+.heroCardAccent b {
+  margin-top: auto;
+  font-size: 0.84rem;
+  text-decoration: underline;
+  text-underline-offset: 0.25rem;
 }
 
 .heroCard span,
@@ -273,6 +310,20 @@
   display: grid;
   gap: 0.7rem;
   padding: 1rem;
+}
+
+.benefitCard b,
+.rankLink {
+  color: var(--secondary);
+  font-size: 0.84rem;
+  font-weight: 900;
+}
+
+.rankLink {
+  margin-left: auto;
+  padding: 0.5rem 0.7rem;
+  border-radius: var(--radius-sm);
+  background: var(--secondary-soft);
 }
 
 .discoveryCardWide {

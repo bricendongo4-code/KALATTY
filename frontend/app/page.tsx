@@ -39,14 +39,17 @@ const benefits = [
   {
     title: "Apprenants",
     text: "Une page d'accueil catalogue, un suivi de progression et un acces plus simple aux cours et exercices.",
+    href: "/register/student",
   },
   {
     title: "Formateurs",
     text: "Un vrai studio de creation pour publier des cours, telecharger des videos et organiser le programme.",
+    href: "/register/teacher",
   },
   {
     title: "Etablissements",
     text: "Des salles, des liens d'invitation, des devoirs et un pilotage proche d'un espace Teams educatif.",
+    href: "/register/institution",
   },
 ];
 
@@ -162,22 +165,24 @@ export default function Home() {
           </div>
 
           <div className={styles.heroPanel}>
-            <div className={styles.heroCard}>
+            <Link href="/register/teacher" className={styles.heroCard}>
               <span>Studio formateur</span>
               <strong>Creation de cours guidee</strong>
               <p>
                 Landing page, programme, upload video et verification avant
                 publication.
               </p>
-            </div>
-            <div className={styles.heroCardAccent}>
+              <b>Creer mon espace formateur</b>
+            </Link>
+            <Link href="/register/institution" className={styles.heroCardAccent}>
               <span>Campus digital</span>
               <strong>Salles, profs et etudiants relies</strong>
               <p>
                 Invitations par lien, devoirs par salle et organisation des
                 groupes en un seul endroit.
               </p>
-            </div>
+              <b>Configurer un etablissement</b>
+            </Link>
           </div>
         </div>
       </section>
@@ -245,6 +250,9 @@ export default function Home() {
                       {course.totalReviews} avis
                     </p>
                   </div>
+                  <Link href={`/courses/${course.id}`} className={styles.rankLink}>
+                    Details
+                  </Link>
                 </article>
               ))
             ) : (
@@ -287,11 +295,12 @@ export default function Home() {
 
         <div className={styles.benefitGrid}>
           {benefits.map((benefit) => (
-            <article key={benefit.title} className={styles.benefitCard}>
+            <Link key={benefit.title} href={benefit.href} className={styles.benefitCard}>
               <span>{benefit.title}</span>
               <h3>{benefit.title}</h3>
               <p>{benefit.text}</p>
-            </article>
+              <b>Decouvrir cet espace</b>
+            </Link>
           ))}
         </div>
       </section>

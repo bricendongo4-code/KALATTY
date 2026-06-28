@@ -15,8 +15,8 @@
   padding: 3rem;
   border-radius: 32px;
   background:
-    linear-gradient(135deg, rgba(29, 111, 95, 0.96), rgba(18, 72, 64, 0.9)),
-    linear-gradient(45deg, rgba(242, 198, 109, 0.18), transparent 60%);
+    radial-gradient(circle at 85% 15%, rgba(255, 107, 40, 0.55), transparent 14rem),
+    linear-gradient(135deg, rgba(0, 91, 99, 0.98), rgba(0, 143, 149, 0.92));
   color: #fff7eb;
   overflow: hidden;
   box-shadow: var(--shadow);
