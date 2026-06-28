@@ -1,4 +1,5 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 
 type RegisterBody = {
@@ -35,5 +36,14 @@ export class AuthController {
   @Post('reset-password')
   resetPassword(@Body() body: { accessToken: string; password: string }) {
     return this.authService.resetPassword(body);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('change-password')
+  changePassword(
+    @Req() req: { user: { id: string; email: string } },
+    @Body() body: { currentPassword: string; newPassword: string },
+  ) {
+    return this.authService.changePassword(req.user, body);
   }
 }

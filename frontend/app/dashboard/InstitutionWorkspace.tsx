@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import PasswordSettings from "./PasswordSettings";
 import styles from "./dashboard.module.css";
 
 type InstitutionSummary = {
@@ -178,7 +179,7 @@ type Props = {
   apiBaseUrl: string;
 };
 
-type InstitutionView = "overview" | "accounts" | "classes" | "courses" | "billing";
+type InstitutionView = "overview" | "accounts" | "classes" | "courses" | "billing" | "settings";
 
 const formatRoleLabel = (role: string) => {
   if (role === "student") return "Etudiant";
@@ -1073,8 +1074,21 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
             >
               Abonnement
             </button>
+            <button
+              type="button"
+              className={activeView === "settings" ? styles.activeTab : styles.studentTab}
+              onClick={() => setActiveView("settings")}
+            >
+              Parametres
+            </button>
           </div>
         </section>
+
+        {activeView === "settings" ? (
+          <section className={`${styles.grid} ${styles.singleColumn}`}>
+            <PasswordSettings apiBaseUrl={apiBaseUrl} />
+          </section>
+        ) : null}
 
         {activeView === "billing" ? (
         <section className={styles.card}>

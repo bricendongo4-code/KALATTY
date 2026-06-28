@@ -289,6 +289,77 @@ export class AuthService {
     };
   }
 
+  async changePassword(
+    user: { id: string; email: string },
+    data: { currentPassword: string; newPassword: string },
+  ) {
+    const currentPassword = data.currentPassword ?? '';
+    const newPassword = data.newPassword ?? '';
+
+    if (!user?.id || !user.email) {
+      throw new UnauthorizedException('Session invalide. Reconnectez-vous.');
+    }
+
+    if (!currentPassword) {
+      throw new BadRequestException('Saisissez votre mot de passe actuel.');
+    }
+
+    if (newPassword.length < 8) {
+      throw new BadRequestException(
+        'Le nouveau mot de passe doit contenir au moins 8 caracteres.',
+      );
+    }
+
+    if (currentPassword === newPassword) {
+      throw new BadRequestException(
+        "Le nouveau mot de passe doit etre different de l'ancien.",
+      );
+    }
+
+    const { data: verifiedAuth, error: verificationError } =
+      await this.supabaseService.authClient.auth.signInWithPassword({
+        email: user.email.trim().toLowerCase(),
+        password: currentPassword,
+      });
+
+    if (
+      verificationError ||
+      !verifiedAuth.user ||
+      verifiedAuth.user.id !== user.id
+    ) {
+      throw new UnauthorizedException('Le mot de passe actuel est incorrect.');
+    }
+
+    const { error: updateError } =
+      await this.supabaseService.client.auth.admin.updateUserById(user.id, {
+        password: newPassword,
+      });
+
+    if (updateError) {
+      throw new BadRequestException(
+        updateError.message ?? 'Impossible de modifier le mot de passe.',
+      );
+    }
+
+    const { error: managedUserError } = await this.supabaseService.client
+      .from('institution_managed_users')
+      .update({
+        must_reset_password: false,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', user.id);
+
+    if (managedUserError) {
+      this.logger.warn(
+        `Managed password status update failed: ${managedUserError.message}`,
+      );
+    }
+
+    return {
+      message: 'Mot de passe modifie avec succes.',
+    };
+  }
+
   private async syncProfileRecord(
     userId: string,
     payload: {

@@ -1216,6 +1216,56 @@
   gap: 1rem;
 }
 
+.passwordForm,
+.securityPanelCompact {
+  display: grid;
+  gap: 1rem;
+}
+
+.securityPanelCompact {
+  padding: 1.25rem;
+  border: 1px solid rgba(0, 143, 149, 0.16);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.passwordVisibility {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 0.65rem;
+  color: var(--muted);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.passwordVisibility input {
+  width: 1.15rem;
+  height: 1.15rem;
+  accent-color: var(--primary);
+}
+
+.successMessage,
+.errorMessage {
+  margin: 0;
+  padding: 0.8rem 1rem;
+  border-radius: var(--radius-sm);
+  line-height: 1.5;
+}
+
+.successMessage {
+  color: #056247;
+  background: #dcfce7;
+  border: 1px solid #86efac;
+}
+
+.errorMessage {
+  color: #9f1239;
+  background: #fff1f2;
+  border: 1px solid #fda4af;
+}
+
 .profilePreview {
   padding: 1.1rem;
   border-radius: var(--radius);

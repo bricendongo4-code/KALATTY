@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { startTransition, useEffect, useEffectEvent, useState } from "react";
 import InstitutionWorkspace from "./InstitutionWorkspace";
+import PasswordSettings from "./PasswordSettings";
 import TeacherCourseBuilder from "./TeacherCourseBuilder";
 import styles from "./dashboard.module.css";
 
@@ -809,6 +810,7 @@ export default function DashboardPage() {
             {profileMessage ? <p className={styles.inlineMessage}>{profileMessage}</p> : null}
           </form>
         </section>
+        <PasswordSettings apiBaseUrl={apiBaseUrl} />
       </div>
 
       <div className={styles.sideColumn}>
