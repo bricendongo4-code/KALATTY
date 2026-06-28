@@ -584,7 +584,7 @@
 }
 
 .institutionStatsGrid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
 }
 
 .institutionStatCard,
@@ -694,7 +694,7 @@
 }
 
 .institutionOpsGrid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
   margin-bottom: 1rem;
 }
 
@@ -773,7 +773,7 @@
 
 .statsRow {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
   gap: 1rem;
   margin-bottom: 1.25rem;
 }
@@ -804,7 +804,7 @@
 
 .showcaseStats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
   gap: 0.85rem;
 }
 
@@ -1508,7 +1508,7 @@
 
 .courseMetaGrid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
   gap: 0.5rem;
   margin-top: 1rem;
 }

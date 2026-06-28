@@ -66,11 +66,22 @@ input,
 textarea,
 select {
   font: inherit;
+  max-width: 100%;
 }
 
 button {
   cursor: pointer;
   touch-action: manipulation;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+main :where(section, article, div, form, label) {
+  min-width: 0;
+}
+
+main :where(p, span, strong, small, h1, h2, h3, h4, a) {
+  overflow-wrap: anywhere;
 }
 
 button:disabled {
