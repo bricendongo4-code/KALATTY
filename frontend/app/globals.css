@@ -93,6 +93,219 @@ main :where(p, span, strong, small, h1, h2, h3, h4, a) {
   overflow-wrap: anywhere;
 }
 
+.siteFooter {
+  position: relative;
+  isolation: isolate;
+  margin-top: 4rem;
+  overflow: hidden;
+  border-top: 1px solid rgba(0, 143, 149, 0.22);
+  background:
+    radial-gradient(circle at 12% 18%, rgba(0, 211, 194, 0.2), transparent 20rem),
+    radial-gradient(circle at 88% 10%, rgba(255, 107, 40, 0.22), transparent 18rem),
+    linear-gradient(145deg, #062432 0%, #093f48 48%, #071b28 100%);
+  color: #fff8ef;
+}
+
+.siteFooterGlow {
+  position: absolute;
+  inset: auto -12rem -18rem auto;
+  z-index: -1;
+  width: 34rem;
+  height: 34rem;
+  border-radius: 999px;
+  background: rgba(255, 107, 40, 0.24);
+  filter: blur(30px);
+}
+
+.siteFooterInner {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.4fr) minmax(18rem, 0.8fr);
+  gap: clamp(1.25rem, 3vw, 2.5rem);
+  width: min(1180px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: clamp(2rem, 5vw, 4rem) 0 2rem;
+}
+
+.siteFooterBrand,
+.siteFooterCta {
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+}
+
+.siteFooterLogoLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.85rem;
+  width: fit-content;
+}
+
+.siteFooterLogo {
+  width: 4.25rem;
+  height: 4.25rem;
+  border-radius: 1.25rem;
+  background: rgba(255, 255, 255, 0.92);
+  object-fit: contain;
+  padding: 0.25rem;
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.2);
+}
+
+.siteFooterLogoLink strong {
+  display: block;
+  color: #ffffff;
+  font-family: var(--font-serif), serif;
+  font-size: 1.55rem;
+  line-height: 1;
+}
+
+.siteFooterLogoLink small,
+.siteFooterBrand p,
+.siteFooterCta p,
+.siteFooterBottom,
+.siteFooterLinks a,
+.siteFooterLinks span {
+  color: rgba(255, 248, 239, 0.74);
+}
+
+.siteFooterBrand p,
+.siteFooterCta p {
+  max-width: 28rem;
+  line-height: 1.75;
+}
+
+.siteFooterBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.siteFooterBadges span,
+.siteFooterCtaLabel {
+  width: fit-content;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #c9f4ed;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  padding: 0.45rem 0.7rem;
+  text-transform: uppercase;
+}
+
+.siteFooterLinks {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.siteFooterLinks div {
+  display: grid;
+  align-content: start;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.siteFooterLinks h2,
+.siteFooterCta h2 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 1rem;
+}
+
+.siteFooterCta h2 {
+  font-family: var(--font-serif), serif;
+  font-size: clamp(1.35rem, 2.6vw, 2rem);
+  line-height: 1.12;
+}
+
+.siteFooterLinks a,
+.siteFooterLinks span {
+  width: fit-content;
+  max-width: 100%;
+  font-size: 0.93rem;
+  line-height: 1.5;
+}
+
+.siteFooterLinks a:hover,
+.siteFooterLogoLink:hover,
+.siteFooterCtaButton:hover {
+  color: #ffffff;
+}
+
+.siteFooterCta {
+  padding: 1rem;
+  border: 1px solid rgba(201, 244, 237, 0.18);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.16);
+}
+
+.siteFooterCtaButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3rem;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.8rem 1rem;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, var(--secondary), #ff9d3d);
+  color: #ffffff;
+  font-weight: 900;
+  text-align: center;
+  box-shadow: 0 14px 32px rgba(255, 107, 40, 0.25);
+}
+
+.siteFooterBottom {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  width: min(1180px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 1rem 0 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.11);
+  font-size: 0.86rem;
+}
+
+@media (max-width: 980px) {
+  .siteFooterInner {
+    grid-template-columns: 1fr;
+  }
+
+  .siteFooterLinks {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .siteFooter {
+    margin-top: 2.5rem;
+  }
+
+  .siteFooterInner {
+    width: min(100% - 1.25rem, 1180px);
+    padding-top: 2rem;
+  }
+
+  .siteFooterLinks {
+    grid-template-columns: 1fr;
+  }
+
+  .siteFooterLogo {
+    width: 3.65rem;
+    height: 3.65rem;
+  }
+
+  .siteFooterBottom {
+    flex-direction: column;
+    width: min(100% - 1.25rem, 1180px);
+  }
+
+  .siteFooterCtaButton {
+    width: 100%;
+  }
+}
+
 button:disabled {
   cursor: not-allowed;
 }
