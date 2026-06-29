@@ -832,6 +832,95 @@
   line-height: 1.5;
 }
 
+.teacherReviewInbox {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(0, 143, 149, 0.16);
+  border-radius: var(--radius);
+  background:
+    radial-gradient(
+      circle at 92% 0%,
+      rgba(255, 107, 40, 0.12),
+      transparent 16rem
+    ),
+    rgba(255, 255, 255, 0.86);
+}
+
+.reviewInboxSummary,
+.reviewInboxList {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.reviewInboxSummary {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.reviewInboxSummary article,
+.reviewInboxItem {
+  min-width: 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(0, 143, 149, 0.14);
+  background: #ffffff;
+}
+
+.reviewInboxSummary article {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.9rem;
+}
+
+.reviewInboxSummary span,
+.reviewInboxItem small {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.reviewInboxSummary strong {
+  color: var(--primary-dark);
+  font-size: 1.35rem;
+}
+
+.reviewInboxList {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.reviewInboxItem {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.95rem;
+}
+
+.reviewInboxItem div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.reviewInboxItem div span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0 0.65rem;
+  border-radius: 999px;
+  background: var(--secondary-soft);
+  color: var(--secondary);
+  font-weight: 900;
+}
+
+.reviewInboxItem strong {
+  color: var(--primary-dark);
+}
+
+.reviewInboxItem p {
+  margin: 0;
+  color: var(--foreground);
+  line-height: 1.6;
+}
+
 .studentShowcase {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(18rem, 0.9fr);
@@ -1951,6 +2040,8 @@
   .institutionMemberGrid,
   .institutionCourseBoard,
   .notificationList,
+  .reviewInboxSummary,
+  .reviewInboxList,
   .showcaseStats,
   .studentShowcase,
   .heroMeta,

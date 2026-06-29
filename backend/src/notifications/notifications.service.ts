@@ -8,12 +8,21 @@ type AuthUser = {
 
 type NotificationItem = {
   id: string;
-  type: 'assignment' | 'course' | 'institution' | 'payment' | 'system';
+  type:
+    | 'assignment'
+    | 'course'
+    | 'institution'
+    | 'payment'
+    | 'review'
+    | 'system';
   title: string;
   message: string;
   href?: string;
   createdAt: string;
   read: boolean;
+  rating?: number;
+  authorName?: string;
+  courseTitle?: string;
 };
 
 @Injectable()
@@ -166,17 +175,135 @@ export class NotificationsService {
       .select('id, title, status, created_at')
       .eq('teacher_id', userId)
       .order('created_at', { ascending: false })
-      .limit(5);
+      .limit(20);
 
-    return (courses ?? []).map((course: any) => ({
-      id: `teacher-course-${course.id}`,
-      type: 'course',
-      title:
-        course.status === 'published' ? 'Cours publie' : 'Cours en brouillon',
-      message: `${course.title ?? 'Ton cours'} est actuellement ${course.status ?? 'en cours'}.`,
-      href: '/dashboard',
-      createdAt: String(course.created_at ?? new Date().toISOString()),
-      read: false,
+    const courseNotifications = (courses ?? [])
+      .slice(0, 5)
+      .map((course: any) => ({
+        id: `teacher-course-${course.id}`,
+        type: 'course',
+        title:
+          course.status === 'published' ? 'Cours publie' : 'Cours en brouillon',
+        message: `${course.title ?? 'Ton cours'} est actuellement ${course.status ?? 'en cours'}.`,
+        href: '/dashboard',
+        createdAt: String(course.created_at ?? new Date().toISOString()),
+        read: false,
+      }));
+
+    const courseIds = (courses ?? [])
+      .map((course: any) => String(course.id ?? ''))
+      .filter(Boolean);
+    const courseTitleById = new Map<string, string>(
+      (courses ?? []).map((course: any) => [
+        String(course.id),
+        String(course.title ?? 'Cours Kalatty'),
+      ]),
+    );
+
+    if (courseIds.length === 0) {
+      return courseNotifications;
+    }
+
+    const [courseReviews, teacherReviews] = await Promise.all([
+      this.loadCourseReviewsForTeacher(courseIds),
+      this.loadTeacherReviews(userId),
+    ]);
+
+    const reviewNotifications = [...courseReviews, ...teacherReviews]
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, 12)
+      .map((review) => ({
+        id: review.id,
+        type: 'review' as const,
+        title:
+          review.kind === 'teacher'
+            ? 'Nouvel avis professeur'
+            : 'Nouvel avis cours',
+        message:
+          review.comment ||
+          `${review.authorName} a laisse une note de ${review.rating}/5.`,
+        href: `/courses/${review.courseId}`,
+        createdAt: review.createdAt,
+        read: false,
+        rating: review.rating,
+        authorName: review.authorName,
+        courseTitle: courseTitleById.get(review.courseId) ?? 'Cours Kalatty',
+      }));
+
+    return [...reviewNotifications, ...courseNotifications];
+  }
+
+  private async loadCourseReviewsForTeacher(courseIds: string[]) {
+    const { data, error } = await this.supabaseService.client
+      .from('course_reviews')
+      .select(
+        `
+          id,
+          course_id,
+          rating,
+          comment,
+          created_at,
+          updated_at,
+          profiles:student_id (
+            fullname
+          )
+        `,
+      )
+      .in('course_id', courseIds)
+      .order('updated_at', { ascending: false })
+      .limit(12);
+
+    if (error) {
+      return [];
+    }
+
+    return (data ?? []).map((review: any) => ({
+      id: `course-review-${review.id}`,
+      kind: 'course' as const,
+      courseId: String(review.course_id ?? ''),
+      rating: Number(review.rating ?? 0),
+      comment: String(review.comment ?? ''),
+      createdAt: String(
+        review.updated_at ?? review.created_at ?? new Date().toISOString(),
+      ),
+      authorName: String(review.profiles?.fullname ?? 'Etudiant Kalatty'),
+    }));
+  }
+
+  private async loadTeacherReviews(teacherId: string) {
+    const { data, error } = await this.supabaseService.client
+      .from('teacher_reviews')
+      .select(
+        `
+          id,
+          course_id,
+          rating,
+          comment,
+          created_at,
+          updated_at,
+          profiles:student_id (
+            fullname
+          )
+        `,
+      )
+      .eq('teacher_id', teacherId)
+      .order('updated_at', { ascending: false })
+      .limit(12);
+
+    if (error) {
+      return [];
+    }
+
+    return (data ?? []).map((review: any) => ({
+      id: `teacher-review-${review.id}`,
+      kind: 'teacher' as const,
+      courseId: String(review.course_id ?? ''),
+      rating: Number(review.rating ?? 0),
+      comment: String(review.comment ?? ''),
+      createdAt: String(
+        review.updated_at ?? review.created_at ?? new Date().toISOString(),
+      ),
+      authorName: String(review.profiles?.fullname ?? 'Etudiant Kalatty'),
     }));
   }
 
@@ -224,7 +351,8 @@ export class NotificationsService {
       value === 'assignment' ||
       value === 'course' ||
       value === 'institution' ||
-      value === 'payment'
+      value === 'payment' ||
+      value === 'review'
     ) {
       return value;
     }

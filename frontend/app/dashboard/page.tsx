@@ -55,6 +55,9 @@ type NotificationItem = {
   href?: string;
   createdAt: string;
   read: boolean;
+  rating?: number;
+  authorName?: string;
+  courseTitle?: string;
 };
 
 type TeacherRoomDetail = {
@@ -423,6 +426,20 @@ export default function DashboardPage() {
       teacherQuery,
     ),
   );
+  const teacherReviewNotifications = notifications.filter(
+    (notification) => notification.type === "review",
+  );
+  const teacherReviewAverage =
+    teacherReviewNotifications.length > 0
+      ? Math.round(
+          (teacherReviewNotifications.reduce(
+            (sum, notification) => sum + Number(notification.rating ?? 0),
+            0,
+          ) /
+            teacherReviewNotifications.length) *
+            10,
+        ) / 10
+      : 0;
   const filteredTeacherRooms = teacherRooms.filter((room) =>
     includesSearch(
       [room.name, room.description, room.institutionName, room.role],
@@ -2003,6 +2020,79 @@ export default function DashboardPage() {
                         </article>
                       ))}
                     </div>
+                    <section className={styles.teacherReviewInbox}>
+                      <div className={styles.sectionHeader}>
+                        <div>
+                          <p className={styles.sectionLabel}>
+                            Reception des avis
+                          </p>
+                          <h2>Commentaires et notes recus</h2>
+                        </div>
+                        <span className={styles.sectionHint}>
+                          Moyenne recente: {teacherReviewAverage}/5
+                        </span>
+                      </div>
+                      <div className={styles.reviewInboxSummary}>
+                        <article>
+                          <span>Total avis</span>
+                          <strong>{teacherReviewNotifications.length}</strong>
+                        </article>
+                        <article>
+                          <span>Note moyenne</span>
+                          <strong>{teacherReviewAverage}/5</strong>
+                        </article>
+                        <article>
+                          <span>Dernier avis</span>
+                          <strong>
+                            {teacherReviewNotifications[0]?.authorName ??
+                              "Aucun avis"}
+                          </strong>
+                        </article>
+                      </div>
+                      <div className={styles.reviewInboxList}>
+                        {teacherReviewNotifications.length > 0 ? (
+                          teacherReviewNotifications
+                            .slice(0, 6)
+                            .map((review) => (
+                              <article
+                                key={review.id}
+                                className={styles.reviewInboxItem}
+                              >
+                                <div>
+                                  <span>{Number(review.rating ?? 0)}/5</span>
+                                  <strong>
+                                    {review.authorName ?? "Etudiant Kalatty"}
+                                  </strong>
+                                </div>
+                                <p>{review.message}</p>
+                                <small>
+                                  {review.courseTitle ?? "Cours Kalatty"}
+                                </small>
+                                {review.href ? (
+                                  <Link
+                                    href={review.href}
+                                    className={styles.catalogDetailLink}
+                                  >
+                                    Voir le cours
+                                  </Link>
+                                ) : null}
+                              </article>
+                            ))
+                        ) : (
+                          <article className={styles.reviewInboxItem}>
+                            <div>
+                              <span>0/5</span>
+                              <strong>Aucun avis recu</strong>
+                            </div>
+                            <p>
+                              Les commentaires et notes des etudiants
+                              apparaitront ici des qu&apos;ils laisseront un
+                              avis sur tes cours ou ton profil professeur.
+                            </p>
+                          </article>
+                        )}
+                      </div>
+                    </section>
                     <div className={styles.teacherCourseGrid}>
                       {filteredTeacherCourses.length > 0 ? (
                         filteredTeacherCourses.map((course) => (
