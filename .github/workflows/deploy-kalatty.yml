@@ -26,7 +26,7 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: >-
-          npx -y @railway/cli up --ci --path-as-root .
+          npx -y @railway/cli up . --ci --path-as-root --detach --yes
           --service a21168e9-8d0e-44cf-9485-d8b7aaf99968
           --project 8ecbd6e0-cd28-4dcd-9f0f-2908387a80b6
           --environment c3787ecc-dfe7-4f24-b980-a725d6becabe
