@@ -75,9 +75,9 @@ export default function CourseDetailPage({
   params: { id: string } | Promise<{ id: string }>;
 }) {
   const router = useRouter();
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
-  const storageBaseUrl =
-    `${process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://njoucnnjlrwbbhnktaho.supabase.co"}/storage/v1/object/public`;
+  const apiBaseUrl =
+    process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
+  const storageBaseUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://njoucnnjlrwbbhnktaho.supabase.co"}/storage/v1/object/public`;
   const [courseId, setCourseId] = useState("");
   const [course, setCourse] = useState<CourseDetail | null>(null);
   const [activeLessonId, setActiveLessonId] = useState("");
@@ -85,7 +85,9 @@ export default function CourseDetailPage({
   const [message, setMessage] = useState("");
   const [enrolling, setEnrolling] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
-  const [paymentPreview, setPaymentPreview] = useState<PaymentPreview | null>(null);
+  const [paymentPreview, setPaymentPreview] = useState<PaymentPreview | null>(
+    null,
+  );
   const [role, setRole] = useState("");
   const [courseRating, setCourseRating] = useState("5");
   const [courseComment, setCourseComment] = useState("");
@@ -96,6 +98,8 @@ export default function CourseDetailPage({
   const [submittingTeacherReview, setSubmittingTeacherReview] = useState(false);
   const [lessonActionLoading, setLessonActionLoading] = useState(false);
   const [videoStarted, setVideoStarted] = useState(false);
+  const [lessonNote, setLessonNote] = useState("");
+  const [lessonNoteMessage, setLessonNoteMessage] = useState("");
   const videoElementRef = useRef<HTMLVideoElement | null>(null);
   const lastTrackedSecondRef = useRef(0);
 
@@ -125,9 +129,15 @@ export default function CourseDetailPage({
   const getAccessibleLessons = (nextCourse: CourseDetail) =>
     nextCourse.modules
       .flatMap((module) => module.lessons)
-      .filter((lesson) => lesson.videoPath && (nextCourse.enrolled || lesson.isPreview));
+      .filter(
+        (lesson) =>
+          lesson.videoPath && (nextCourse.enrolled || lesson.isPreview),
+      );
 
-  const pickLessonToResume = (nextCourse: CourseDetail, preferredLessonId?: string) => {
+  const pickLessonToResume = (
+    nextCourse: CourseDetail,
+    preferredLessonId?: string,
+  ) => {
     const accessibleLessons = getAccessibleLessons(nextCourse);
 
     if (preferredLessonId) {
@@ -207,7 +217,9 @@ export default function CourseDetailPage({
       return 0;
     }
 
-    const rawValue = localStorage.getItem(getVideoPositionKey(nextCourseId, lessonId));
+    const rawValue = localStorage.getItem(
+      getVideoPositionKey(nextCourseId, lessonId),
+    );
     const parsedValue = Number(rawValue ?? 0);
     return Number.isFinite(parsedValue) ? parsedValue : 0;
   };
@@ -218,6 +230,29 @@ export default function CourseDetailPage({
     }
 
     localStorage.removeItem(getVideoPositionKey(nextCourseId, lessonId));
+  };
+
+  const getLessonNoteKey = (nextCourseId: string, lessonId: string) =>
+    `kalatty_lesson_note_${nextCourseId}_${lessonId}`;
+
+  const loadLessonNote = (nextCourseId: string, lessonId: string) => {
+    if (typeof window === "undefined" || !nextCourseId || !lessonId) {
+      return "";
+    }
+
+    return localStorage.getItem(getLessonNoteKey(nextCourseId, lessonId)) ?? "";
+  };
+
+  const saveLessonNote = () => {
+    if (typeof window === "undefined" || !course?.id || !activeLesson?.id) {
+      return;
+    }
+
+    localStorage.setItem(
+      getLessonNoteKey(course.id, activeLesson.id),
+      lessonNote.trim(),
+    );
+    setLessonNoteMessage("Note enregistree sur cet appareil.");
   };
 
   useEffect(() => {
@@ -294,7 +329,17 @@ export default function CourseDetailPage({
 
   useEffect(() => {
     lastTrackedSecondRef.current = 0;
+    setLessonNoteMessage("");
   }, [activeLessonId]);
+
+  useEffect(() => {
+    if (!course?.id || !activeLessonId) {
+      setLessonNote("");
+      return;
+    }
+
+    setLessonNote(loadLessonNote(course.id, activeLessonId));
+  }, [activeLessonId, course?.id]);
 
   useEffect(() => {
     return () => {
@@ -306,6 +351,27 @@ export default function CourseDetailPage({
           videoElementRef.current.duration,
         );
       }
+    };
+  }, [activeLessonId, course?.id]);
+
+  useEffect(() => {
+    const saveCurrentPosition = () => {
+      if (course?.id && activeLessonId && videoElementRef.current) {
+        saveVideoPosition(
+          course.id,
+          activeLessonId,
+          videoElementRef.current.currentTime,
+          videoElementRef.current.duration,
+        );
+      }
+    };
+
+    window.addEventListener("beforeunload", saveCurrentPosition);
+    document.addEventListener("visibilitychange", saveCurrentPosition);
+
+    return () => {
+      window.removeEventListener("beforeunload", saveCurrentPosition);
+      document.removeEventListener("visibilitychange", saveCurrentPosition);
     };
   }, [activeLessonId, course?.id]);
 
@@ -361,14 +427,17 @@ export default function CourseDetailPage({
     setPaymentPreview(null);
 
     try {
-      const checkoutRes = await fetch(`${apiBaseUrl}/payments/course-checkout`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+      const checkoutRes = await fetch(
+        `${apiBaseUrl}/payments/course-checkout`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ courseId: course.id }),
         },
-        body: JSON.stringify({ courseId: course.id }),
-      });
+      );
       const checkoutData = await checkoutRes.json();
 
       if (!checkoutRes.ok) {
@@ -381,13 +450,17 @@ export default function CourseDetailPage({
       }
 
       if (checkoutData.alreadyEnrolled) {
-        setCourse((current) => (current ? { ...current, enrolled: true } : current));
+        setCourse((current) =>
+          current ? { ...current, enrolled: true } : current,
+        );
         setMessage("Tu es deja inscrit a ce cours.");
         return;
       }
 
       setPaymentPreview({
-        providerLabel: String(checkoutData.providerLabel ?? "Paiement de demonstration"),
+        providerLabel: String(
+          checkoutData.providerLabel ?? "Paiement de demonstration",
+        ),
         instructions: String(
           checkoutData.instructions ??
             "Confirmation automatique en mode demonstration.",
@@ -417,7 +490,9 @@ export default function CourseDetailPage({
         return;
       }
 
-      setCourse((current) => (current ? { ...current, enrolled: true } : current));
+      setCourse((current) =>
+        current ? { ...current, enrolled: true } : current,
+      );
       setMessage("Paiement demo confirme. Le cours est maintenant disponible.");
       await reloadCourse();
     } catch {
@@ -431,15 +506,20 @@ export default function CourseDetailPage({
   const canAccessFullCourse =
     role === "teacher" || role === "admin" || Boolean(course?.enrolled);
   const allLessons = course?.modules.flatMap((module) => module.lessons) ?? [];
-  const activeLesson = allLessons.find((lesson) => lesson.id === activeLessonId) ?? null;
+  const activeLesson =
+    allLessons.find((lesson) => lesson.id === activeLessonId) ?? null;
   const accessibleLessons = course ? getAccessibleLessons(course) : [];
   const activeLessonIndex = accessibleLessons.findIndex(
     (lesson) => lesson.id === activeLessonId,
   );
   const nextLesson =
-    activeLessonIndex >= 0 ? accessibleLessons[activeLessonIndex + 1] ?? null : null;
+    activeLessonIndex >= 0
+      ? (accessibleLessons[activeLessonIndex + 1] ?? null)
+      : null;
   const canPlayActiveLesson = Boolean(
-    activeLesson && activeLesson.videoPath && (canAccessFullCourse || activeLesson.isPreview),
+    activeLesson &&
+    activeLesson.videoPath &&
+    (canAccessFullCourse || activeLesson.isPreview),
   );
 
   const formatReviewDate = (value: string) => {
@@ -487,7 +567,8 @@ export default function CourseDetailPage({
       ).length;
       const engagedLessons = updatedLessons.filter(
         (lesson) =>
-          lesson.progressStatus === "started" || lesson.progressStatus === "completed",
+          lesson.progressStatus === "started" ||
+          lesson.progressStatus === "completed",
       ).length;
 
       return {
@@ -535,7 +616,10 @@ export default function CourseDetailPage({
         return false;
       }
 
-      setLessonProgressLocally(lessonId, data.status === "completed" ? "completed" : status);
+      setLessonProgressLocally(
+        lessonId,
+        data.status === "completed" ? "completed" : status,
+      );
       return true;
     } catch {
       setMessage("La progression de la lecon n'a pas pu etre enregistree.");
@@ -620,9 +704,13 @@ export default function CourseDetailPage({
 
     if (!nextLesson) {
       if (options?.completedCourse) {
-        setMessage("Bravo, tu as termine toutes les videos disponibles de ce cours.");
+        setMessage(
+          "Bravo, tu as termine toutes les videos disponibles de ce cours.",
+        );
       } else {
-        setMessage("Cette lecon est la derniere video disponible pour le moment.");
+        setMessage(
+          "Cette lecon est la derniere video disponible pour le moment.",
+        );
       }
       return;
     }
@@ -666,14 +754,17 @@ export default function CourseDetailPage({
     setReviewMessage("");
 
     try {
-      const res = await fetch(`${apiBaseUrl}/courses/${course.id}/${endpoint}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+      const res = await fetch(
+        `${apiBaseUrl}/courses/${course.id}/${endpoint}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
         },
-        body: JSON.stringify(payload),
-      });
+      );
       const data = await res.json();
 
       if (!res.ok) {
@@ -799,12 +890,14 @@ export default function CourseDetailPage({
                 />
               </div>
               <small>
-                {course.completedLessons} lecon(s) terminee(s) sur {course.lessonsCount}
+                {course.completedLessons} lecon(s) terminee(s) sur{" "}
+                {course.lessonsCount}
               </small>
             </div>
 
             <p className={styles.description}>
-              {course.description || "Description detaillee indisponible pour le moment."}
+              {course.description ||
+                "Description detaillee indisponible pour le moment."}
             </p>
 
             <div className={styles.actions}>
@@ -832,7 +925,11 @@ export default function CourseDetailPage({
               <button
                 type="button"
                 className={styles.secondaryActionButton}
-                onClick={course.priceFcfa > 0 && !course.enrolled ? () => void handlePayment() : handleStartCourse}
+                onClick={
+                  course.priceFcfa > 0 && !course.enrolled
+                    ? () => void handlePayment()
+                    : handleStartCourse
+                }
               >
                 {course.priceFcfa > 0 && !course.enrolled
                   ? "Lancer le paiement"
@@ -849,7 +946,10 @@ export default function CourseDetailPage({
             {course.priceFcfa > 0 && !course.enrolled ? (
               <section className={styles.paymentPanel}>
                 <div className={styles.paymentPanelTop}>
-                  <strong>{paymentPreview?.providerLabel ?? "Paiement de demonstration"}</strong>
+                  <strong>
+                    {paymentPreview?.providerLabel ??
+                      "Paiement de demonstration"}
+                  </strong>
                   <span>{course.priceFcfa} FCFA</span>
                 </div>
                 <p>
@@ -859,15 +959,29 @@ export default function CourseDetailPage({
                 <div className={styles.paymentGrid}>
                   <article className={styles.paymentCard}>
                     <span>Prix du cours</span>
-                    <strong>{paymentPreview?.amountFcfa ?? course.priceFcfa} FCFA</strong>
+                    <strong>
+                      {paymentPreview?.amountFcfa ?? course.priceFcfa} FCFA
+                    </strong>
                   </article>
                   <article className={styles.paymentCard}>
                     <span>Commission plateforme</span>
-                    <strong>{paymentPreview?.platformFeeFcfa ?? Math.round(course.priceFcfa * 0.15)} FCFA</strong>
+                    <strong>
+                      {paymentPreview?.platformFeeFcfa ??
+                        Math.round(course.priceFcfa * 0.15)}{" "}
+                      FCFA
+                    </strong>
                   </article>
                   <article className={styles.paymentCard}>
                     <span>Part formateur</span>
-                    <strong>{paymentPreview?.teacherEarningFcfa ?? Math.max(course.priceFcfa - Math.round(course.priceFcfa * 0.15), 0)} FCFA</strong>
+                    <strong>
+                      {paymentPreview?.teacherEarningFcfa ??
+                        Math.max(
+                          course.priceFcfa -
+                            Math.round(course.priceFcfa * 0.15),
+                          0,
+                        )}{" "}
+                      FCFA
+                    </strong>
                   </article>
                 </div>
               </section>
@@ -912,18 +1026,26 @@ export default function CourseDetailPage({
                     key={activeLesson.id}
                     className={styles.videoPlayer}
                     controls
-                    controlsList="nodownload noplaybackrate"
+                    controlsList="nodownload noplaybackrate noremoteplayback"
                     disablePictureInPicture
+                    disableRemotePlayback
+                    draggable={false}
                     playsInline
                     preload="metadata"
-                    src={buildStorageUrl("course-videos", activeLesson.videoPath)}
+                    src={buildStorageUrl(
+                      "course-videos",
+                      activeLesson.videoPath,
+                    )}
                     onContextMenu={(event) => event.preventDefault()}
                     onLoadedMetadata={(event) => {
                       if (!course) {
                         return;
                       }
 
-                      const savedPosition = getSavedVideoPosition(course.id, activeLesson.id);
+                      const savedPosition = getSavedVideoPosition(
+                        course.id,
+                        activeLesson.id,
+                      );
                       const player = event.currentTarget;
 
                       if (
@@ -999,18 +1121,66 @@ export default function CourseDetailPage({
                     ) : null}
                   </div>
                   <p>
-                    {activeLesson.content || "Le professeur n'a pas encore ajoute de description pour cette lecon."}
+                    {activeLesson.content ||
+                      "Le professeur n'a pas encore ajoute de description pour cette lecon."}
                   </p>
                   <small className={styles.playerNotice}>
-                    Lecture securisee Kalatty: la video est diffusee dans le lecteur et n&apos;est pas proposee au telechargement direct depuis l&apos;interface.
+                    Lecture securisee Kalatty: la video est diffusee dans le
+                    lecteur et n&apos;est pas proposee au telechargement direct
+                    depuis l&apos;interface.
                   </small>
+                  <div className={styles.chapterPanel}>
+                    <strong>Chapitres rapides</strong>
+                    <div className={styles.chapterList}>
+                      {accessibleLessons.map((lesson, index) => (
+                        <button
+                          key={lesson.id}
+                          type="button"
+                          className={
+                            lesson.id === activeLesson.id
+                              ? styles.chapterActive
+                              : styles.chapterButton
+                          }
+                          onClick={() => handleLessonSelect(lesson.id)}
+                        >
+                          {index + 1}. {lesson.title}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className={styles.lessonNoteBox}>
+                    <label>
+                      <span>Mes notes personnelles</span>
+                      <textarea
+                        value={lessonNote}
+                        onChange={(event) => {
+                          setLessonNote(event.target.value);
+                          setLessonNoteMessage("");
+                        }}
+                        placeholder="Ex: notion importante, question a revoir, exercice a refaire..."
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className={styles.secondaryAction}
+                      onClick={saveLessonNote}
+                    >
+                      Enregistrer mes notes
+                    </button>
+                    {lessonNoteMessage ? (
+                      <small className={styles.playerNotice}>
+                        {lessonNoteMessage}
+                      </small>
+                    ) : null}
+                  </div>
                   {nextLesson ? (
                     <p>
                       Suite conseillee: <strong>{nextLesson.title}</strong>
                     </p>
                   ) : (
                     <p>
-                      Cette lecon clot actuellement le parcours video disponible.
+                      Cette lecon clot actuellement le parcours video
+                      disponible.
                     </p>
                   )}
                   {canAccessFullCourse ? (
@@ -1120,7 +1290,10 @@ export default function CourseDetailPage({
                     <strong>Exercices du module</strong>
                     {module.exercises.length > 0 ? (
                       module.exercises.map((exercise, exerciseIndex) => (
-                        <article key={exercise.id} className={styles.reviewCard}>
+                        <article
+                          key={exercise.id}
+                          className={styles.reviewCard}
+                        >
                           <div className={styles.reviewCardTop}>
                             <strong>
                               Exercice {exerciseIndex + 1}: {exercise.title}
@@ -1193,7 +1366,9 @@ export default function CourseDetailPage({
                 <span>{course.teacherReviews.length} avis</span>
               </div>
             </div>
-            {reviewMessage ? <p className={styles.reviewMessage}>{reviewMessage}</p> : null}
+            {reviewMessage ? (
+              <p className={styles.reviewMessage}>{reviewMessage}</p>
+            ) : null}
           </section>
         </aside>
       </section>
@@ -1208,7 +1383,10 @@ export default function CourseDetailPage({
           </div>
 
           {canReview && course.enrolled ? (
-            <form className={styles.reviewForm} onSubmit={(event) => void handleCourseReview(event)}>
+            <form
+              className={styles.reviewForm}
+              onSubmit={(event) => void handleCourseReview(event)}
+            >
               <div className={styles.formRow}>
                 <label className={styles.formField}>
                   <span>Note</span>
@@ -1238,7 +1416,9 @@ export default function CourseDetailPage({
                 className={styles.primaryAction}
                 disabled={submittingCourseReview}
               >
-                {submittingCourseReview ? "Envoi..." : "Publier mon avis sur le cours"}
+                {submittingCourseReview
+                  ? "Envoi..."
+                  : "Publier mon avis sur le cours"}
               </button>
             </form>
           ) : (
@@ -1256,11 +1436,16 @@ export default function CourseDetailPage({
                     <span>{review.rating}/5</span>
                   </div>
                   <small>{formatReviewDate(review.createdAt)}</small>
-                  <p>{review.comment || "Aucun commentaire detaille laisse pour le moment."}</p>
+                  <p>
+                    {review.comment ||
+                      "Aucun commentaire detaille laisse pour le moment."}
+                  </p>
                 </article>
               ))
             ) : (
-              <p className={styles.reviewHint}>Aucun avis n&apos;a encore ete publie pour ce cours.</p>
+              <p className={styles.reviewHint}>
+                Aucun avis n&apos;a encore ete publie pour ce cours.
+              </p>
             )}
           </div>
         </section>
@@ -1274,7 +1459,10 @@ export default function CourseDetailPage({
           </div>
 
           {canReview && course.enrolled ? (
-            <form className={styles.reviewForm} onSubmit={(event) => void handleTeacherReview(event)}>
+            <form
+              className={styles.reviewForm}
+              onSubmit={(event) => void handleTeacherReview(event)}
+            >
               <div className={styles.formRow}>
                 <label className={styles.formField}>
                   <span>Note</span>
@@ -1304,7 +1492,9 @@ export default function CourseDetailPage({
                 className={styles.primaryAction}
                 disabled={submittingTeacherReview}
               >
-                {submittingTeacherReview ? "Envoi..." : "Publier mon avis sur le professeur"}
+                {submittingTeacherReview
+                  ? "Envoi..."
+                  : "Publier mon avis sur le professeur"}
               </button>
             </form>
           ) : (
@@ -1322,12 +1512,16 @@ export default function CourseDetailPage({
                     <span>{review.rating}/5</span>
                   </div>
                   <small>{formatReviewDate(review.createdAt)}</small>
-                  <p>{review.comment || "Aucun commentaire detaille laisse pour le moment."}</p>
+                  <p>
+                    {review.comment ||
+                      "Aucun commentaire detaille laisse pour le moment."}
+                  </p>
                 </article>
               ))
             ) : (
               <p className={styles.reviewHint}>
-                Aucun avis n&apos;a encore ete publie pour ce professeur sur ce cours.
+                Aucun avis n&apos;a encore ete publie pour ce professeur sur ce
+                cours.
               </p>
             )}
           </div>

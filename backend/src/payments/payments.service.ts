@@ -45,6 +45,30 @@ export class PaymentsService {
     },
   };
 
+  getPlans() {
+    return {
+      coursePayments: {
+        provider: 'demo',
+        platformFeePercent: 15,
+        description:
+          'Les cours gratuits sont accessibles apres inscription. Les cours payants activent un paiement par cours.',
+      },
+      institutionPlans: Object.entries(this.institutionPlans).map(
+        ([code, plan]) => ({
+          code,
+          label: plan.label,
+          amountFcfa: plan.amountFcfa,
+          maxStudents: plan.maxStudents,
+          maxRooms: plan.maxRooms,
+        }),
+      ),
+      nextProviderIntegration: {
+        status: 'ready_for_provider',
+        recommendedProviders: ['Mobile Money', 'Stripe', 'CinetPay'],
+      },
+    };
+  }
+
   async createCourseCheckout(user: AuthUser, courseId?: string) {
     if (!courseId) {
       throw new BadRequestException('Le cours a payer est introuvable.');
@@ -57,12 +81,13 @@ export class PaymentsService {
       );
     }
 
-    const { data: course, error: courseError } = await this.supabaseService.client
-      .from('courses')
-      .select('id, title, teacher_id, price_fcfa, status')
-      .eq('id', courseId)
-      .eq('status', 'published')
-      .maybeSingle();
+    const { data: course, error: courseError } =
+      await this.supabaseService.client
+        .from('courses')
+        .select('id, title, teacher_id, price_fcfa, status')
+        .eq('id', courseId)
+        .eq('status', 'published')
+        .maybeSingle();
 
     if (courseError || !course) {
       throw new BadRequestException(
@@ -105,7 +130,9 @@ export class PaymentsService {
         teacher_earning_fcfa: teacherEarningFcfa,
         status: 'pending',
       })
-      .select('id, amount_fcfa, platform_fee_fcfa, teacher_earning_fcfa, status, created_at')
+      .select(
+        'id, amount_fcfa, platform_fee_fcfa, teacher_earning_fcfa, status, created_at',
+      )
       .single();
 
     if (error || !payment) {
@@ -140,11 +167,14 @@ export class PaymentsService {
       );
     }
 
-    const { data: payment, error: paymentError } = await this.supabaseService.client
-      .from('payments')
-      .select('id, user_id, course_id, teacher_id, amount_fcfa, platform_fee_fcfa, teacher_earning_fcfa, status')
-      .eq('id', paymentId)
-      .maybeSingle();
+    const { data: payment, error: paymentError } =
+      await this.supabaseService.client
+        .from('payments')
+        .select(
+          'id, user_id, course_id, teacher_id, amount_fcfa, platform_fee_fcfa, teacher_earning_fcfa, status',
+        )
+        .eq('id', paymentId)
+        .maybeSingle();
 
     if (paymentError || !payment) {
       throw new BadRequestException(
@@ -153,7 +183,9 @@ export class PaymentsService {
     }
 
     if (payment.user_id !== user.id && role !== 'admin') {
-      throw new ForbiddenException("Ce paiement n'appartient pas a cet utilisateur.");
+      throw new ForbiddenException(
+        "Ce paiement n'appartient pas a cet utilisateur.",
+      );
     }
 
     if (payment.status !== 'paid') {
@@ -188,7 +220,8 @@ export class PaymentsService {
 
       if (enrollError) {
         throw new BadRequestException(
-          enrollError.message ?? "Impossible d'activer l'inscription apres paiement.",
+          enrollError.message ??
+            "Impossible d'activer l'inscription apres paiement.",
         );
       }
     }
@@ -207,7 +240,10 @@ export class PaymentsService {
     institutionId: string,
     planName?: string,
   ) {
-    const membershipRole = await this.getInstitutionAccessRole(user.id, institutionId);
+    const membershipRole = await this.getInstitutionAccessRole(
+      user.id,
+      institutionId,
+    );
     if (!membershipRole || !['owner', 'admin'].includes(membershipRole)) {
       throw new ForbiddenException(
         "Seuls les responsables d'etablissement peuvent preparer un abonnement.",
@@ -242,7 +278,10 @@ export class PaymentsService {
     institutionId: string,
     planName?: string,
   ) {
-    const membershipRole = await this.getInstitutionAccessRole(user.id, institutionId);
+    const membershipRole = await this.getInstitutionAccessRole(
+      user.id,
+      institutionId,
+    );
     if (!membershipRole || !['owner', 'admin'].includes(membershipRole)) {
       throw new ForbiddenException(
         "Seuls les responsables d'etablissement peuvent activer un abonnement.",
@@ -284,12 +323,16 @@ export class PaymentsService {
         maxRooms: plan.maxRooms,
       },
       status: 'active',
-      message: "Abonnement etablissement active en mode demo.",
+      message: 'Abonnement etablissement active en mode demo.',
     };
   }
 
   private async resolveRole(user: AuthUser) {
-    if (user.role === 'teacher' || user.role === 'admin' || user.role === 'student') {
+    if (
+      user.role === 'teacher' ||
+      user.role === 'admin' ||
+      user.role === 'student'
+    ) {
       return user.role;
     }
 
@@ -309,7 +352,9 @@ export class PaymentsService {
   }
 
   private normalizeInstitutionPlan(planName?: string): InstitutionPlanName {
-    const normalized = String(planName ?? 'starter').trim().toLowerCase();
+    const normalized = String(planName ?? 'starter')
+      .trim()
+      .toLowerCase();
 
     if (normalized === 'growth' || normalized === 'campus') {
       return normalized;
@@ -334,7 +379,10 @@ export class PaymentsService {
     return data;
   }
 
-  private async getInstitutionAccessRole(userId: string, institutionId: string) {
+  private async getInstitutionAccessRole(
+    userId: string,
+    institutionId: string,
+  ) {
     const institution = await this.getInstitutionForBilling(institutionId);
 
     if (institution.owner_user_id === userId) {

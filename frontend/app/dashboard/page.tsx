@@ -47,6 +47,16 @@ type DashboardResponse = {
   tasks: string[];
 };
 
+type NotificationItem = {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  href?: string;
+  createdAt: string;
+  read: boolean;
+};
+
 type TeacherRoomDetail = {
   id: string;
   name: string;
@@ -97,23 +107,68 @@ const studentTimeline = [
   { day: "Sam", topic: "Serie bureautique", time: "09h00" },
 ];
 const teacherInsights = [
-  { title: "Matiere la plus suivie", value: "Maths", note: "Forte demande sur les classes d'examen." },
-  { title: "Format prefere", value: "Courtes videos", note: "Les capsules de 8 a 12 min retiennent mieux l'attention." },
+  {
+    title: "Matiere la plus suivie",
+    value: "Maths",
+    note: "Forte demande sur les classes d'examen.",
+  },
+  {
+    title: "Format prefere",
+    value: "Courtes videos",
+    note: "Les capsules de 8 a 12 min retiennent mieux l'attention.",
+  },
 ];
 const fallbackDiscovery = [
-  { id: "1", title: "Maths Terminale C", description: "Annales, videos et exercices corriges.", progress: 0, badge: "Populaire", category: "Examen" },
-  { id: "2", title: "Anglais pratique", description: "Grammaire, oral et quiz rapides.", progress: 0, badge: "Nouveau", category: "Langues" },
-  { id: "3", title: "Bureautique efficace", description: "Word, Excel et presentations.", progress: 0, badge: "Essentiel", category: "Competences" },
+  {
+    id: "1",
+    title: "Maths Terminale C",
+    description: "Annales, videos et exercices corriges.",
+    progress: 0,
+    badge: "Populaire",
+    category: "Examen",
+  },
+  {
+    id: "2",
+    title: "Anglais pratique",
+    description: "Grammaire, oral et quiz rapides.",
+    progress: 0,
+    badge: "Nouveau",
+    category: "Langues",
+  },
+  {
+    id: "3",
+    title: "Bureautique efficace",
+    description: "Word, Excel et presentations.",
+    progress: 0,
+    badge: "Essentiel",
+    category: "Competences",
+  },
 ];
 const includesSearch = (values: unknown[], query: string) =>
-  values.map((value) => String(value ?? "")).join(" ").toLowerCase().includes(query);
-const studentViews: StudentView[] = ["home", "progress", "institutions", "profile"];
-const teacherViews: TeacherView[] = ["overview", "courses", "classes", "studio", "profile"];
+  values
+    .map((value) => String(value ?? ""))
+    .join(" ")
+    .toLowerCase()
+    .includes(query);
+const studentViews: StudentView[] = [
+  "home",
+  "progress",
+  "institutions",
+  "profile",
+];
+const teacherViews: TeacherView[] = [
+  "overview",
+  "courses",
+  "classes",
+  "studio",
+  "profile",
+];
 const emptyRecords: Array<Record<string, unknown>> = [];
 
 export default function DashboardPage() {
   const router = useRouter();
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
+  const apiBaseUrl =
+    process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
   const [user] = useState<StoredUser | null>(() => {
     if (typeof window === "undefined") return null;
     const rawUser = localStorage.getItem("kalatty_user");
@@ -124,7 +179,9 @@ export default function DashboardPage() {
       return null;
     }
   });
-  const [dashboardData, setDashboardData] = useState<DashboardResponse | null>(null);
+  const [dashboardData, setDashboardData] = useState<DashboardResponse | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [studentView, setStudentView] = useState<StudentView>("home");
@@ -137,9 +194,11 @@ export default function DashboardPage() {
   const [profileMessage, setProfileMessage] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
   const [selectedTeacherRoomId, setSelectedTeacherRoomId] = useState("");
-  const [teacherRoomDetail, setTeacherRoomDetail] = useState<TeacherRoomDetail | null>(null);
+  const [teacherRoomDetail, setTeacherRoomDetail] =
+    useState<TeacherRoomDetail | null>(null);
   const [teacherAssignmentTitle, setTeacherAssignmentTitle] = useState("");
-  const [teacherAssignmentInstructions, setTeacherAssignmentInstructions] = useState("");
+  const [teacherAssignmentInstructions, setTeacherAssignmentInstructions] =
+    useState("");
   const [teacherActionMessage, setTeacherActionMessage] = useState("");
   const [editingTeacherCourseId, setEditingTeacherCourseId] = useState("");
   const [reviewForm, setReviewForm] = useState({
@@ -155,6 +214,10 @@ export default function DashboardPage() {
     expertise: "",
     bio: "",
   });
+  const [notifications, setNotifications] = useState<Array<NotificationItem>>(
+    [],
+  );
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   const updateDashboardUrl = (view: StudentView | TeacherView) => {
     const nextUrl = new URL(window.location.href);
@@ -175,7 +238,9 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const syncViewFromUrl = () => {
-      const requestedView = new URLSearchParams(window.location.search).get("view");
+      const requestedView = new URLSearchParams(window.location.search).get(
+        "view",
+      );
       if (studentViews.includes(requestedView as StudentView)) {
         setStudentView(requestedView as StudentView);
       }
@@ -213,6 +278,23 @@ export default function DashboardPage() {
       }
       const typedData = data as DashboardResponse;
       setDashboardData(typedData);
+      try {
+        const notificationsRes = await fetch(`${apiBaseUrl}/notifications`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const notificationsData = await notificationsRes.json();
+        if (notificationsRes.ok) {
+          setNotifications(
+            Array.isArray(notificationsData.notifications)
+              ? notificationsData.notifications
+              : [],
+          );
+          setUnreadNotifications(Number(notificationsData.unreadCount ?? 0));
+        }
+      } catch {
+        setNotifications([]);
+        setUnreadNotifications(0);
+      }
       localStorage.setItem(
         "kalatty_user",
         JSON.stringify({
@@ -234,15 +316,17 @@ export default function DashboardPage() {
     void fetchDashboardOnLoad();
   }, [apiBaseUrl, router]);
 
-  const role: DashboardRole = dashboardData?.role === "institution"
-    ? "institution"
-    : dashboardData?.role === "teacher"
-      ? "teacher"
-      : user?.role === "teacher"
+  const role: DashboardRole =
+    dashboardData?.role === "institution"
+      ? "institution"
+      : dashboardData?.role === "teacher"
+        ? "teacher"
+        : user?.role === "teacher"
           ? "teacher"
           : "student";
   const workspace = dashboardData?.workspace;
-  const isInstitutionAdmin = workspace?.kind === "institution-admin" || role === "institution";
+  const isInstitutionAdmin =
+    workspace?.kind === "institution-admin" || role === "institution";
   const isInstitutionTeacher = workspace?.kind === "institution-teacher";
   const isInstitutionStudent = workspace?.kind === "institution-student";
   const workspaceInstitutionName = String(
@@ -254,8 +338,14 @@ export default function DashboardPage() {
   ).trim();
   const profile = dashboardData?.profile ?? user;
   const displayName =
-    (isInstitutionAdmin ? workspaceInstitutionName : profile?.fullname?.trim()) ||
-    (role === "teacher" ? "Formateur" : role === "institution" ? "Etablissement" : "Apprenant");
+    (isInstitutionAdmin
+      ? workspaceInstitutionName
+      : profile?.fullname?.trim()) ||
+    (role === "teacher"
+      ? "Formateur"
+      : role === "institution"
+        ? "Etablissement"
+        : "Apprenant");
   const workspaceTitle =
     role === "institution"
       ? "Espace administrateur etablissement"
@@ -294,44 +384,63 @@ export default function DashboardPage() {
   const heroCourse = studentCourses[0];
   const discoveryCourses: DiscoveryCourse[] =
     (dashboardData?.catalogCourses?.length ?? 0) > 0
-      ? (dashboardData?.catalogCourses ?? []).slice(0, 6).map((course, index) => ({
-          id: String(course.id ?? `course-${index}`),
-          title: String(course.title ?? "Cours sans titre"),
-          description: String(course.description ?? "Parcours a decouvrir sur Kalatty."),
-          progress: Number(course.progress ?? 0),
-          badge: String(course.badge ?? (index === 0 ? "Disponible" : "Catalogue")),
-          category: String(course.category ?? "Catalogue"),
-          priceFcfa: Number(course.priceFcfa ?? 0),
-          teacherName: String(course.teacherName ?? "Formateur Kalatty"),
-          ratingAverage: Number(course.ratingAverage ?? 0),
-          lessonsCount: Number(course.lessonsCount ?? 0),
-        }))
+      ? (dashboardData?.catalogCourses ?? [])
+          .slice(0, 6)
+          .map((course, index) => ({
+            id: String(course.id ?? `course-${index}`),
+            title: String(course.title ?? "Cours sans titre"),
+            description: String(
+              course.description ?? "Parcours a decouvrir sur Kalatty.",
+            ),
+            progress: Number(course.progress ?? 0),
+            badge: String(
+              course.badge ?? (index === 0 ? "Disponible" : "Catalogue"),
+            ),
+            category: String(course.category ?? "Catalogue"),
+            priceFcfa: Number(course.priceFcfa ?? 0),
+            teacherName: String(course.teacherName ?? "Formateur Kalatty"),
+            ratingAverage: Number(course.ratingAverage ?? 0),
+            lessonsCount: Number(course.lessonsCount ?? 0),
+          }))
       : fallbackDiscovery;
   const studentQuery = studentSearch.trim().toLowerCase();
   const teacherQuery = teacherSearch.trim().toLowerCase();
   const filteredDiscovery = discoveryCourses.filter((course) =>
-    includesSearch([course.title, course.description, course.category, course.badge], studentQuery),
+    includesSearch(
+      [course.title, course.description, course.category, course.badge],
+      studentQuery,
+    ),
   );
   const filteredStudentCourses = studentCourses.filter((course) =>
-    includesSearch([course.title, course.description, course.nextLesson], studentQuery),
+    includesSearch(
+      [course.title, course.description, course.nextLesson],
+      studentQuery,
+    ),
   );
   const filteredTeacherCourses = teacherCourses.filter((course) =>
-    includesSearch([course.title, course.description, course.priceFcfa, course.learners], teacherQuery),
+    includesSearch(
+      [course.title, course.description, course.priceFcfa, course.learners],
+      teacherQuery,
+    ),
   );
   const filteredTeacherRooms = teacherRooms.filter((room) =>
-    includesSearch([room.name, room.description, room.institutionName, room.role], teacherQuery),
+    includesSearch(
+      [room.name, room.description, room.institutionName, room.role],
+      teacherQuery,
+    ),
   );
   const institutionQuery = institutionSearch.trim().toLowerCase();
-  const filteredStudentInstitutions = studentInstitutions.filter((institution) =>
-    includesSearch(
-      [
-        institution.name,
-        institution.institutionType,
-        institution.membershipRole,
-        institution.planName,
-      ],
-      institutionQuery,
-    ),
+  const filteredStudentInstitutions = studentInstitutions.filter(
+    (institution) =>
+      includesSearch(
+        [
+          institution.name,
+          institution.institutionType,
+          institution.membershipRole,
+          institution.planName,
+        ],
+        institutionQuery,
+      ),
   );
   const filteredInstitutionRooms = studentRooms.filter((room) =>
     includesSearch(
@@ -345,8 +454,12 @@ export default function DashboardPage() {
       institutionQuery,
     ),
   );
-  const enrolledCoursesCount = Number(dashboardData?.stats.enrolledCourses ?? studentCourses.length ?? 0);
-  const completedLessonsCount = Number(dashboardData?.stats.completedLessons ?? 0);
+  const enrolledCoursesCount = Number(
+    dashboardData?.stats.enrolledCourses ?? studentCourses.length ?? 0,
+  );
+  const completedLessonsCount = Number(
+    dashboardData?.stats.completedLessons ?? 0,
+  );
   const progressAverage = Number(dashboardData?.stats.progressAverage ?? 0);
   const linkedInstitutionsCount = Number(
     dashboardData?.stats.linkedInstitutions ?? studentInstitutions.length ?? 0,
@@ -356,17 +469,37 @@ export default function DashboardPage() {
   );
   const studentTasks =
     (dashboardData?.tasks ?? []).length > 0
-      ? dashboardData?.tasks ?? []
+      ? (dashboardData?.tasks ?? [])
       : [
           "Completer le profil pour recevoir des recommandations adaptees.",
           "Reprendre le dernier cours commence.",
           "Verifier les exercices transmis par ton etablissement.",
         ];
   const studentQuickStats = [
-    { label: "Cours actifs", value: enrolledCoursesCount, note: "Parcours suivis", view: "progress" as StudentView },
-    { label: "Lecons terminees", value: completedLessonsCount, note: "Progression personnelle", view: "progress" as StudentView },
-    { label: "Moyenne", value: `${progressAverage}%`, note: "Avancement global", view: "progress" as StudentView },
-    { label: "Salles", value: linkedRoomsCount, note: "Classes rattachees", view: "institutions" as StudentView },
+    {
+      label: "Cours actifs",
+      value: enrolledCoursesCount,
+      note: "Parcours suivis",
+      view: "progress" as StudentView,
+    },
+    {
+      label: "Lecons terminees",
+      value: completedLessonsCount,
+      note: "Progression personnelle",
+      view: "progress" as StudentView,
+    },
+    {
+      label: "Moyenne",
+      value: `${progressAverage}%`,
+      note: "Avancement global",
+      view: "progress" as StudentView,
+    },
+    {
+      label: "Salles",
+      value: linkedRoomsCount,
+      note: "Classes rattachees",
+      view: "institutions" as StudentView,
+    },
   ];
   const campusStudentHighlights = [
     {
@@ -387,24 +520,40 @@ export default function DashboardPage() {
     {
       label: "Classe prioritaire",
       value: String(studentRooms[0]?.name ?? "Aucune"),
-      note: String(studentRooms[0]?.latestAssignmentTitle ?? "Aucun devoir recent"),
+      note: String(
+        studentRooms[0]?.latestAssignmentTitle ?? "Aucun devoir recent",
+      ),
     },
   ];
-  const publishedCoursesCount = Number(dashboardData?.stats.publishedCourses ?? teacherCourses.length ?? 0);
+  const publishedCoursesCount = Number(
+    dashboardData?.stats.publishedCourses ?? teacherCourses.length ?? 0,
+  );
   const totalLearnersCount = Number(dashboardData?.stats.totalLearners ?? 0);
-  const averageLearnersCount = Number(dashboardData?.stats.averageLearners ?? 0);
-  const activeClassesCount = Number(dashboardData?.stats.activeClasses ?? teacherRooms.length ?? 0);
+  const averageLearnersCount = Number(
+    dashboardData?.stats.averageLearners ?? 0,
+  );
+  const activeClassesCount = Number(
+    dashboardData?.stats.activeClasses ?? teacherRooms.length ?? 0,
+  );
   const teacherTasks =
     (dashboardData?.tasks ?? []).length > 0
-      ? dashboardData?.tasks ?? []
+      ? (dashboardData?.tasks ?? [])
       : [
           "Verifier les remises en attente dans les classes.",
           "Finaliser la prochaine video de cours.",
           "Mettre a jour le profil formateur et l'expertise.",
         ];
   const teacherQuickStats = [
-    { label: "Cours publies", value: publishedCoursesCount, note: "Catalogue formateur" },
-    { label: "Apprenants", value: totalLearnersCount, note: "Tous cours confondus" },
+    {
+      label: "Cours publies",
+      value: publishedCoursesCount,
+      note: "Catalogue formateur",
+    },
+    {
+      label: "Apprenants",
+      value: totalLearnersCount,
+      note: "Tous cours confondus",
+    },
     { label: "Classes", value: activeClassesCount, note: "Salles affectees" },
   ];
   const campusTeacherHighlights = [
@@ -435,7 +584,13 @@ export default function DashboardPage() {
       expertise: profile?.expertise ?? "",
       bio: profile?.bio ?? "",
     });
-  }, [profile?.bio, profile?.expertise, profile?.fullname, profile?.level, profile?.school_name]);
+  }, [
+    profile?.bio,
+    profile?.expertise,
+    profile?.fullname,
+    profile?.level,
+    profile?.school_name,
+  ]);
 
   useEffect(() => {
     if (!selectedTeacherRoomId && teacherRooms.length > 0) {
@@ -452,11 +607,14 @@ export default function DashboardPage() {
 
     const loadTeacherRoom = async () => {
       try {
-        const res = await fetch(`${apiBaseUrl}/institutions/rooms/${selectedTeacherRoomId}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
+        const res = await fetch(
+          `${apiBaseUrl}/institutions/rooms/${selectedTeacherRoomId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
           },
-        });
+        );
         const data = await res.json();
 
         if (!res.ok) {
@@ -470,7 +628,9 @@ export default function DashboardPage() {
 
         setTeacherRoomDetail(data as TeacherRoomDetail);
       } catch {
-        setTeacherActionMessage("Le detail de la classe n'a pas pu etre charge.");
+        setTeacherActionMessage(
+          "Le detail de la classe n'a pas pu etre charge.",
+        );
       }
     };
 
@@ -530,7 +690,9 @@ export default function DashboardPage() {
               ? Number(current.stats.enrolledCourses ?? 0)
               : Number(current.stats.enrolledCourses ?? 0) + 1,
           },
-          courses: alreadyEnrolled ? current.courses : [data, ...current.courses],
+          courses: alreadyEnrolled
+            ? current.courses
+            : [data, ...current.courses],
           catalogCourses: (current.catalogCourses ?? []).map((course) =>
             String(course.id) === String(courseId)
               ? { ...course, enrolled: true }
@@ -539,7 +701,9 @@ export default function DashboardPage() {
         };
       });
 
-      setCatalogMessage("Inscription reussie. Le cours est maintenant dans ton suivi.");
+      setCatalogMessage(
+        "Inscription reussie. Le cours est maintenant dans ton suivi.",
+      );
     } catch {
       setCatalogMessage("L'inscription au cours a echoue.");
     } finally {
@@ -612,11 +776,14 @@ export default function DashboardPage() {
       return;
     }
 
-    const res = await fetch(`${apiBaseUrl}/institutions/rooms/${selectedTeacherRoomId}`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
+    const res = await fetch(
+      `${apiBaseUrl}/institutions/rooms/${selectedTeacherRoomId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       },
-    });
+    );
     const data = await res.json();
 
     if (res.ok) {
@@ -636,17 +803,20 @@ export default function DashboardPage() {
     setTeacherActionMessage("");
 
     try {
-      const res = await fetch(`${apiBaseUrl}/institutions/rooms/${selectedTeacherRoomId}/assignments`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+      const res = await fetch(
+        `${apiBaseUrl}/institutions/rooms/${selectedTeacherRoomId}/assignments`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            title: teacherAssignmentTitle,
+            instructions: teacherAssignmentInstructions,
+          }),
         },
-        body: JSON.stringify({
-          title: teacherAssignmentTitle,
-          instructions: teacherAssignmentInstructions,
-        }),
-      });
+      );
       const data = await res.json();
 
       if (!res.ok) {
@@ -733,14 +903,19 @@ export default function DashboardPage() {
                 : "Complete ton niveau, ton etablissement et tes informations."}
             </span>
           </div>
-          <form className={styles.profileEditor} onSubmit={(event) => void handleProfileSave(event)}>
+          <form
+            className={styles.profileEditor}
+            onSubmit={(event) => void handleProfileSave(event)}
+          >
             <div className={styles.metaFields}>
               <label className={styles.formField}>
                 <span>Nom complet</span>
                 <input
                   type="text"
                   value={profileForm.fullname}
-                  onChange={(event) => handleProfileFieldChange("fullname", event.target.value)}
+                  onChange={(event) =>
+                    handleProfileFieldChange("fullname", event.target.value)
+                  }
                   placeholder="Ton nom complet"
                 />
               </label>
@@ -751,17 +926,25 @@ export default function DashboardPage() {
                   <input
                     type="text"
                     value={profileForm.level}
-                    onChange={(event) => handleProfileFieldChange("level", event.target.value)}
+                    onChange={(event) =>
+                      handleProfileFieldChange("level", event.target.value)
+                    }
                     placeholder="Ex: Terminale, Licence 2"
                   />
                 </label>
               ) : null}
 
               <label className={styles.formField}>
-                <span>{role === "teacher" ? "Specialite" : "Etablissement"}</span>
+                <span>
+                  {role === "teacher" ? "Specialite" : "Etablissement"}
+                </span>
                 <input
                   type="text"
-                  value={role === "teacher" ? profileForm.expertise : profileForm.school_name}
+                  value={
+                    role === "teacher"
+                      ? profileForm.expertise
+                      : profileForm.school_name
+                  }
                   onChange={(event) =>
                     handleProfileFieldChange(
                       role === "teacher" ? "expertise" : "school_name",
@@ -782,7 +965,9 @@ export default function DashboardPage() {
                   <input
                     type="text"
                     value={profileForm.expertise}
-                    onChange={(event) => handleProfileFieldChange("expertise", event.target.value)}
+                    onChange={(event) =>
+                      handleProfileFieldChange("expertise", event.target.value)
+                    }
                     placeholder="Ex: Baccalaureat, Anglais, Informatique"
                   />
                 </label>
@@ -795,7 +980,9 @@ export default function DashboardPage() {
                 className={styles.formTextarea}
                 rows={5}
                 value={profileForm.bio}
-                onChange={(event) => handleProfileFieldChange("bio", event.target.value)}
+                onChange={(event) =>
+                  handleProfileFieldChange("bio", event.target.value)
+                }
                 placeholder={
                   role === "teacher"
                     ? "Presente ton experience, ta pedagogie et ce que tes apprenants vont trouver."
@@ -804,10 +991,16 @@ export default function DashboardPage() {
               />
             </label>
 
-            <button type="submit" className={styles.submitButton} disabled={savingProfile}>
+            <button
+              type="submit"
+              className={styles.submitButton}
+              disabled={savingProfile}
+            >
               {savingProfile ? "Enregistrement..." : "Enregistrer le profil"}
             </button>
-            {profileMessage ? <p className={styles.inlineMessage}>{profileMessage}</p> : null}
+            {profileMessage ? (
+              <p className={styles.inlineMessage}>{profileMessage}</p>
+            ) : null}
           </form>
         </section>
         <PasswordSettings apiBaseUrl={apiBaseUrl} />
@@ -839,7 +1032,10 @@ export default function DashboardPage() {
       <main className={styles.dashboardShell}>
         <section className={styles.card}>
           <h2>Chargement du dashboard...</h2>
-          <p className={styles.paragraph}>Nous recuperons ton profil, tes cours et tes indicateurs depuis Kalatty.</p>
+          <p className={styles.paragraph}>
+            Nous recuperons ton profil, tes cours et tes indicateurs depuis
+            Kalatty.
+          </p>
         </section>
       </main>
     );
@@ -851,7 +1047,11 @@ export default function DashboardPage() {
         <section className={styles.card}>
           <h2>Impossible de charger le dashboard</h2>
           <p className={styles.paragraph}>{error}</p>
-          <button type="button" className={styles.logoutButtonDark} onClick={handleLogout}>
+          <button
+            type="button"
+            className={styles.logoutButtonDark}
+            onClick={handleLogout}
+          >
             Retour a la connexion
           </button>
         </section>
@@ -872,8 +1072,12 @@ export default function DashboardPage() {
             priority
           />
           <div>
-            <span className={styles.dashboardMastheadTag}>Plateforme Kalatty</span>
-            <strong className={styles.dashboardMastheadName}>Learning workspace</strong>
+            <span className={styles.dashboardMastheadTag}>
+              Plateforme Kalatty
+            </span>
+            <strong className={styles.dashboardMastheadName}>
+              Learning workspace
+            </strong>
           </div>
         </Link>
         <div className={styles.dashboardMastheadMeta}>
@@ -887,43 +1091,59 @@ export default function DashboardPage() {
           <div>
             <Link href="/" className={styles.heroBrandLink}>
               <div className={styles.heroBrand}>
-              <Image
-                src="/kalatty-logo.png"
-                alt="Logo Kalatty"
-                width={84}
-                height={84}
-                className={styles.heroBrandLogo}
-                priority
-              />
-              <div>
-                <p className={styles.kicker}>Dashboard Kalatty</p>
-                <strong className={styles.heroBrandName}>Kalatty</strong>
-              </div>
+                <Image
+                  src="/kalatty-logo.png"
+                  alt="Logo Kalatty"
+                  width={84}
+                  height={84}
+                  className={styles.heroBrandLogo}
+                  priority
+                />
+                <div>
+                  <p className={styles.kicker}>Dashboard Kalatty</p>
+                  <strong className={styles.heroBrandName}>Kalatty</strong>
+                </div>
               </div>
             </Link>
-            <h1>
-              {workspaceHeroTitle}
-            </h1>
-            <p className={styles.heroText}>
-              {workspaceHeroText}
-            </p>
+            <h1>{workspaceHeroTitle}</h1>
+            <p className={styles.heroText}>{workspaceHeroText}</p>
           </div>
 
           <div className={styles.actions}>
             {role === "student" ? (
               <label className={styles.viewPicker}>
-                <span>{isInstitutionStudent ? "Menu etudiant campus" : "Menu etudiant"}</span>
-                <select value={studentView} onChange={(event) => changeStudentView(event.target.value as StudentView)}>
+                <span>
+                  {isInstitutionStudent
+                    ? "Menu etudiant campus"
+                    : "Menu etudiant"}
+                </span>
+                <select
+                  value={studentView}
+                  onChange={(event) =>
+                    changeStudentView(event.target.value as StudentView)
+                  }
+                >
                   <option value="home">Accueil</option>
                   <option value="progress">Suivi des cours</option>
-                  <option value="institutions">{isInstitutionStudent ? "Mon campus" : "Etablissements"}</option>
+                  <option value="institutions">
+                    {isInstitutionStudent ? "Mon campus" : "Etablissements"}
+                  </option>
                   <option value="profile">Mon profil</option>
                 </select>
               </label>
             ) : role === "teacher" ? (
               <label className={styles.viewPicker}>
-                <span>{isInstitutionTeacher ? "Menu professeur campus" : "Menu enseignant"}</span>
-                <select value={teacherView} onChange={(event) => changeTeacherView(event.target.value as TeacherView)}>
+                <span>
+                  {isInstitutionTeacher
+                    ? "Menu professeur campus"
+                    : "Menu enseignant"}
+                </span>
+                <select
+                  value={teacherView}
+                  onChange={(event) =>
+                    changeTeacherView(event.target.value as TeacherView)
+                  }
+                >
                   <option value="overview">Pilotage</option>
                   <option value="courses">Mes cours</option>
                   <option value="classes">Mes classes</option>
@@ -932,10 +1152,12 @@ export default function DashboardPage() {
                 </select>
               </label>
             ) : null}
-            <div className={styles.roleBadge}>
-              {workspaceTitle}
-            </div>
-            <button type="button" className={styles.logoutButton} onClick={handleLogout}>
+            <div className={styles.roleBadge}>{workspaceTitle}</div>
+            <button
+              type="button"
+              className={styles.logoutButton}
+              onClick={handleLogout}
+            >
               Se deconnecter
             </button>
           </div>
@@ -965,9 +1187,57 @@ export default function DashboardPage() {
                 ? profile?.level || "Niveau a completer dans le profil"
                 : role === "teacher"
                   ? profile?.expertise || "Expertise a completer dans le profil"
-                  : profile?.expertise || profile?.school_name || "Type d'etablissement a completer"}
+                  : profile?.expertise ||
+                    profile?.school_name ||
+                    "Type d'etablissement a completer"}
             </span>
           </div>
+        </div>
+      </section>
+
+      <section className={styles.notificationPanel}>
+        <div className={styles.sectionHeader}>
+          <div>
+            <p className={styles.sectionLabel}>Notifications</p>
+            <h2>Alertes importantes</h2>
+          </div>
+          <span className={styles.sectionHint}>
+            {unreadNotifications} non lue{unreadNotifications > 1 ? "s" : ""}
+          </span>
+        </div>
+        <div className={styles.notificationList}>
+          {notifications.length > 0 ? (
+            notifications.slice(0, 4).map((notification) =>
+              notification.href ? (
+                <Link
+                  key={notification.id}
+                  href={notification.href}
+                  className={styles.notificationItem}
+                >
+                  <span>{notification.type}</span>
+                  <strong>{notification.title}</strong>
+                  <small>{notification.message}</small>
+                </Link>
+              ) : (
+                <article
+                  key={notification.id}
+                  className={styles.notificationItem}
+                >
+                  <span>{notification.type}</span>
+                  <strong>{notification.title}</strong>
+                  <small>{notification.message}</small>
+                </article>
+              ),
+            )
+          ) : (
+            <article className={styles.notificationItem}>
+              <span>system</span>
+              <strong>Aucune alerte urgente</strong>
+              <small>
+                Les nouveaux devoirs, cours et invitations apparaitront ici.
+              </small>
+            </article>
+          )}
         </div>
       </section>
 
@@ -975,10 +1245,54 @@ export default function DashboardPage() {
         <>
           <section className={styles.studentSwitch}>
             <div className={styles.studentTabs}>
-              <button type="button" className={studentView === "home" ? styles.activeTab : styles.studentTab} aria-current={studentView === "home" ? "page" : undefined} onClick={() => changeStudentView("home")}>Accueil</button>
-              <button type="button" className={studentView === "progress" ? styles.activeTab : styles.studentTab} aria-current={studentView === "progress" ? "page" : undefined} onClick={() => changeStudentView("progress")}>Suivi des cours</button>
-              <button type="button" className={studentView === "institutions" ? styles.activeTab : styles.studentTab} aria-current={studentView === "institutions" ? "page" : undefined} onClick={() => changeStudentView("institutions")}>{isInstitutionStudent ? "Mon campus" : "Etablissements"}</button>
-              <button type="button" className={studentView === "profile" ? styles.activeTab : styles.studentTab} aria-current={studentView === "profile" ? "page" : undefined} onClick={() => changeStudentView("profile")}>Mon profil</button>
+              <button
+                type="button"
+                className={
+                  studentView === "home" ? styles.activeTab : styles.studentTab
+                }
+                aria-current={studentView === "home" ? "page" : undefined}
+                onClick={() => changeStudentView("home")}
+              >
+                Accueil
+              </button>
+              <button
+                type="button"
+                className={
+                  studentView === "progress"
+                    ? styles.activeTab
+                    : styles.studentTab
+                }
+                aria-current={studentView === "progress" ? "page" : undefined}
+                onClick={() => changeStudentView("progress")}
+              >
+                Suivi des cours
+              </button>
+              <button
+                type="button"
+                className={
+                  studentView === "institutions"
+                    ? styles.activeTab
+                    : styles.studentTab
+                }
+                aria-current={
+                  studentView === "institutions" ? "page" : undefined
+                }
+                onClick={() => changeStudentView("institutions")}
+              >
+                {isInstitutionStudent ? "Mon campus" : "Etablissements"}
+              </button>
+              <button
+                type="button"
+                className={
+                  studentView === "profile"
+                    ? styles.activeTab
+                    : styles.studentTab
+                }
+                aria-current={studentView === "profile" ? "page" : undefined}
+                onClick={() => changeStudentView("profile")}
+              >
+                Mon profil
+              </button>
             </div>
           </section>
 
@@ -987,8 +1301,16 @@ export default function DashboardPage() {
               <div className={styles.primaryColumn}>
                 <section className={styles.studentShowcase}>
                   <div className={styles.showcaseCopy}>
-                    <p className={styles.sectionLabel}>{isInstitutionStudent ? "Accueil campus" : "Accueil etudiant"}</p>
-                    <h2>{isInstitutionStudent ? "Apprendre avec ton campus" : "Reprendre, apprendre, avancer"}</h2>
+                    <p className={styles.sectionLabel}>
+                      {isInstitutionStudent
+                        ? "Accueil campus"
+                        : "Accueil etudiant"}
+                    </p>
+                    <h2>
+                      {isInstitutionStudent
+                        ? "Apprendre avec ton campus"
+                        : "Reprendre, apprendre, avancer"}
+                    </h2>
                     <p className={styles.paragraph}>
                       {isInstitutionStudent
                         ? "Ton espace regroupe les cours Kalatty, les consignes de tes classes et les actions diffusees par ton etablissement."
@@ -1013,36 +1335,71 @@ export default function DashboardPage() {
                   </div>
                   <div className={styles.showcaseCourse}>
                     <span className={styles.showcaseBadge}>A reprendre</span>
-                    <h3>{String(heroCourse?.title ?? "Ton prochain cours t'attend")}</h3>
-                    <p>{String(heroCourse?.nextLesson ?? "Des que tu t'inscris a un cours, Kalatty affiche ici la prochaine lecon a suivre.")}</p>
+                    <h3>
+                      {String(
+                        heroCourse?.title ?? "Ton prochain cours t'attend",
+                      )}
+                    </h3>
+                    <p>
+                      {String(
+                        heroCourse?.nextLesson ??
+                          "Des que tu t'inscris a un cours, Kalatty affiche ici la prochaine lecon a suivre.",
+                      )}
+                    </p>
                     <div className={styles.progressTrack}>
-                      <div className={styles.progressFill} style={{ width: `${Number(heroCourse?.progress ?? 0)}%` }} />
+                      <div
+                        className={styles.progressFill}
+                        style={{
+                          width: `${Number(heroCourse?.progress ?? 0)}%`,
+                        }}
+                      />
                     </div>
                     <small>{Number(heroCourse?.progress ?? 0)}% complete</small>
                     {heroCourse?.id ? (
-                      <Link href={`/courses/${String(heroCourse.id)}`} className={styles.catalogDetailLink}>
+                      <Link
+                        href={`/courses/${String(heroCourse.id)}`}
+                        className={styles.catalogDetailLink}
+                      >
                         Reprendre ce cours
                       </Link>
                     ) : (
-                      <button type="button" className={styles.catalogDetailLink} onClick={() => changeStudentView("progress")}>
+                      <button
+                        type="button"
+                        className={styles.catalogDetailLink}
+                        onClick={() => changeStudentView("progress")}
+                      >
                         Voir mon suivi
                       </button>
                     )}
                   </div>
                 </section>
 
-                <nav className={styles.studentQuickNav} aria-label="Acces rapides etudiant">
-                  <button type="button" onClick={() => changeStudentView("progress")}>
+                <nav
+                  className={styles.studentQuickNav}
+                  aria-label="Acces rapides etudiant"
+                >
+                  <button
+                    type="button"
+                    onClick={() => changeStudentView("progress")}
+                  >
                     <span>01</span>
                     <strong>Mes apprentissages</strong>
-                    <small>Reprendre une video et consulter ma progression</small>
+                    <small>
+                      Reprendre une video et consulter ma progression
+                    </small>
                   </button>
-                  <button type="button" onClick={() => changeStudentView("institutions")}>
+                  <button
+                    type="button"
+                    onClick={() => changeStudentView("institutions")}
+                  >
                     <span>02</span>
                     <strong>Mon campus</strong>
                     <small>Voir mes classes, devoirs et etablissements</small>
                   </button>
-                  <button type="button" onClick={() => changeStudentView("profile")}>
+                  <button
+                    type="button"
+                    onClick={() => changeStudentView("profile")}
+                  >
                     <span>03</span>
                     <strong>Mon profil</strong>
                     <small>Completer mes informations et preferences</small>
@@ -1055,35 +1412,52 @@ export default function DashboardPage() {
                       <p className={styles.sectionLabel}>Catalogue</p>
                       <h2>Parcours recommandes</h2>
                     </div>
-                    <span className={styles.sectionHint}>{profile?.school_name || "Selection adaptee a ton profil"}</span>
+                    <span className={styles.sectionHint}>
+                      {profile?.school_name || "Selection adaptee a ton profil"}
+                    </span>
                   </div>
                   <label className={styles.searchBar}>
                     <span>Recherche etudiant</span>
-                    <input type="search" placeholder="Rechercher un cours, une lecon ou un parcours" value={studentSearch} onChange={(event) => setStudentSearch(event.target.value)} />
+                    <input
+                      type="search"
+                      placeholder="Rechercher un cours, une lecon ou un parcours"
+                      value={studentSearch}
+                      onChange={(event) => setStudentSearch(event.target.value)}
+                    />
                   </label>
                   <div className={styles.discoveryGrid}>
                     {filteredDiscovery.map((course) => (
                       <article key={course.id} className={styles.discoveryCard}>
                         <div className={styles.discoveryTop}>
-                          <span className={styles.discoveryBadge}>{course.badge}</span>
+                          <span className={styles.discoveryBadge}>
+                            {course.badge}
+                          </span>
                           <small>{course.category}</small>
                         </div>
                         <h3>{course.title}</h3>
                         <p>{course.description}</p>
                         <div className={styles.discoveryFooter}>
                           <strong>
-                            {"priceFcfa" in course ? `${Number(course.priceFcfa ?? 0)} FCFA` : `${course.progress}%`}
+                            {"priceFcfa" in course
+                              ? `${Number(course.priceFcfa ?? 0)} FCFA`
+                              : `${course.progress}%`}
                           </strong>
                           <span>
                             {"teacherName" in course
-                              ? String(course.teacherName ?? "Formateur Kalatty")
+                              ? String(
+                                  course.teacherName ?? "Formateur Kalatty",
+                                )
                               : "Reprendre"}
                           </span>
                         </div>
                         {"ratingAverage" in course ? (
                           <div className={styles.discoveryMetaRow}>
-                            <span>{Number(course.ratingAverage ?? 0).toFixed(1)}/5</span>
-                            <span>{Number(course.lessonsCount ?? 0)} lecons</span>
+                            <span>
+                              {Number(course.ratingAverage ?? 0).toFixed(1)}/5
+                            </span>
+                            <span>
+                              {Number(course.lessonsCount ?? 0)} lecons
+                            </span>
                           </div>
                         ) : null}
                         {"priceFcfa" in course ? (
@@ -1112,7 +1486,9 @@ export default function DashboardPage() {
                                 enrollingCourseId === String(course.id) ||
                                 Boolean("enrolled" in course && course.enrolled)
                               }
-                              onClick={() => void handleEnroll(String(course.id))}
+                              onClick={() =>
+                                void handleEnroll(String(course.id))
+                              }
                             >
                               {"enrolled" in course && course.enrolled
                                 ? "Deja inscrit"
@@ -1125,8 +1501,14 @@ export default function DashboardPage() {
                       </article>
                     ))}
                   </div>
-                  {catalogMessage ? <p className={styles.inlineMessage}>{catalogMessage}</p> : null}
-                  {filteredDiscovery.length === 0 ? <p className={styles.paragraph}>Aucun parcours ne correspond a cette recherche.</p> : null}
+                  {catalogMessage ? (
+                    <p className={styles.inlineMessage}>{catalogMessage}</p>
+                  ) : null}
+                  {filteredDiscovery.length === 0 ? (
+                    <p className={styles.paragraph}>
+                      Aucun parcours ne correspond a cette recherche.
+                    </p>
+                  ) : null}
                 </section>
               </div>
 
@@ -1134,7 +1516,11 @@ export default function DashboardPage() {
                 <section className={styles.cardAccent}>
                   <p className={styles.sectionLabel}>Priorites</p>
                   <h2>A faire maintenant</h2>
-                  <ul className={styles.simpleList}>{studentTasks.map((task) => <li key={task}>{task}</li>)}</ul>
+                  <ul className={styles.simpleList}>
+                    {studentTasks.map((task) => (
+                      <li key={task}>{task}</li>
+                    ))}
+                  </ul>
                 </section>
                 {isInstitutionStudent ? (
                   <section className={styles.card}>
@@ -1142,7 +1528,10 @@ export default function DashboardPage() {
                     <h2>Vue rapide etablissement</h2>
                     <div className={styles.revenueGrid}>
                       {campusStudentHighlights.map((item) => (
-                        <article key={item.label} className={styles.revenueCard}>
+                        <article
+                          key={item.label}
+                          className={styles.revenueCard}
+                        >
                           <span>{item.label}</span>
                           <strong>{item.value}</strong>
                           <small>{item.note}</small>
@@ -1160,22 +1549,41 @@ export default function DashboardPage() {
                   </div>
                   <div className={styles.timeline}>
                     {studentTimeline.map((item) => (
-                      <div key={`${item.day}-${item.topic}`} className={styles.timelineItem}>
+                      <div
+                        key={`${item.day}-${item.topic}`}
+                        className={styles.timelineItem}
+                      >
                         <strong>{item.day}</strong>
-                        <div><p>{item.topic}</p><span>{item.time}</span></div>
+                        <div>
+                          <p>{item.topic}</p>
+                          <span>{item.time}</span>
+                        </div>
                       </div>
                     ))}
                   </div>
                 </section>
                 <section className={styles.card}>
-                  <p className={styles.sectionLabel}>{isInstitutionStudent ? "Campus actif" : "Etablissement"}</p>
-                  <h2>{String(studentInstitutions[0]?.name ?? workspaceInstitutionName ?? profile?.school_name ?? "Aucun rattachement")}</h2>
+                  <p className={styles.sectionLabel}>
+                    {isInstitutionStudent ? "Campus actif" : "Etablissement"}
+                  </p>
+                  <h2>
+                    {String(
+                      studentInstitutions[0]?.name ??
+                        workspaceInstitutionName ??
+                        profile?.school_name ??
+                        "Aucun rattachement",
+                    )}
+                  </h2>
                   <p className={styles.paragraph}>
                     {studentInstitutions.length > 0
                       ? "Tes salles, devoirs et cours diffuses par ton etablissement sont maintenant regroupes dans cet espace."
                       : "Complete ton profil ou rejoins une salle pour relier ton compte a un etablissement."}
                   </p>
-                  <button type="button" className={styles.secondaryButton} onClick={() => changeStudentView("institutions")}>
+                  <button
+                    type="button"
+                    className={styles.secondaryButton}
+                    onClick={() => changeStudentView("institutions")}
+                  >
                     Voir les liaisons
                   </button>
                 </section>
@@ -1188,12 +1596,22 @@ export default function DashboardPage() {
               <div className={styles.primaryColumn}>
                 <section className={styles.card}>
                   <div className={styles.sectionHeader}>
-                    <div><p className={styles.sectionLabel}>Suivi des cours</p><h2>Mes apprentissages</h2></div>
-                    <span className={styles.sectionHint}>Cours, prochaines lecons et progression</span>
+                    <div>
+                      <p className={styles.sectionLabel}>Suivi des cours</p>
+                      <h2>Mes apprentissages</h2>
+                    </div>
+                    <span className={styles.sectionHint}>
+                      Cours, prochaines lecons et progression
+                    </span>
                   </div>
                   <label className={styles.searchBar}>
                     <span>Recherche etudiant</span>
-                    <input type="search" placeholder="Filtrer mes cours et prochaines lecons" value={studentSearch} onChange={(event) => setStudentSearch(event.target.value)} />
+                    <input
+                      type="search"
+                      placeholder="Filtrer mes cours et prochaines lecons"
+                      value={studentSearch}
+                      onChange={(event) => setStudentSearch(event.target.value)}
+                    />
                   </label>
                   <div className={styles.statsRow}>
                     {studentQuickStats.map((stat) => (
@@ -1212,23 +1630,55 @@ export default function DashboardPage() {
                     ))}
                   </div>
                   <div className={styles.courseList}>
-                    {filteredStudentCourses.length > 0 ? filteredStudentCourses.map((course) => (
-                      <article key={String(course.id)} className={styles.courseCard}>
-                        <div className={styles.courseHead}>
-                          <div><h3>{String(course.title ?? "Cours sans titre")}</h3><p>{String(course.nextLesson ?? "Aucune lecon commencee")}</p></div>
-                          <span>{Number(course.progress ?? 0)}%</span>
-                        </div>
-                        <div className={styles.progressTrack}>
-                          <div className={styles.progressFill} style={{ width: `${Number(course.progress ?? 0)}%` }} />
-                        </div>
-                        <small>{String(course.description ?? "Cours en progression")}</small>
-                        <div className={styles.courseActionRow}>
-                          <Link href={`/courses/${String(course.id)}`} className={styles.catalogDetailLink}>
-                            Commencer / reprendre
-                          </Link>
-                        </div>
-                      </article>
-                    )) : <p className={styles.paragraph}>{studentCourses.length > 0 ? "Aucun cours ne correspond a cette recherche." : "Aucun cours n'est encore lie a ce compte."}</p>}
+                    {filteredStudentCourses.length > 0 ? (
+                      filteredStudentCourses.map((course) => (
+                        <article
+                          key={String(course.id)}
+                          className={styles.courseCard}
+                        >
+                          <div className={styles.courseHead}>
+                            <div>
+                              <h3>
+                                {String(course.title ?? "Cours sans titre")}
+                              </h3>
+                              <p>
+                                {String(
+                                  course.nextLesson ?? "Aucune lecon commencee",
+                                )}
+                              </p>
+                            </div>
+                            <span>{Number(course.progress ?? 0)}%</span>
+                          </div>
+                          <div className={styles.progressTrack}>
+                            <div
+                              className={styles.progressFill}
+                              style={{
+                                width: `${Number(course.progress ?? 0)}%`,
+                              }}
+                            />
+                          </div>
+                          <small>
+                            {String(
+                              course.description ?? "Cours en progression",
+                            )}
+                          </small>
+                          <div className={styles.courseActionRow}>
+                            <Link
+                              href={`/courses/${String(course.id)}`}
+                              className={styles.catalogDetailLink}
+                            >
+                              Commencer / reprendre
+                            </Link>
+                          </div>
+                        </article>
+                      ))
+                    ) : (
+                      <p className={styles.paragraph}>
+                        {studentCourses.length > 0
+                          ? "Aucun cours ne correspond a cette recherche."
+                          : "Aucun cours n'est encore lie a ce compte."}
+                      </p>
+                    )}
                   </div>
                 </section>
               </div>
@@ -1237,13 +1687,19 @@ export default function DashboardPage() {
                   <p className={styles.sectionLabel}>Routine</p>
                   <h2>Conseil d&apos;organisation</h2>
                   <p className={styles.paragraph}>
-                    Travaille par blocs courts: une lecon, un exercice, puis une verification. C&apos;est adapte aux contraintes de connexion et de disponibilite.
+                    Travaille par blocs courts: une lecon, un exercice, puis une
+                    verification. C&apos;est adapte aux contraintes de connexion
+                    et de disponibilite.
                   </p>
                 </section>
                 <section className={styles.cardAccent}>
                   <p className={styles.sectionLabel}>Priorites</p>
                   <h2>Ce qui attend ton action</h2>
-                  <ul className={styles.simpleList}>{studentTasks.map((task) => <li key={task}>{task}</li>)}</ul>
+                  <ul className={styles.simpleList}>
+                    {studentTasks.map((task) => (
+                      <li key={task}>{task}</li>
+                    ))}
+                  </ul>
                 </section>
               </div>
             </section>
@@ -1254,24 +1710,58 @@ export default function DashboardPage() {
               <div className={styles.primaryColumn}>
                 <section className={styles.card}>
                   <div className={styles.sectionHeader}>
-                    <div><p className={styles.sectionLabel}>{isInstitutionStudent ? "Campus" : "Etablissements"}</p><h2>{isInstitutionStudent ? "Mes classes et mon etablissement" : "Mes salles et groupes"}</h2></div>
-                    <span className={styles.sectionHint}>{isInstitutionStudent ? "Organisation pedagogique de ton etablissement" : "Lycees, universites et centres partenaires"}</span>
+                    <div>
+                      <p className={styles.sectionLabel}>
+                        {isInstitutionStudent ? "Campus" : "Etablissements"}
+                      </p>
+                      <h2>
+                        {isInstitutionStudent
+                          ? "Mes classes et mon etablissement"
+                          : "Mes salles et groupes"}
+                      </h2>
+                    </div>
+                    <span className={styles.sectionHint}>
+                      {isInstitutionStudent
+                        ? "Organisation pedagogique de ton etablissement"
+                        : "Lycees, universites et centres partenaires"}
+                    </span>
                   </div>
                   <label className={styles.searchBar}>
                     <span>Recherche institutionnelle</span>
-                    <input type="search" placeholder="Rechercher une salle, un groupe ou une action" value={institutionSearch} onChange={(event) => setInstitutionSearch(event.target.value)} />
+                    <input
+                      type="search"
+                      placeholder="Rechercher une salle, un groupe ou une action"
+                      value={institutionSearch}
+                      onChange={(event) =>
+                        setInstitutionSearch(event.target.value)
+                      }
+                    />
                   </label>
                   <div className={styles.institutionGrid}>
-                    {filteredStudentInstitutions.length > 0 ? filteredStudentInstitutions.map((institution) => (
-                      <article key={String(institution.id ?? institution.name ?? "institution")} className={styles.institutionCard}>
-                        <span>{String(institution.membershipRole ?? "student")}</span>
-                        <h3>{String(institution.name ?? "Etablissement")}</h3>
-                        <p>
-                          {String(institution.institutionType ?? "Structure partenaire")}
-                          {institution.planName ? ` | plan ${String(institution.planName)}` : ""}
-                        </p>
-                      </article>
-                    )) : (
+                    {filteredStudentInstitutions.length > 0 ? (
+                      filteredStudentInstitutions.map((institution) => (
+                        <article
+                          key={String(
+                            institution.id ?? institution.name ?? "institution",
+                          )}
+                          className={styles.institutionCard}
+                        >
+                          <span>
+                            {String(institution.membershipRole ?? "student")}
+                          </span>
+                          <h3>{String(institution.name ?? "Etablissement")}</h3>
+                          <p>
+                            {String(
+                              institution.institutionType ??
+                                "Structure partenaire",
+                            )}
+                            {institution.planName
+                              ? ` | plan ${String(institution.planName)}`
+                              : ""}
+                          </p>
+                        </article>
+                      ))
+                    ) : (
                       <p className={styles.paragraph}>
                         {studentInstitutions.length > 0
                           ? "Aucun etablissement ne correspond a cette recherche."
@@ -1282,21 +1772,34 @@ export default function DashboardPage() {
                 </section>
                 <section className={styles.card}>
                   <div className={styles.sectionHeader}>
-                    <div><p className={styles.sectionLabel}>Activite scolaire</p><h2>Devoirs et consignes attendus</h2></div>
+                    <div>
+                      <p className={styles.sectionLabel}>Activite scolaire</p>
+                      <h2>Devoirs et consignes attendus</h2>
+                    </div>
                   </div>
                   <div className={styles.roadmapList}>
-                    {filteredInstitutionRooms.length > 0 ? filteredInstitutionRooms.map((room) => (
-                      <article key={String(room.id ?? room.name ?? "room")} className={styles.roadmapItem}>
-                        <strong>{String(room.name ?? "Salle")}</strong>
-                        <p>{String(room.institutionName ?? "Etablissement")} | role {String(room.role ?? "student")}</p>
-                        <p>
-                          {Number(room.pendingAssignments ?? 0) > 0
-                            ? `${Number(room.pendingAssignments ?? 0)} devoir(s) publie(s) a consulter.`
-                            : "Aucun devoir publie pour le moment."}
-                        </p>
-                        {room.latestAssignmentTitle ? <p>{String(room.latestAssignmentTitle)}</p> : null}
-                      </article>
-                    )) : (
+                    {filteredInstitutionRooms.length > 0 ? (
+                      filteredInstitutionRooms.map((room) => (
+                        <article
+                          key={String(room.id ?? room.name ?? "room")}
+                          className={styles.roadmapItem}
+                        >
+                          <strong>{String(room.name ?? "Salle")}</strong>
+                          <p>
+                            {String(room.institutionName ?? "Etablissement")} |
+                            role {String(room.role ?? "student")}
+                          </p>
+                          <p>
+                            {Number(room.pendingAssignments ?? 0) > 0
+                              ? `${Number(room.pendingAssignments ?? 0)} devoir(s) publie(s) a consulter.`
+                              : "Aucun devoir publie pour le moment."}
+                          </p>
+                          {room.latestAssignmentTitle ? (
+                            <p>{String(room.latestAssignmentTitle)}</p>
+                          ) : null}
+                        </article>
+                      ))
+                    ) : (
                       <p className={styles.paragraph}>
                         {studentRooms.length > 0
                           ? "Aucune salle ne correspond a cette recherche."
@@ -1309,7 +1812,9 @@ export default function DashboardPage() {
               <div className={styles.sideColumn}>
                 <section className={styles.cardAccent}>
                   <p className={styles.sectionLabel}>Profil rattache</p>
-                  <h2>{isInstitutionStudent ? "Mon campus" : "Mon etablissement"}</h2>
+                  <h2>
+                    {isInstitutionStudent ? "Mon campus" : "Mon etablissement"}
+                  </h2>
                   <p className={styles.paragraph}>
                     {studentInstitutions[0]?.name
                       ? `Compte actuellement relie a ${String(studentInstitutions[0].name)} avec ${linkedRoomsCount} salle(s) active(s).`
@@ -1320,7 +1825,11 @@ export default function DashboardPage() {
                       ? `${linkedInstitutionsCount} etablissement(s) et ${linkedRoomsCount} salle(s) relies a ce profil.`
                       : "Tu pourras rejoindre un campus via un lien d'invitation d'etablissement."}
                   </p>
-                  <button type="button" className={styles.secondaryButton} onClick={() => changeStudentView("profile")}>
+                  <button
+                    type="button"
+                    className={styles.secondaryButton}
+                    onClick={() => changeStudentView("profile")}
+                  >
                     Completer mon profil
                   </button>
                 </section>
@@ -1333,371 +1842,656 @@ export default function DashboardPage() {
       ) : role === "teacher" ? (
         <>
           <section className={styles.studentSwitch}>
-            <div className={styles.studentTabs} aria-label="Sections de l'espace formateur">
-              <button type="button" className={teacherView === "overview" ? styles.activeTab : styles.studentTab} aria-current={teacherView === "overview" ? "page" : undefined} onClick={() => changeTeacherView("overview")}>Vue d&apos;ensemble</button>
-              <button type="button" className={teacherView === "courses" ? styles.activeTab : styles.studentTab} aria-current={teacherView === "courses" ? "page" : undefined} onClick={() => changeTeacherView("courses")}>Mes cours</button>
-              <button type="button" className={teacherView === "classes" ? styles.activeTab : styles.studentTab} aria-current={teacherView === "classes" ? "page" : undefined} onClick={() => changeTeacherView("classes")}>Mes classes</button>
-              <button type="button" className={teacherView === "studio" ? styles.activeTab : styles.studentTab} aria-current={teacherView === "studio" ? "page" : undefined} onClick={() => changeTeacherView("studio")}>Studio</button>
-              <button type="button" className={teacherView === "profile" ? styles.activeTab : styles.studentTab} aria-current={teacherView === "profile" ? "page" : undefined} onClick={() => changeTeacherView("profile")}>Mon profil</button>
+            <div
+              className={styles.studentTabs}
+              aria-label="Sections de l'espace formateur"
+            >
+              <button
+                type="button"
+                className={
+                  teacherView === "overview"
+                    ? styles.activeTab
+                    : styles.studentTab
+                }
+                aria-current={teacherView === "overview" ? "page" : undefined}
+                onClick={() => changeTeacherView("overview")}
+              >
+                Vue d&apos;ensemble
+              </button>
+              <button
+                type="button"
+                className={
+                  teacherView === "courses"
+                    ? styles.activeTab
+                    : styles.studentTab
+                }
+                aria-current={teacherView === "courses" ? "page" : undefined}
+                onClick={() => changeTeacherView("courses")}
+              >
+                Mes cours
+              </button>
+              <button
+                type="button"
+                className={
+                  teacherView === "classes"
+                    ? styles.activeTab
+                    : styles.studentTab
+                }
+                aria-current={teacherView === "classes" ? "page" : undefined}
+                onClick={() => changeTeacherView("classes")}
+              >
+                Mes classes
+              </button>
+              <button
+                type="button"
+                className={
+                  teacherView === "studio"
+                    ? styles.activeTab
+                    : styles.studentTab
+                }
+                aria-current={teacherView === "studio" ? "page" : undefined}
+                onClick={() => changeTeacherView("studio")}
+              >
+                Studio
+              </button>
+              <button
+                type="button"
+                className={
+                  teacherView === "profile"
+                    ? styles.activeTab
+                    : styles.studentTab
+                }
+                aria-current={teacherView === "profile" ? "page" : undefined}
+                onClick={() => changeTeacherView("profile")}
+              >
+                Mon profil
+              </button>
             </div>
           </section>
 
-          {teacherView === "profile" ? renderProfileEditor() : (
-        <section className={`${styles.grid} ${teacherView !== "overview" ? styles.singleColumn : ""}`}>
-          <div className={styles.primaryColumn}>
-            {teacherView === "overview" ? (
-            <section className={styles.studentShowcase}>
-              <div className={styles.showcaseCopy}>
-                <p className={styles.sectionLabel}>{isInstitutionTeacher ? "Espace professeur campus" : "Espace enseignant"}</p>
-                <h2>{isInstitutionTeacher ? "Enseigner, diffuser, corriger" : "Produire, suivre, corriger"}</h2>
-                <p className={styles.paragraph}>
-                  {isInstitutionTeacher
-                    ? "Un tableau de bord centre sur tes classes, tes devoirs et les cours diffuses dans ton etablissement."
-                    : "Un tableau de bord pour retrouver tes cours, suivre les apprenants et travailler avec les classes rattachees aux etablissements."}
-                </p>
-                <div className={styles.showcaseStats}>
-                  {teacherQuickStats.map((stat) => (
-                    <article key={stat.label} className={styles.showcaseStat}>
-                      <span>{stat.label}</span>
-                      <strong>{stat.value}</strong>
-                      <small>{stat.note}</small>
-                    </article>
-                  ))}
-                </div>
-              </div>
-              <div className={styles.showcaseCourse}>
-                <span className={styles.showcaseBadge}>Studio</span>
-                <h3>{String(filteredTeacherCourses[0]?.title ?? "Nouveau cours a preparer")}</h3>
-                <p>
-                  {filteredTeacherCourses[0]
-                    ? String(filteredTeacherCourses[0].description ?? "Continue a enrichir ce cours avec des lecons et des supports.")
-                    : "Cree un cours structure avec modules, lecons, videos et miniature depuis le studio formateur."}
-                </p>
-                <div className={styles.courseMetaGrid}>
-                  <span>{publishedCoursesCount} cours</span>
-                  <span>{averageLearnersCount} apprenants / cours</span>
-                  <span>{activeClassesCount} classes</span>
-                </div>
-              </div>
-            </section>
-            ) : null}
-
-            {teacherView === "courses" ? (
-            <section className={styles.card}>
-              <div className={styles.sectionHeader}>
-                <div><p className={styles.sectionLabel}>Cours</p><h2>Mes contenus publies</h2></div>
-                <span className={styles.sectionHint}>{profile?.expertise || "Creation, suivi, diffusion"}</span>
-              </div>
-              <label className={styles.searchBar}>
-                <span>Recherche enseignant</span>
-                <input type="search" placeholder="Rechercher un cours, un prix ou un groupe d'apprenants" value={teacherSearch} onChange={(event) => setTeacherSearch(event.target.value)} />
-              </label>
-              <div className={styles.statsRow}>
-                {teacherQuickStats.map((stat) => (
-                  <article key={stat.label} className={styles.statCard}>
-                    <span>{stat.label}</span>
-                    <strong>{stat.value}</strong>
-                    <small>{stat.note}</small>
-                  </article>
-                ))}
-              </div>
-              <div className={styles.teacherCourseGrid}>
-                {filteredTeacherCourses.length > 0 ? filteredTeacherCourses.map((course) => (
-                  <article key={String(course.id)} className={styles.teacherCourseCard}>
-                    <div className={styles.teacherMeta}><span>{Number(course.lessonsCount ?? 0)} lecons</span><strong>{Number(course.learners ?? 0)} apprenants</strong></div>
-                    <h3>{String(course.title ?? "Cours sans titre")}</h3>
-                    <p>{String(course.description ?? "Description a completer")}</p>
-                    <div className={styles.courseMetaGrid}>
-                      <span>{Number(course.priceFcfa ?? 0)} FCFA</span>
-                      <span>{String(course.videoUrl ?? "") ? "Video reliee" : "Video a ajouter"}</span>
-                      <span>{String(course.thumbnailUrl ?? "") ? "Miniature prete" : "Miniature manquante"}</span>
-                    </div>
-                    <div className={styles.courseActionRow}>
-                      <button
-                        type="button"
-                        className={styles.secondaryButton}
-                        onClick={() => {
-                          setEditingTeacherCourseId(String(course.id ?? ""));
-                          changeTeacherView("studio");
-                        }}
-                      >
-                        Modifier le cours
-                      </button>
-                      <Link href={`/courses/${String(course.id)}`} className={styles.catalogDetailLink}>
-                        Voir la fiche publique
-                      </Link>
-                    </div>
-                  </article>
-                )) : <p className={styles.paragraph}>{teacherCourses.length > 0 ? "Aucun cours ne correspond a cette recherche." : "Aucun cours n'est encore rattache a cet enseignant."}</p>}
-              </div>
-            </section>
-            ) : null}
-
-            {teacherView === "overview" ? (
-            <section className={styles.card}>
-              <div className={styles.sectionHeader}>
-                <div><p className={styles.sectionLabel}>Insights</p><h2>Tendances utiles</h2></div>
-              </div>
-              <div className={styles.insightGrid}>
-                {teacherInsights.map((insight) => (
-                  <article key={insight.title} className={styles.insightCard}>
-                    <span>{insight.title}</span><strong>{insight.value}</strong><p>{insight.note}</p>
-                  </article>
-                ))}
-              </div>
-            </section>
-            ) : null}
-
-            {teacherView === "classes" ? (
-            <>
-            <section className={styles.card}>
-              <div className={styles.sectionHeader}>
-                <div><p className={styles.sectionLabel}>Classes</p><h2>{isInstitutionTeacher ? "Mes classes campus" : "Mes classes d&apos;etablissement"}</h2></div>
-                <span className={styles.sectionHint}>{activeClassesCount} classes actives</span>
-              </div>
-              <div className={styles.teacherCourseGrid}>
-                {filteredTeacherRooms.length > 0 ? filteredTeacherRooms.map((room) => (
-                  <button
-                    key={String(room.id)}
-                    type="button"
-                    className={
-                      selectedTeacherRoomId === String(room.id)
-                        ? styles.institutionRoomBoardActive
-                        : styles.teacherCourseCard
-                    }
-                    onClick={() => setSelectedTeacherRoomId(String(room.id))}
-                  >
-                    <div className={styles.teacherMeta}>
-                      <span>{String(room.role ?? "teacher")}</span>
-                      <strong>{String(room.institutionName ?? "Etablissement")}</strong>
-                    </div>
-                    <h3>{String(room.name ?? "Classe")}</h3>
-                    <p>{String(room.description ?? "Classe rattachee a un etablissement partenaire.")}</p>
-                    <div className={styles.courseMetaGrid}>
-                      <span>{String(room.slug ?? "") ? `#${String(room.slug)}` : "Slug indisponible"}</span>
-                      <span>{String(room.joinedAt ?? "") ? "Rattachement actif" : "A confirmer"}</span>
-                      <span>Classes institutionnelles</span>
-                    </div>
-                  </button>
-                )) : <p className={styles.paragraph}>Aucune classe d&apos;etablissement n&apos;est encore rattachee a ce professeur.</p>}
-              </div>
-            </section>
-
-            {teacherRoomDetail ? (
-              <section className={styles.card}>
-                <div className={styles.sectionHeader}>
-                  <div><p className={styles.sectionLabel}>Salle active</p><h2>{teacherRoomDetail.name}</h2></div>
-                  <span className={styles.sectionHint}>
-                    {teacherRoomDetail.slug ? `#${teacherRoomDetail.slug}` : "Classe enseignant"}
-                  </span>
-                </div>
-                <div className={styles.institutionOpsGrid}>
-                  <article className={styles.institutionOpsCard}>
-                    <span>Remises</span>
-                    <strong>{Number(teacherRoomDetail.submissionSummary?.total ?? 0)}</strong>
-                    <p>Toutes copies remises dans cette classe.</p>
-                  </article>
-                  <article className={styles.institutionOpsCard}>
-                    <span>A corriger</span>
-                    <strong>{Number(teacherRoomDetail.submissionSummary?.pending ?? 0)}</strong>
-                    <p>Copies qui attendent ton retour.</p>
-                  </article>
-                  <article className={styles.institutionOpsCard}>
-                    <span>Corrigees</span>
-                    <strong>{Number(teacherRoomDetail.submissionSummary?.reviewed ?? 0)}</strong>
-                    <p>Copies deja traitees.</p>
-                  </article>
-                </div>
-
-                <div className={styles.institutionActionGrid}>
-                  <section className={styles.card}>
-                    <div className={styles.sectionHeader}>
-                      <div><p className={styles.sectionLabel}>Devoir</p><h2>Publier dans ma classe</h2></div>
-                    </div>
-                    <form onSubmit={(event) => void handleTeacherAssignmentCreate(event)} className={styles.teacherForm}>
-                      <label className={styles.formField}>
-                        <span>Titre</span>
-                        <input
-                          type="text"
-                          value={teacherAssignmentTitle}
-                          onChange={(event) => setTeacherAssignmentTitle(event.target.value)}
-                          placeholder="Controle continu - semaine 3"
-                        />
-                      </label>
-                      <label className={styles.formField}>
-                        <span>Consignes</span>
-                        <textarea
-                          className={styles.formTextarea}
-                          rows={4}
-                          value={teacherAssignmentInstructions}
-                          onChange={(event) => setTeacherAssignmentInstructions(event.target.value)}
-                          placeholder="Consignes de rendu, fichier attendu, date et modalites."
-                        />
-                      </label>
-                      <button type="submit" className={styles.submitButton}>
-                        Publier le devoir
-                      </button>
-                    </form>
-                  </section>
-
-                  <section className={styles.card}>
-                    <div className={styles.sectionHeader}>
-                      <div><p className={styles.sectionLabel}>Correction</p><h2>Corriger une remise</h2></div>
-                    </div>
-                    <form onSubmit={(event) => void handleSubmissionReview(event)} className={styles.teacherForm}>
-                      <label className={styles.formField}>
-                        <span>Copie a corriger</span>
-                        <select
-                          className={styles.selectField}
-                          value={reviewForm.submissionId}
-                          onChange={(event) =>
-                            setReviewForm((current) => ({
-                              ...current,
-                              submissionId: event.target.value,
-                            }))
-                          }
-                        >
-                          <option value="">Choisir une remise</option>
-                          {(teacherRoomDetail.recentSubmissions ?? []).map((submission) => (
-                            <option key={submission.id} value={submission.id}>
-                              {submission.studentName} - {submission.assignmentTitle}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <div className={styles.metaFields}>
-                        <label className={styles.formField}>
-                          <span>Note</span>
-                          <input
-                            type="number"
-                            min="0"
-                            value={reviewForm.score}
-                            onChange={(event) =>
-                              setReviewForm((current) => ({
-                                ...current,
-                                score: event.target.value,
-                              }))
-                            }
-                            placeholder="15"
-                          />
-                        </label>
-                        <label className={styles.formField}>
-                          <span>Statut</span>
-                          <select
-                            className={styles.selectField}
-                            value={reviewForm.status}
-                            onChange={(event) =>
-                              setReviewForm((current) => ({
-                                ...current,
-                                status: event.target.value,
-                              }))
-                            }
+          {teacherView === "profile" ? (
+            renderProfileEditor()
+          ) : (
+            <section
+              className={`${styles.grid} ${teacherView !== "overview" ? styles.singleColumn : ""}`}
+            >
+              <div className={styles.primaryColumn}>
+                {teacherView === "overview" ? (
+                  <section className={styles.studentShowcase}>
+                    <div className={styles.showcaseCopy}>
+                      <p className={styles.sectionLabel}>
+                        {isInstitutionTeacher
+                          ? "Espace professeur campus"
+                          : "Espace enseignant"}
+                      </p>
+                      <h2>
+                        {isInstitutionTeacher
+                          ? "Enseigner, diffuser, corriger"
+                          : "Produire, suivre, corriger"}
+                      </h2>
+                      <p className={styles.paragraph}>
+                        {isInstitutionTeacher
+                          ? "Un tableau de bord centre sur tes classes, tes devoirs et les cours diffuses dans ton etablissement."
+                          : "Un tableau de bord pour retrouver tes cours, suivre les apprenants et travailler avec les classes rattachees aux etablissements."}
+                      </p>
+                      <div className={styles.showcaseStats}>
+                        {teacherQuickStats.map((stat) => (
+                          <article
+                            key={stat.label}
+                            className={styles.showcaseStat}
                           >
-                            <option value="reviewed">Corrige</option>
-                            <option value="returned">Retourne</option>
-                          </select>
-                        </label>
+                            <span>{stat.label}</span>
+                            <strong>{stat.value}</strong>
+                            <small>{stat.note}</small>
+                          </article>
+                        ))}
                       </div>
-                      <label className={styles.formField}>
-                        <span>Feedback</span>
-                        <textarea
-                          className={styles.formTextarea}
-                          rows={4}
-                          value={reviewForm.feedback}
-                          onChange={(event) =>
-                            setReviewForm((current) => ({
-                              ...current,
-                              feedback: event.target.value,
-                            }))
-                          }
-                          placeholder="Retour pedagogique pour l'etudiant."
-                        />
-                      </label>
-                      <button type="submit" className={styles.submitButton}>
-                        Enregistrer la correction
-                      </button>
-                    </form>
+                    </div>
+                    <div className={styles.showcaseCourse}>
+                      <span className={styles.showcaseBadge}>Studio</span>
+                      <h3>
+                        {String(
+                          filteredTeacherCourses[0]?.title ??
+                            "Nouveau cours a preparer",
+                        )}
+                      </h3>
+                      <p>
+                        {filteredTeacherCourses[0]
+                          ? String(
+                              filteredTeacherCourses[0].description ??
+                                "Continue a enrichir ce cours avec des lecons et des supports.",
+                            )
+                          : "Cree un cours structure avec modules, lecons, videos et miniature depuis le studio formateur."}
+                      </p>
+                      <div className={styles.courseMetaGrid}>
+                        <span>{publishedCoursesCount} cours</span>
+                        <span>{averageLearnersCount} apprenants / cours</span>
+                        <span>{activeClassesCount} classes</span>
+                      </div>
+                    </div>
+                  </section>
+                ) : null}
+
+                {teacherView === "courses" ? (
+                  <section className={styles.card}>
+                    <div className={styles.sectionHeader}>
+                      <div>
+                        <p className={styles.sectionLabel}>Cours</p>
+                        <h2>Mes contenus publies</h2>
+                      </div>
+                      <span className={styles.sectionHint}>
+                        {profile?.expertise || "Creation, suivi, diffusion"}
+                      </span>
+                    </div>
+                    <label className={styles.searchBar}>
+                      <span>Recherche enseignant</span>
+                      <input
+                        type="search"
+                        placeholder="Rechercher un cours, un prix ou un groupe d'apprenants"
+                        value={teacherSearch}
+                        onChange={(event) =>
+                          setTeacherSearch(event.target.value)
+                        }
+                      />
+                    </label>
+                    <div className={styles.statsRow}>
+                      {teacherQuickStats.map((stat) => (
+                        <article key={stat.label} className={styles.statCard}>
+                          <span>{stat.label}</span>
+                          <strong>{stat.value}</strong>
+                          <small>{stat.note}</small>
+                        </article>
+                      ))}
+                    </div>
+                    <div className={styles.teacherCourseGrid}>
+                      {filteredTeacherCourses.length > 0 ? (
+                        filteredTeacherCourses.map((course) => (
+                          <article
+                            key={String(course.id)}
+                            className={styles.teacherCourseCard}
+                          >
+                            <div className={styles.teacherMeta}>
+                              <span>
+                                {Number(course.lessonsCount ?? 0)} lecons
+                              </span>
+                              <strong>
+                                {Number(course.learners ?? 0)} apprenants
+                              </strong>
+                            </div>
+                            <h3>
+                              {String(course.title ?? "Cours sans titre")}
+                            </h3>
+                            <p>
+                              {String(
+                                course.description ?? "Description a completer",
+                              )}
+                            </p>
+                            <div className={styles.courseMetaGrid}>
+                              <span>{Number(course.priceFcfa ?? 0)} FCFA</span>
+                              <span>
+                                {String(course.videoUrl ?? "")
+                                  ? "Video reliee"
+                                  : "Video a ajouter"}
+                              </span>
+                              <span>
+                                {String(course.thumbnailUrl ?? "")
+                                  ? "Miniature prete"
+                                  : "Miniature manquante"}
+                              </span>
+                            </div>
+                            <div className={styles.courseActionRow}>
+                              <button
+                                type="button"
+                                className={styles.secondaryButton}
+                                onClick={() => {
+                                  setEditingTeacherCourseId(
+                                    String(course.id ?? ""),
+                                  );
+                                  changeTeacherView("studio");
+                                }}
+                              >
+                                Modifier le cours
+                              </button>
+                              <Link
+                                href={`/courses/${String(course.id)}`}
+                                className={styles.catalogDetailLink}
+                              >
+                                Voir la fiche publique
+                              </Link>
+                            </div>
+                          </article>
+                        ))
+                      ) : (
+                        <p className={styles.paragraph}>
+                          {teacherCourses.length > 0
+                            ? "Aucun cours ne correspond a cette recherche."
+                            : "Aucun cours n'est encore rattache a cet enseignant."}
+                        </p>
+                      )}
+                    </div>
+                  </section>
+                ) : null}
+
+                {teacherView === "overview" ? (
+                  <section className={styles.card}>
+                    <div className={styles.sectionHeader}>
+                      <div>
+                        <p className={styles.sectionLabel}>Insights</p>
+                        <h2>Tendances utiles</h2>
+                      </div>
+                    </div>
+                    <div className={styles.insightGrid}>
+                      {teacherInsights.map((insight) => (
+                        <article
+                          key={insight.title}
+                          className={styles.insightCard}
+                        >
+                          <span>{insight.title}</span>
+                          <strong>{insight.value}</strong>
+                          <p>{insight.note}</p>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
+
+                {teacherView === "classes" ? (
+                  <>
+                    <section className={styles.card}>
+                      <div className={styles.sectionHeader}>
+                        <div>
+                          <p className={styles.sectionLabel}>Classes</p>
+                          <h2>
+                            {isInstitutionTeacher
+                              ? "Mes classes campus"
+                              : "Mes classes d&apos;etablissement"}
+                          </h2>
+                        </div>
+                        <span className={styles.sectionHint}>
+                          {activeClassesCount} classes actives
+                        </span>
+                      </div>
+                      <div className={styles.teacherCourseGrid}>
+                        {filteredTeacherRooms.length > 0 ? (
+                          filteredTeacherRooms.map((room) => (
+                            <button
+                              key={String(room.id)}
+                              type="button"
+                              className={
+                                selectedTeacherRoomId === String(room.id)
+                                  ? styles.institutionRoomBoardActive
+                                  : styles.teacherCourseCard
+                              }
+                              onClick={() =>
+                                setSelectedTeacherRoomId(String(room.id))
+                              }
+                            >
+                              <div className={styles.teacherMeta}>
+                                <span>{String(room.role ?? "teacher")}</span>
+                                <strong>
+                                  {String(
+                                    room.institutionName ?? "Etablissement",
+                                  )}
+                                </strong>
+                              </div>
+                              <h3>{String(room.name ?? "Classe")}</h3>
+                              <p>
+                                {String(
+                                  room.description ??
+                                    "Classe rattachee a un etablissement partenaire.",
+                                )}
+                              </p>
+                              <div className={styles.courseMetaGrid}>
+                                <span>
+                                  {String(room.slug ?? "")
+                                    ? `#${String(room.slug)}`
+                                    : "Slug indisponible"}
+                                </span>
+                                <span>
+                                  {String(room.joinedAt ?? "")
+                                    ? "Rattachement actif"
+                                    : "A confirmer"}
+                                </span>
+                                <span>Classes institutionnelles</span>
+                              </div>
+                            </button>
+                          ))
+                        ) : (
+                          <p className={styles.paragraph}>
+                            Aucune classe d&apos;etablissement n&apos;est encore
+                            rattachee a ce professeur.
+                          </p>
+                        )}
+                      </div>
+                    </section>
+
+                    {teacherRoomDetail ? (
+                      <section className={styles.card}>
+                        <div className={styles.sectionHeader}>
+                          <div>
+                            <p className={styles.sectionLabel}>Salle active</p>
+                            <h2>{teacherRoomDetail.name}</h2>
+                          </div>
+                          <span className={styles.sectionHint}>
+                            {teacherRoomDetail.slug
+                              ? `#${teacherRoomDetail.slug}`
+                              : "Classe enseignant"}
+                          </span>
+                        </div>
+                        <div className={styles.institutionOpsGrid}>
+                          <article className={styles.institutionOpsCard}>
+                            <span>Remises</span>
+                            <strong>
+                              {Number(
+                                teacherRoomDetail.submissionSummary?.total ?? 0,
+                              )}
+                            </strong>
+                            <p>Toutes copies remises dans cette classe.</p>
+                          </article>
+                          <article className={styles.institutionOpsCard}>
+                            <span>A corriger</span>
+                            <strong>
+                              {Number(
+                                teacherRoomDetail.submissionSummary?.pending ??
+                                  0,
+                              )}
+                            </strong>
+                            <p>Copies qui attendent ton retour.</p>
+                          </article>
+                          <article className={styles.institutionOpsCard}>
+                            <span>Corrigees</span>
+                            <strong>
+                              {Number(
+                                teacherRoomDetail.submissionSummary?.reviewed ??
+                                  0,
+                              )}
+                            </strong>
+                            <p>Copies deja traitees.</p>
+                          </article>
+                        </div>
+
+                        <div className={styles.institutionActionGrid}>
+                          <section className={styles.card}>
+                            <div className={styles.sectionHeader}>
+                              <div>
+                                <p className={styles.sectionLabel}>Devoir</p>
+                                <h2>Publier dans ma classe</h2>
+                              </div>
+                            </div>
+                            <form
+                              onSubmit={(event) =>
+                                void handleTeacherAssignmentCreate(event)
+                              }
+                              className={styles.teacherForm}
+                            >
+                              <label className={styles.formField}>
+                                <span>Titre</span>
+                                <input
+                                  type="text"
+                                  value={teacherAssignmentTitle}
+                                  onChange={(event) =>
+                                    setTeacherAssignmentTitle(
+                                      event.target.value,
+                                    )
+                                  }
+                                  placeholder="Controle continu - semaine 3"
+                                />
+                              </label>
+                              <label className={styles.formField}>
+                                <span>Consignes</span>
+                                <textarea
+                                  className={styles.formTextarea}
+                                  rows={4}
+                                  value={teacherAssignmentInstructions}
+                                  onChange={(event) =>
+                                    setTeacherAssignmentInstructions(
+                                      event.target.value,
+                                    )
+                                  }
+                                  placeholder="Consignes de rendu, fichier attendu, date et modalites."
+                                />
+                              </label>
+                              <button
+                                type="submit"
+                                className={styles.submitButton}
+                              >
+                                Publier le devoir
+                              </button>
+                            </form>
+                          </section>
+
+                          <section className={styles.card}>
+                            <div className={styles.sectionHeader}>
+                              <div>
+                                <p className={styles.sectionLabel}>
+                                  Correction
+                                </p>
+                                <h2>Corriger une remise</h2>
+                              </div>
+                            </div>
+                            <form
+                              onSubmit={(event) =>
+                                void handleSubmissionReview(event)
+                              }
+                              className={styles.teacherForm}
+                            >
+                              <label className={styles.formField}>
+                                <span>Copie a corriger</span>
+                                <select
+                                  className={styles.selectField}
+                                  value={reviewForm.submissionId}
+                                  onChange={(event) =>
+                                    setReviewForm((current) => ({
+                                      ...current,
+                                      submissionId: event.target.value,
+                                    }))
+                                  }
+                                >
+                                  <option value="">Choisir une remise</option>
+                                  {(
+                                    teacherRoomDetail.recentSubmissions ?? []
+                                  ).map((submission) => (
+                                    <option
+                                      key={submission.id}
+                                      value={submission.id}
+                                    >
+                                      {submission.studentName} -{" "}
+                                      {submission.assignmentTitle}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              <div className={styles.metaFields}>
+                                <label className={styles.formField}>
+                                  <span>Note</span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={reviewForm.score}
+                                    onChange={(event) =>
+                                      setReviewForm((current) => ({
+                                        ...current,
+                                        score: event.target.value,
+                                      }))
+                                    }
+                                    placeholder="15"
+                                  />
+                                </label>
+                                <label className={styles.formField}>
+                                  <span>Statut</span>
+                                  <select
+                                    className={styles.selectField}
+                                    value={reviewForm.status}
+                                    onChange={(event) =>
+                                      setReviewForm((current) => ({
+                                        ...current,
+                                        status: event.target.value,
+                                      }))
+                                    }
+                                  >
+                                    <option value="reviewed">Corrige</option>
+                                    <option value="returned">Retourne</option>
+                                  </select>
+                                </label>
+                              </div>
+                              <label className={styles.formField}>
+                                <span>Feedback</span>
+                                <textarea
+                                  className={styles.formTextarea}
+                                  rows={4}
+                                  value={reviewForm.feedback}
+                                  onChange={(event) =>
+                                    setReviewForm((current) => ({
+                                      ...current,
+                                      feedback: event.target.value,
+                                    }))
+                                  }
+                                  placeholder="Retour pedagogique pour l'etudiant."
+                                />
+                              </label>
+                              <button
+                                type="submit"
+                                className={styles.submitButton}
+                              >
+                                Enregistrer la correction
+                              </button>
+                            </form>
+                          </section>
+                        </div>
+
+                        <section className={styles.card}>
+                          <div className={styles.sectionHeader}>
+                            <div>
+                              <p className={styles.sectionLabel}>
+                                Copies recentes
+                              </p>
+                              <h2>Suivi des remises</h2>
+                            </div>
+                          </div>
+                          <div className={styles.roadmapList}>
+                            {(teacherRoomDetail.recentSubmissions ?? [])
+                              .length > 0 ? (
+                              (teacherRoomDetail.recentSubmissions ?? []).map(
+                                (submission) => (
+                                  <article
+                                    key={submission.id}
+                                    className={styles.roadmapItem}
+                                  >
+                                    <strong>{submission.studentName}</strong>
+                                    <p>{submission.assignmentTitle}</p>
+                                    <small>
+                                      {submission.status}
+                                      {submission.score !== null &&
+                                      submission.score !== undefined
+                                        ? ` | score ${submission.score}`
+                                        : ""}
+                                    </small>
+                                  </article>
+                                ),
+                              )
+                            ) : (
+                              <p className={styles.paragraph}>
+                                Aucune remise recente dans cette classe.
+                              </p>
+                            )}
+                          </div>
+                          {teacherActionMessage ? (
+                            <p className={styles.inlineMessage}>
+                              {teacherActionMessage}
+                            </p>
+                          ) : null}
+                        </section>
+                      </section>
+                    ) : null}
+                  </>
+                ) : null}
+
+                {teacherView === "studio" ? (
+                  <TeacherCourseBuilder
+                    apiBaseUrl={apiBaseUrl}
+                    onCourseCreated={fetchDashboard}
+                    editingCourseId={editingTeacherCourseId || null}
+                    onCancelEdit={() => setEditingTeacherCourseId("")}
+                  />
+                ) : null}
+              </div>
+
+              {teacherView === "overview" ? (
+                <div className={styles.sideColumn}>
+                  <section className={styles.cardAccent}>
+                    <p className={styles.sectionLabel}>Operations du jour</p>
+                    <h2>
+                      {isInstitutionTeacher
+                        ? "Checklist professeur campus"
+                        : "Checklist formateur"}
+                    </h2>
+                    <ul className={styles.simpleList}>
+                      {teacherTasks.map((task) => (
+                        <li key={task}>{task}</li>
+                      ))}
+                    </ul>
+                  </section>
+                  {isInstitutionTeacher ? (
+                    <section className={styles.card}>
+                      <p className={styles.sectionLabel}>Repere campus</p>
+                      <h2>Vue rapide d&apos;etablissement</h2>
+                      <div className={styles.revenueGrid}>
+                        {campusTeacherHighlights.map((item) => (
+                          <article
+                            key={item.label}
+                            className={styles.revenueCard}
+                          >
+                            <span>{item.label}</span>
+                            <strong>{item.value}</strong>
+                            <small>{item.note}</small>
+                          </article>
+                        ))}
+                      </div>
+                    </section>
+                  ) : null}
+                  <section className={styles.card}>
+                    <p className={styles.sectionLabel}>
+                      {isInstitutionTeacher ? "Activite formateur" : "Revenus"}
+                    </p>
+                    <h2>
+                      {isInstitutionTeacher
+                        ? "Indicateurs de diffusion"
+                        : "Remuneration enseignant"}
+                    </h2>
+                    <div className={styles.revenueGrid}>
+                      <article className={styles.revenueCard}>
+                        <span>
+                          {isInstitutionTeacher
+                            ? "Revenus cumules"
+                            : "Montant cumule"}
+                        </span>
+                        <strong>
+                          {dashboardData?.stats.totalRevenue ?? 0} FCFA
+                        </strong>
+                        <small>
+                          {isInstitutionTeacher
+                            ? "Suivi personnel de tes cours, meme en diffusion campus"
+                            : "Somme totale generee par tes cours"}
+                        </small>
+                      </article>
+                      <article className={styles.revenueCard}>
+                        <span>
+                          {isInstitutionTeacher ? "Ce mois-ci" : "Ce mois-ci"}
+                        </span>
+                        <strong>
+                          {dashboardData?.stats.monthRevenue ?? 0} FCFA
+                        </strong>
+                        <small>
+                          {isInstitutionTeacher
+                            ? "Montant recent genere sur Kalatty"
+                            : "Revenus recents des inscriptions payantes"}
+                        </small>
+                      </article>
+                    </div>
                   </section>
                 </div>
-
-                <section className={styles.card}>
-                  <div className={styles.sectionHeader}>
-                    <div><p className={styles.sectionLabel}>Copies recentes</p><h2>Suivi des remises</h2></div>
-                  </div>
-                  <div className={styles.roadmapList}>
-                    {(teacherRoomDetail.recentSubmissions ?? []).length > 0 ? (
-                      (teacherRoomDetail.recentSubmissions ?? []).map((submission) => (
-                        <article key={submission.id} className={styles.roadmapItem}>
-                          <strong>{submission.studentName}</strong>
-                          <p>{submission.assignmentTitle}</p>
-                          <small>
-                            {submission.status}
-                            {submission.score !== null && submission.score !== undefined
-                              ? ` | score ${submission.score}`
-                              : ""}
-                          </small>
-                        </article>
-                      ))
-                    ) : <p className={styles.paragraph}>Aucune remise recente dans cette classe.</p>}
-                  </div>
-                  {teacherActionMessage ? <p className={styles.inlineMessage}>{teacherActionMessage}</p> : null}
-                </section>
-              </section>
-            ) : null}
-            </>
-            ) : null}
-
-            {teacherView === "studio" ? (
-            <TeacherCourseBuilder
-              apiBaseUrl={apiBaseUrl}
-              onCourseCreated={fetchDashboard}
-              editingCourseId={editingTeacherCourseId || null}
-              onCancelEdit={() => setEditingTeacherCourseId("")}
-            />
-            ) : null}
-          </div>
-
-          {teacherView === "overview" ? (
-          <div className={styles.sideColumn}>
-            <section className={styles.cardAccent}>
-              <p className={styles.sectionLabel}>Operations du jour</p>
-              <h2>{isInstitutionTeacher ? "Checklist professeur campus" : "Checklist formateur"}</h2>
-              <ul className={styles.simpleList}>{teacherTasks.map((task) => <li key={task}>{task}</li>)}</ul>
+              ) : null}
             </section>
-            {isInstitutionTeacher ? (
-              <section className={styles.card}>
-                <p className={styles.sectionLabel}>Repere campus</p>
-                <h2>Vue rapide d&apos;etablissement</h2>
-                <div className={styles.revenueGrid}>
-                  {campusTeacherHighlights.map((item) => (
-                    <article key={item.label} className={styles.revenueCard}>
-                      <span>{item.label}</span>
-                      <strong>{item.value}</strong>
-                      <small>{item.note}</small>
-                    </article>
-                  ))}
-                </div>
-              </section>
-            ) : null}
-            <section className={styles.card}>
-              <p className={styles.sectionLabel}>{isInstitutionTeacher ? "Activite formateur" : "Revenus"}</p>
-              <h2>{isInstitutionTeacher ? "Indicateurs de diffusion" : "Remuneration enseignant"}</h2>
-              <div className={styles.revenueGrid}>
-                <article className={styles.revenueCard}>
-                  <span>{isInstitutionTeacher ? "Revenus cumules" : "Montant cumule"}</span>
-                  <strong>{dashboardData?.stats.totalRevenue ?? 0} FCFA</strong>
-                  <small>{isInstitutionTeacher ? "Suivi personnel de tes cours, meme en diffusion campus" : "Somme totale generee par tes cours"}</small>
-                </article>
-                <article className={styles.revenueCard}>
-                  <span>{isInstitutionTeacher ? "Ce mois-ci" : "Ce mois-ci"}</span>
-                  <strong>{dashboardData?.stats.monthRevenue ?? 0} FCFA</strong>
-                  <small>{isInstitutionTeacher ? "Montant recent genere sur Kalatty" : "Revenus recents des inscriptions payantes"}</small>
-                </article>
-              </div>
-            </section>
-          </div>
-          ) : null}
-        </section>
           )}
         </>
       ) : (

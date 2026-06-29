@@ -6,6 +6,8 @@ import { AuthModule } from './auth/auth.module';
 import { CoursesModule } from './courses/courses.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { InstitutionsModule } from './institutions/institutions.module';
+import { MobileModule } from './mobile/mobile.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentsModule } from './payments/payments.module';
 import { SupabaseModule } from './supabase/supabase.module';
 
@@ -17,6 +19,8 @@ import { SupabaseModule } from './supabase/supabase.module';
     CoursesModule,
     DashboardModule,
     InstitutionsModule,
+    NotificationsModule,
+    MobileModule,
     PaymentsModule,
   ],
   controllers: [AppController],

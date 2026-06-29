@@ -36,8 +36,15 @@ export default function RootLayout({
         <footer className="siteFooter">
           <div className="siteFooterGlow" aria-hidden="true" />
           <div className="siteFooterInner">
-            <section className="siteFooterBrand" aria-label="Presentation Kalatty">
-              <Link href="/" className="siteFooterLogoLink" aria-label="Retour a l'accueil Kalatty">
+            <section
+              className="siteFooterBrand"
+              aria-label="Presentation Kalatty"
+            >
+              <Link
+                href="/"
+                className="siteFooterLogoLink"
+                aria-label="Retour a l'accueil Kalatty"
+              >
                 <Image
                   src="/kalatty-logo.png"
                   alt="Logo Kalatty"
@@ -55,7 +62,10 @@ export default function RootLayout({
                 formateurs independants et les etablissements dans un espace
                 clair, suivi et evolutif.
               </p>
-              <div className="siteFooterBadges" aria-label="Engagements Kalatty">
+              <div
+                className="siteFooterBadges"
+                aria-label="Engagements Kalatty"
+              >
                 <span>Cours video</span>
                 <span>Classes en ligne</span>
                 <span>Suivi progression</span>
@@ -66,16 +76,17 @@ export default function RootLayout({
               <div>
                 <h2>Plateforme</h2>
                 <Link href="/">Accueil</Link>
+                <Link href="/about">A propos</Link>
+                <Link href="/pricing">Tarifs</Link>
+                <Link href="/contact">Contact</Link>
                 <Link href="/dashboard">Tableau de bord</Link>
-                <Link href="/register/student">Espace etudiant</Link>
-                <Link href="/register/teacher">Espace formateur</Link>
               </div>
               <div>
                 <h2>Etablissements</h2>
                 <Link href="/register/institution">Creer un campus</Link>
                 <Link href="/dashboard">Classes et comptes</Link>
                 <Link href="/dashboard">Devoirs et corrections</Link>
-                <Link href="/dashboard">Plans et abonnement</Link>
+                <Link href="/pricing">Plans et abonnement</Link>
               </div>
               <div>
                 <h2>Confiance</h2>
@@ -90,17 +101,23 @@ export default function RootLayout({
               <span className="siteFooterCtaLabel">Prochaine etape</span>
               <h2>Construire une experience mobile et IA solide.</h2>
               <p>
-                Kalatty peut devenir un vrai assistant d&apos;apprentissage avec des
-                recommandations, des resumes et un accompagnement par profil.
+                Kalatty peut devenir un vrai assistant d&apos;apprentissage avec
+                des recommandations, des resumes et un accompagnement par
+                profil.
               </p>
-              <Link href="/register/institution" className="siteFooterCtaButton">
+              <Link
+                href="/register/institution"
+                className="siteFooterCtaButton"
+              >
                 Lancer un espace etablissement
               </Link>
             </section>
           </div>
           <div className="siteFooterBottom">
             <span>© {currentYear} Kalatty. Tous droits reserves.</span>
-            <span>Prototype avance pour apprentissage, cours et campus en ligne.</span>
+            <span>
+              Prototype avance pour apprentissage, cours et campus en ligne.
+            </span>
           </div>
         </footer>
       </body>

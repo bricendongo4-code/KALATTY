@@ -1,4 +1,12 @@
-import { Body, Controller, Param, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { PaymentsService } from './payments.service';
 
@@ -13,6 +21,11 @@ type RequestUser = {
 @UseGuards(AuthGuard('jwt'))
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
+
+  @Get('plans')
+  getPlans() {
+    return this.paymentsService.getPlans();
+  }
 
   @Post('course-checkout')
   createCourseCheckout(
