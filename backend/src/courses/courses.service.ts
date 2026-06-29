@@ -47,6 +47,7 @@ type CreateCoursePayload = {
   short_description?: string;
   price_fcfa?: number;
   thumbnail_path?: string;
+  status?: 'draft' | 'published' | 'archived';
   modules?: ModulePayload[];
 };
 
@@ -132,17 +133,20 @@ export class CoursesService {
     }
 
     if (category === 'thumbnail' && !file.mimetype.startsWith('image/')) {
-      throw new BadRequestException(
-        'La miniature doit etre une image valide.',
-      );
+      throw new BadRequestException('La miniature doit etre une image valide.');
     }
 
     if (category === 'video' && !file.mimetype.startsWith('video/')) {
-      throw new BadRequestException('La ressource envoyee doit etre une video.');
+      throw new BadRequestException(
+        'La ressource envoyee doit etre une video.',
+      );
     }
 
-    const bucket = category === 'thumbnail' ? 'course-thumbnails' : 'course-videos';
-    const safeName = this.sanitizeFilename(file.originalname || `${category}.bin`);
+    const bucket =
+      category === 'thumbnail' ? 'course-thumbnails' : 'course-videos';
+    const safeName = this.sanitizeFilename(
+      file.originalname || `${category}.bin`,
+    );
     const filePath = `${user.id}/${Date.now()}-${safeName}`;
 
     const { error } = await this.supabaseService.client.storage
@@ -223,7 +227,8 @@ export class CoursesService {
       modules: (course.course_modules ?? [])
         .slice()
         .sort(
-          (a: any, b: any) => Number(a.order_index ?? 0) - Number(b.order_index ?? 0),
+          (a: any, b: any) =>
+            Number(a.order_index ?? 0) - Number(b.order_index ?? 0),
         )
         .map((module: any) => ({
           id: module.id,
@@ -290,12 +295,13 @@ export class CoursesService {
           .in('course_id', courseIds)
       : { data: [] as Array<Record<string, unknown>> };
 
-    const { data: teacherReviews, error: teacherReviewsError } = teacherIds.length
-      ? await this.supabaseService.client
-          .from('teacher_reviews')
-          .select('teacher_id, rating')
-          .in('teacher_id', teacherIds)
-      : { data: [] as Array<Record<string, unknown>> };
+    const { data: teacherReviews, error: teacherReviewsError } =
+      teacherIds.length
+        ? await this.supabaseService.client
+            .from('teacher_reviews')
+            .select('teacher_id, rating')
+            .in('teacher_id', teacherIds)
+        : { data: [] as Array<Record<string, unknown>> };
 
     if (
       (courseReviewsError && !this.isMissingTableError(courseReviewsError)) ||
@@ -473,7 +479,8 @@ export class CoursesService {
       (course.course_modules ?? [])
         .slice()
         .sort(
-          (a: any, b: any) => Number(a.order_index ?? 0) - Number(b.order_index ?? 0),
+          (a: any, b: any) =>
+            Number(a.order_index ?? 0) - Number(b.order_index ?? 0),
         )
         .map(async (module: any) => {
           const lessons = await Promise.all(
@@ -534,7 +541,8 @@ export class CoursesService {
     );
 
     const totalLessons = modules.reduce(
-      (sum: number, module: { lessons: Array<unknown> }) => sum + module.lessons.length,
+      (sum: number, module: { lessons: Array<unknown> }) =>
+        sum + module.lessons.length,
       0,
     );
     const completedLessons = Array.from(progressMap.values()).filter(
@@ -572,7 +580,9 @@ export class CoursesService {
       completedLessons,
       startedLessons,
       progressPercentage:
-        totalLessons > 0 ? Math.round((startedLessons / totalLessons) * 100) : 0,
+        totalLessons > 0
+          ? Math.round((startedLessons / totalLessons) * 100)
+          : 0,
       enrolled:
         role === 'student'
           ? await this.isUserEnrolled(user.id, course.id)
@@ -663,16 +673,18 @@ export class CoursesService {
       );
     }
 
-    const { data: course, error: courseError } = await this.supabaseService.client
-      .from('courses')
-      .select('id, title, description, short_description, price_fcfa, status')
-      .eq('id', courseId)
-      .eq('status', 'published')
-      .maybeSingle();
+    const { data: course, error: courseError } =
+      await this.supabaseService.client
+        .from('courses')
+        .select('id, title, description, short_description, price_fcfa, status')
+        .eq('id', courseId)
+        .eq('status', 'published')
+        .maybeSingle();
 
     if (courseError || !course) {
       throw new BadRequestException(
-        courseError?.message ?? "Le cours n'est pas disponible a l'inscription.",
+        courseError?.message ??
+          "Le cours n'est pas disponible a l'inscription.",
       );
     }
 
@@ -686,7 +698,8 @@ export class CoursesService {
 
     if (existingError) {
       throw new BadRequestException(
-        existingError.message ?? "Impossible de verifier l'inscription existante.",
+        existingError.message ??
+          "Impossible de verifier l'inscription existante.",
       );
     }
 
@@ -731,12 +744,13 @@ export class CoursesService {
       );
     }
 
-    const { data: lesson, error: lessonError } = await this.supabaseService.client
-      .from('lessons')
-      .select('id, course_id, is_preview')
-      .eq('id', lessonId)
-      .eq('course_id', courseId)
-      .maybeSingle();
+    const { data: lesson, error: lessonError } =
+      await this.supabaseService.client
+        .from('lessons')
+        .select('id, course_id, is_preview')
+        .eq('id', lessonId)
+        .eq('course_id', courseId)
+        .maybeSingle();
 
     if (lessonError || !lesson) {
       throw new BadRequestException(
@@ -744,11 +758,12 @@ export class CoursesService {
       );
     }
 
-    const { data: course, error: courseError } = await this.supabaseService.client
-      .from('courses')
-      .select('id, teacher_id, status')
-      .eq('id', courseId)
-      .maybeSingle();
+    const { data: course, error: courseError } =
+      await this.supabaseService.client
+        .from('courses')
+        .select('id, teacher_id, status')
+        .eq('id', courseId)
+        .maybeSingle();
 
     if (courseError || !course) {
       throw new BadRequestException(
@@ -764,7 +779,7 @@ export class CoursesService {
       const enrolled = await this.isUserEnrolled(user.id, courseId);
       if (!enrolled && !lesson.is_preview) {
         throw new ForbiddenException(
-          "Inscris-toi au cours pour enregistrer ta progression sur cette lecon.",
+          'Inscris-toi au cours pour enregistrer ta progression sur cette lecon.',
         );
       }
     } else if (!isTeacherOwner && !isAdmin) {
@@ -826,7 +841,8 @@ export class CoursesService {
     return {
       lessonId,
       courseId,
-      status: existingProgress?.status === 'completed' ? 'completed' : nextStatus,
+      status:
+        existingProgress?.status === 'completed' ? 'completed' : nextStatus,
     };
   }
 
@@ -940,7 +956,7 @@ export class CoursesService {
   private isMissingTableError(error: { message?: string } | null | undefined) {
     const message = String(error?.message ?? '').toLowerCase();
     return (
-      message.includes("could not find the table") ||
+      message.includes('could not find the table') ||
       message.includes('schema cache') ||
       message.includes('course_reviews') ||
       message.includes('teacher_reviews')
@@ -977,11 +993,12 @@ export class CoursesService {
       );
     }
 
-    const { data: course, error: courseError } = await this.supabaseService.client
-      .from('courses')
-      .select('id, teacher_id, status')
-      .eq('id', courseId)
-      .maybeSingle();
+    const { data: course, error: courseError } =
+      await this.supabaseService.client
+        .from('courses')
+        .select('id, teacher_id, status')
+        .eq('id', courseId)
+        .maybeSingle();
 
     if (courseError || !course) {
       throw new BadRequestException(
@@ -997,7 +1014,7 @@ export class CoursesService {
       const enrolled = await this.isUserEnrolled(user.id, courseId);
       if (!enrolled) {
         throw new ForbiddenException(
-          "Tu dois etre inscrit au cours avant de laisser un avis.",
+          'Tu dois etre inscrit au cours avant de laisser un avis.',
         );
       }
     }
@@ -1008,12 +1025,12 @@ export class CoursesService {
   async createCourse(user: AuthUser, payload: CreateCoursePayload) {
     await this.assertTeacher(user);
 
-    const title =
-      typeof payload.title === 'string' ? payload.title.trim() : '';
+    const title = typeof payload.title === 'string' ? payload.title.trim() : '';
     const description = payload.description?.trim() || null;
     const shortDescription = payload.short_description?.trim() || null;
     const thumbnailPath = payload.thumbnail_path?.trim() || null;
     const priceFcfa = Number(payload.price_fcfa ?? 0);
+    const status = this.normalizeCourseStatus(payload.status, 'published');
     const modules = (payload.modules ?? []).filter((module) =>
       module?.title?.trim(),
     );
@@ -1026,26 +1043,27 @@ export class CoursesService {
       throw new BadRequestException('Le prix du cours est invalide.');
     }
 
-    const { data: course, error: courseError } = await this.supabaseService.client
-      .from('courses')
-      .insert({
-        title,
-        description,
-        short_description: shortDescription,
-        price_fcfa: priceFcfa,
-        thumbnail_url: thumbnailPath,
-        teacher_id: user.id,
-        status: 'published',
-      })
-      .select(
-        'id, title, description, short_description, price_fcfa, thumbnail_url, status, created_at',
-      )
-      .single();
+    const { data: course, error: courseError } =
+      await this.supabaseService.client
+        .from('courses')
+        .insert({
+          title,
+          description,
+          short_description: shortDescription,
+          price_fcfa: priceFcfa,
+          thumbnail_url: thumbnailPath,
+          teacher_id: user.id,
+          status,
+        })
+        .select(
+          'id, title, description, short_description, price_fcfa, thumbnail_url, status, created_at',
+        )
+        .single();
 
     if (courseError || !course) {
       throw new BadRequestException(
         courseError?.message ??
-          "Impossible de creer le cours. Verifie les policies Supabase et la structure SQL.",
+          'Impossible de creer le cours. Verifie les policies Supabase et la structure SQL.',
       );
     }
 
@@ -1062,22 +1080,29 @@ export class CoursesService {
       createdAt: course.created_at,
       modulesCount: modules.length,
       lessonsCount: modules.reduce(
-        (sum, module) => sum + (module.lessons?.filter((lesson) => lesson?.title?.trim()).length ?? 0),
+        (sum, module) =>
+          sum +
+          (module.lessons?.filter((lesson) => lesson?.title?.trim()).length ??
+            0),
         0,
       ),
       learners: 0,
     };
   }
 
-  async updateCourse(user: AuthUser, courseId: string, payload: CreateCoursePayload) {
+  async updateCourse(
+    user: AuthUser,
+    courseId: string,
+    payload: CreateCoursePayload,
+  ) {
     const course = await this.assertTeacherCourseAccess(user, courseId);
 
-    const title =
-      typeof payload.title === 'string' ? payload.title.trim() : '';
+    const title = typeof payload.title === 'string' ? payload.title.trim() : '';
     const description = payload.description?.trim() || null;
     const shortDescription = payload.short_description?.trim() || null;
     const thumbnailPath = payload.thumbnail_path?.trim() || null;
     const priceFcfa = Number(payload.price_fcfa ?? 0);
+    const status = this.normalizeCourseStatus(payload.status, course.status);
     const modules = (payload.modules ?? []).filter((module) =>
       module?.title?.trim(),
     );
@@ -1090,20 +1115,22 @@ export class CoursesService {
       throw new BadRequestException('Le prix du cours est invalide.');
     }
 
-    const { data: updatedCourse, error: updateError } = await this.supabaseService.client
-      .from('courses')
-      .update({
-        title,
-        description,
-        short_description: shortDescription,
-        price_fcfa: priceFcfa,
-        thumbnail_url: thumbnailPath,
-      })
-      .eq('id', course.id)
-      .select(
-        'id, title, description, short_description, price_fcfa, thumbnail_url, status, created_at',
-      )
-      .single();
+    const { data: updatedCourse, error: updateError } =
+      await this.supabaseService.client
+        .from('courses')
+        .update({
+          title,
+          description,
+          short_description: shortDescription,
+          price_fcfa: priceFcfa,
+          thumbnail_url: thumbnailPath,
+          status,
+        })
+        .eq('id', course.id)
+        .select(
+          'id, title, description, short_description, price_fcfa, thumbnail_url, status, created_at',
+        )
+        .single();
 
     if (updateError || !updatedCourse) {
       throw new BadRequestException(
@@ -1125,12 +1152,14 @@ export class CoursesService {
       modulesCount: modules.length,
       lessonsCount: modules.reduce(
         (sum, module) =>
-          sum + (module.lessons?.filter((lesson) => lesson?.title?.trim()).length ?? 0),
+          sum +
+          (module.lessons?.filter((lesson) => lesson?.title?.trim()).length ??
+            0),
         0,
       ),
       learners: 0,
       message:
-        "Cours mis a jour. Les suppressions de modules et lecons existants ne sont pas encore appliquees automatiquement.",
+        'Cours mis a jour. Les modules et lecons retires ont ete synchronises.',
     };
   }
 
@@ -1176,6 +1205,25 @@ export class CoursesService {
       .slice(0, 120);
   }
 
+  private normalizeCourseStatus(
+    value: CreateCoursePayload['status'],
+    fallback: string,
+  ): 'draft' | 'published' | 'archived' {
+    if (value === 'draft' || value === 'published' || value === 'archived') {
+      return value;
+    }
+
+    if (
+      fallback === 'draft' ||
+      fallback === 'published' ||
+      fallback === 'archived'
+    ) {
+      return fallback;
+    }
+
+    return 'published';
+  }
+
   private async assertTeacherCourseAccess(user: AuthUser, courseId: string) {
     const role = await this.resolveRole(user);
 
@@ -1218,14 +1266,12 @@ export class CoursesService {
       .maybeSingle();
 
     if (error || !data) {
-      throw new BadRequestException(
-        error?.message ?? 'Cours introuvable.',
-      );
+      throw new BadRequestException(error?.message ?? 'Cours introuvable.');
     }
 
     if (role !== 'admin' && data.teacher_id !== user.id) {
       throw new ForbiddenException(
-        "Tu ne peux modifier que tes propres cours.",
+        'Tu ne peux modifier que tes propres cours.',
       );
     }
 
@@ -1238,13 +1284,21 @@ export class CoursesService {
     options: { allowUpdates: boolean },
   ) {
     const existingCourse = options.allowUpdates
-      ? await this.assertTeacherCourseAccess({ id: '', role: 'admin' }, courseId)
+      ? await this.assertTeacherCourseAccess(
+          { id: '', role: 'admin' },
+          courseId,
+        )
       : null;
 
     const existingModulesById = new Map<string, any>(
-      (existingCourse?.course_modules ?? []).map((module: any) => [module.id, module]),
+      (existingCourse?.course_modules ?? []).map((module: any) => [
+        module.id,
+        module,
+      ]),
     );
     const existingLessonsById = new Map<string, any>();
+    const keptModuleIds = new Set<string>();
+    const keptLessonIds = new Set<string>();
 
     for (const module of existingCourse?.course_modules ?? []) {
       for (const lesson of module.lessons ?? []) {
@@ -1259,7 +1313,11 @@ export class CoursesService {
       const modulePayload = modules[moduleIndex];
       let moduleId = modulePayload.id?.trim() || '';
 
-      if (options.allowUpdates && moduleId && existingModulesById.has(moduleId)) {
+      if (
+        options.allowUpdates &&
+        moduleId &&
+        existingModulesById.has(moduleId)
+      ) {
         const { error: moduleUpdateError } = await this.supabaseService.client
           .from('course_modules')
           .update({
@@ -1299,11 +1357,19 @@ export class CoursesService {
         moduleId = moduleRow.id;
       }
 
+      if (moduleId) {
+        keptModuleIds.add(moduleId);
+      }
+
       const lessons = (modulePayload.lessons ?? []).filter((lesson) =>
         lesson?.title?.trim(),
       );
 
-      for (let lessonIndex = 0; lessonIndex < lessons.length; lessonIndex += 1) {
+      for (
+        let lessonIndex = 0;
+        lessonIndex < lessons.length;
+        lessonIndex += 1
+      ) {
         const lesson = lessons[lessonIndex];
         const lessonId = lesson.id?.trim() || '';
 
@@ -1333,30 +1399,150 @@ export class CoursesService {
                 `Impossible de mettre a jour la lecon ${lesson.title}.`,
             );
           }
-        } else {
-          const { error: lessonError } = await this.supabaseService.client
-            .from('lessons')
-            .insert({
-              course_id: courseId,
-              module_id: moduleId,
-              title: lesson.title.trim(),
-              content: lesson.content?.trim() || null,
-              order_index: lessonIndex,
-              lesson_type: 'video',
-              video_path: lesson.video_path?.trim() || null,
-              duration_seconds: lesson.duration_seconds ?? null,
-              is_preview: lesson.is_preview ?? false,
-            });
 
-          if (lessonError) {
+          keptLessonIds.add(lessonId);
+        } else {
+          const { data: lessonRow, error: lessonError } =
+            await this.supabaseService.client
+              .from('lessons')
+              .insert({
+                course_id: courseId,
+                module_id: moduleId,
+                title: lesson.title.trim(),
+                content: lesson.content?.trim() || null,
+                order_index: lessonIndex,
+                lesson_type: 'video',
+                video_path: lesson.video_path?.trim() || null,
+                duration_seconds: lesson.duration_seconds ?? null,
+                is_preview: lesson.is_preview ?? false,
+              })
+              .select('id')
+              .single();
+
+          if (lessonError || !lessonRow) {
             throw new BadRequestException(
-              lessonError.message ??
+              lessonError?.message ??
                 `Impossible d'ajouter la lecon ${lesson.title}.`,
             );
           }
+
+          keptLessonIds.add(lessonRow.id);
         }
       }
     }
+
+    if (options.allowUpdates && existingCourse) {
+      await this.removeDeletedCourseContent(
+        courseId,
+        existingCourse.course_modules ?? [],
+        keptModuleIds,
+        keptLessonIds,
+      );
+    }
+  }
+
+  private async removeDeletedCourseContent(
+    courseId: string,
+    existingModules: any[],
+    keptModuleIds: Set<string>,
+    keptLessonIds: Set<string>,
+  ) {
+    const existingModuleIds = existingModules
+      .map((module) => String(module.id ?? ''))
+      .filter(Boolean);
+    const existingLessonIds = existingModules.flatMap((module) =>
+      (module.lessons ?? [])
+        .map((lesson: any) => String(lesson.id ?? ''))
+        .filter(Boolean),
+    );
+    const removedLessonIds = existingLessonIds.filter(
+      (lessonId) => !keptLessonIds.has(lessonId),
+    );
+    const removedModuleIds = existingModuleIds.filter(
+      (moduleId) => !keptModuleIds.has(moduleId),
+    );
+
+    if (removedLessonIds.length > 0) {
+      await this.supabaseService.client
+        .from('assignments')
+        .update({ lesson_id: null })
+        .eq('course_id', courseId)
+        .in('lesson_id', removedLessonIds);
+
+      await this.supabaseService.client
+        .from('course_assets')
+        .update({ lesson_id: null })
+        .eq('course_id', courseId)
+        .in('lesson_id', removedLessonIds);
+
+      const exerciseIds = await this.getExerciseIdsForLessons(removedLessonIds);
+      if (exerciseIds.length > 0) {
+        await this.supabaseService.client
+          .from('exercise_files')
+          .delete()
+          .in('exercise_id', exerciseIds);
+        await this.supabaseService.client
+          .from('exercises')
+          .delete()
+          .in('id', exerciseIds);
+      }
+
+      await this.supabaseService.client
+        .from('progress')
+        .delete()
+        .in('lesson_id', removedLessonIds);
+
+      const { error } = await this.supabaseService.client
+        .from('lessons')
+        .delete()
+        .eq('course_id', courseId)
+        .in('id', removedLessonIds);
+
+      if (error) {
+        throw new BadRequestException(
+          error.message ?? 'Impossible de supprimer les lecons retirees.',
+        );
+      }
+    }
+
+    if (removedModuleIds.length > 0) {
+      await this.supabaseService.client
+        .from('course_assets')
+        .update({ module_id: null })
+        .eq('course_id', courseId)
+        .in('module_id', removedModuleIds);
+
+      await this.supabaseService.client
+        .from('exercises')
+        .update({ module_id: null })
+        .eq('course_id', courseId)
+        .in('module_id', removedModuleIds);
+
+      const { error } = await this.supabaseService.client
+        .from('course_modules')
+        .delete()
+        .eq('course_id', courseId)
+        .in('id', removedModuleIds);
+
+      if (error) {
+        throw new BadRequestException(
+          error.message ?? 'Impossible de supprimer les modules retires.',
+        );
+      }
+    }
+  }
+
+  private async getExerciseIdsForLessons(lessonIds: string[]) {
+    if (lessonIds.length === 0) {
+      return [];
+    }
+
+    const { data } = await this.supabaseService.client
+      .from('exercises')
+      .select('id')
+      .in('lesson_id', lessonIds);
+
+    return (data ?? []).map((exercise: any) => exercise.id).filter(Boolean);
   }
 
   private async resolveStorageUrl(bucket: string, path: string) {
