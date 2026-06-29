@@ -905,6 +905,7 @@
   gap: 0.75rem;
   flex-wrap: wrap;
   align-items: center;
+  min-width: 0;
 }
 
 .courseCard,
@@ -993,6 +994,8 @@
   display: grid;
   gap: 0.9rem;
   background: var(--surface);
+  min-width: 0;
+  overflow: hidden;
 }
 
 .discoveryTop,
@@ -1001,6 +1004,7 @@
   justify-content: space-between;
   gap: 0.75rem;
   align-items: center;
+  min-width: 0;
 }
 
 .discoveryBadge {
@@ -1036,12 +1040,22 @@
 }
 
 .catalogActionButton {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 2.9rem;
+  max-width: 100%;
+  min-width: 0;
+  padding: 0.75rem 1rem;
   border: none;
   border-radius: var(--radius);
   background: #102a43;
   color: #ffffff;
   font-weight: 800;
+  text-align: center;
+  text-decoration: none;
+  white-space: normal;
 }
 
 .catalogActionButton:disabled {
@@ -1050,15 +1064,22 @@
 }
 
 .catalogDetailLink {
+  box-sizing: border-box;
   min-height: 2.8rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  max-width: 100%;
+  min-width: 0;
+  padding: 0.75rem 1rem;
   border-radius: var(--radius);
   border: 1px solid rgba(29, 111, 95, 0.12);
   background: rgba(255, 255, 255, 0.82);
   color: var(--primary-dark);
   font-weight: 800;
+  text-align: center;
+  text-decoration: none;
+  white-space: normal;
 }
 
 .institutionGrid {
