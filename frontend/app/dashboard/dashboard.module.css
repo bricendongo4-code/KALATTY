@@ -83,7 +83,8 @@
 }
 
 .mobileMenuRoot {
-  display: none;
+  display: block;
+  flex: 0 0 auto;
 }
 
 .mobileMenuLayer {
@@ -145,6 +146,16 @@
   background: #073a49;
   color: #ffffff;
   font-weight: 900;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease;
+}
+
+.mobileMenuTrigger:hover {
+  transform: translateY(-1px);
+  border-color: rgba(0, 211, 194, 0.58);
+  background: #005b63;
 }
 
 .mobileMenuBars,
@@ -2522,17 +2533,11 @@
   }
 
   .mobileMenuRoot {
-    display: block;
     width: 100%;
   }
 
   .mobileMenuTrigger {
     width: 100%;
-  }
-
-  .desktopNavigationControl,
-  .desktopViewTabs {
-    display: none;
   }
 
   .notificationDropdown,
@@ -2861,4 +2866,10 @@
   .statsRow {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* The drawer is the single dashboard navigation on every screen size. */
+.desktopNavigationControl,
+.studentTabs.desktopViewTabs {
+  display: none;
 }
