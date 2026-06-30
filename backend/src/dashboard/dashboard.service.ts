@@ -217,6 +217,20 @@ export class DashboardService {
           .order('created_at', { ascending: false })
       : { data: [] as Array<Record<string, unknown>> };
 
+    const scheduleResult = roomIds.length
+      ? await this.supabaseService.client
+          .from('room_schedule_items')
+          .select('id, room_id, title, weekday, starts_at, ends_at, location')
+          .in('room_id', roomIds)
+          .order('weekday', { ascending: true })
+          .order('starts_at', { ascending: true })
+      : { data: [] as Array<Record<string, unknown>>, error: null };
+    const roomScheduleRows = this.isMissingCampusLifeTableError(
+      scheduleResult.error,
+    )
+      ? []
+      : (scheduleResult.data ?? []);
+
     const { data: roomCourseRows } = roomIds.length
       ? await this.supabaseService.client
           .from('room_courses')
@@ -444,7 +458,27 @@ export class DashboardService {
           : `Consulter les annonces de ${room.name}.`,
       );
 
-    const campusSchedule = (roomAssignmentRows ?? [])
+    const campusClassSchedule = (roomScheduleRows ?? []).map((item: any) => {
+      const room = studentRooms.find(
+        (studentRoom: any) => studentRoom.id === item.room_id,
+      );
+      const weekdays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+
+      return {
+        id: item.id,
+        title: item.title ?? 'Cours programme',
+        roomName: room?.name ?? 'Salle',
+        date: null,
+        day: weekdays[Number(item.weekday ?? 1) - 1] ?? 'Jour',
+        time: `${String(item.starts_at ?? '').slice(0, 5)}${
+          item.ends_at ? ` - ${String(item.ends_at).slice(0, 5)}` : ''
+        }`,
+        type: 'cours',
+        location: item.location ?? '',
+      };
+    });
+
+    const campusAssignmentSchedule = (roomAssignmentRows ?? [])
       .filter((assignment: any) => assignment.due_at)
       .slice()
       .sort(
@@ -471,6 +505,10 @@ export class DashboardService {
           type: 'devoir',
         };
       });
+    const campusSchedule = [...campusClassSchedule, ...campusAssignmentSchedule].slice(
+      0,
+      8,
+    );
 
     return {
       role: 'student',
@@ -1013,6 +1051,15 @@ export class DashboardService {
     }
 
     return (data ?? []).map((row: any) => row.id).filter(Boolean);
+  }
+
+  private isMissingCampusLifeTableError(error: { message?: string } | null | undefined) {
+    const message = String(error?.message ?? '').toLowerCase();
+    return (
+      message.includes('schema cache') ||
+      message.includes('could not find the table') ||
+      message.includes('room_schedule_items')
+    );
   }
 
   private isMissingTableError(error: { message?: string; code?: string } | null) {

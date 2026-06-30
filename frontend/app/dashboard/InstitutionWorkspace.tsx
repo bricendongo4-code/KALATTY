@@ -37,6 +37,8 @@ type InstitutionDetail = {
     reviewedSubmissions: number;
     pendingSubmissions: number;
     managedAccountsCount?: number;
+    scheduleItemsCount?: number;
+    attendanceSessionsCount?: number;
     roomUsagePercentage: number;
     studentUsagePercentage: number;
   };
@@ -94,6 +96,37 @@ type InstitutionDetail = {
       school_name?: string | null;
     } | null;
   }>;
+  scheduleItems?: Array<ScheduleItem>;
+  attendanceSessions?: Array<AttendanceSession>;
+};
+
+type ScheduleItem = {
+  id: string;
+  room_id: string;
+  title: string;
+  weekday: number;
+  starts_at: string;
+  ends_at?: string | null;
+  location?: string | null;
+  notes?: string | null;
+};
+
+type AttendanceSession = {
+  id: string;
+  room_id: string;
+  title: string;
+  session_date: string;
+  created_at?: string;
+  room_attendance_records?: Array<{
+    id: string;
+    student_id: string;
+    status: string;
+    note?: string | null;
+    profiles?: {
+      fullname?: string | null;
+      email?: string | null;
+    } | null;
+  }>;
 };
 
 type RoomDetail = {
@@ -106,6 +139,10 @@ type RoomDetail = {
     id: string;
     role: string;
     joinedAt?: string;
+    access?: {
+      status: string;
+      reason?: string;
+    };
     profile?: {
       id?: string;
       fullname?: string | null;
@@ -133,6 +170,12 @@ type RoomDetail = {
     submissionCount?: number;
     reviewedCount?: number;
     pendingCount?: number;
+    files?: Array<{
+      id: string;
+      name: string;
+      file_path: string;
+      file_type: string;
+    }>;
   }>;
   invites: Array<{
     id: string;
@@ -156,6 +199,8 @@ type RoomDetail = {
     assignmentTitle: string;
     studentName: string;
   }>;
+  scheduleItems?: Array<ScheduleItem>;
+  attendanceSessions?: Array<AttendanceSession>;
 };
 
 type DiscoveryCourse = {
@@ -216,6 +261,16 @@ const formatSubscriptionStatus = (value?: string | null) => {
   return "Essai";
 };
 
+const weekdayLabels = [
+  "Lundi",
+  "Mardi",
+  "Mercredi",
+  "Jeudi",
+  "Vendredi",
+  "Samedi",
+  "Dimanche",
+];
+
 export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
   const [activeView, setActiveView] = useState<InstitutionView>("overview");
   const [institutions, setInstitutions] = useState<InstitutionSummary[]>([]);
@@ -235,6 +290,12 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
   const [assignmentCourseId, setAssignmentCourseId] = useState("");
   const [assignmentTitle, setAssignmentTitle] = useState("");
   const [assignmentInstructions, setAssignmentInstructions] = useState("");
+  const [assignmentAttachment, setAssignmentAttachment] = useState<{
+    path: string;
+    name: string;
+    mimetype: string;
+  } | null>(null);
+  const [assignmentUploading, setAssignmentUploading] = useState(false);
   const [inviteRoomId, setInviteRoomId] = useState("");
   const [inviteRole, setInviteRole] = useState<"student" | "teacher" | "assistant">("student");
   const [generatedLink, setGeneratedLink] = useState("");
@@ -253,6 +314,20 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
     role: string;
   } | null>(null);
   const [resettingManagedUserId, setResettingManagedUserId] = useState("");
+  const [scheduleTitle, setScheduleTitle] = useState("");
+  const [scheduleWeekday, setScheduleWeekday] = useState("1");
+  const [scheduleStart, setScheduleStart] = useState("08:00");
+  const [scheduleEnd, setScheduleEnd] = useState("");
+  const [scheduleLocation, setScheduleLocation] = useState("");
+  const [attendanceTitle, setAttendanceTitle] = useState("");
+  const [attendanceDate, setAttendanceDate] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  );
+  const [attendanceRecords, setAttendanceRecords] = useState<
+    Record<string, "present" | "absent" | "late" | "excused">
+  >({});
+  const [savingCampusLife, setSavingCampusLife] = useState(false);
+  const [memberStatusReason, setMemberStatusReason] = useState("");
 
   const token =
     typeof window !== "undefined" ? localStorage.getItem("kalatty_token") : null;
@@ -311,7 +386,10 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
       students: members.filter((member) => member.role === "student").length,
     };
   }, [detail]);
-  const managedUsers = detail?.managedUsers ?? [];
+  const managedUsers = useMemo(
+    () => detail?.managedUsers ?? [],
+    [detail?.managedUsers],
+  );
   const filteredManagedUsers = useMemo(
     () =>
       managedUsers.filter((managedUser) =>
@@ -425,9 +503,38 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
     return {
       teachers: members.filter((member) => member.role === "teacher").length,
       students: members.filter((member) => member.role === "student").length,
+      blockedStudents: members.filter(
+        (member) =>
+          member.role === "student" && member.access?.status === "blocked",
+      ).length,
       assistants: members.filter((member) => member.role === "assistant").length,
     };
   }, [roomDetail]);
+  const roomStudentMembers = useMemo(
+    () => (roomDetail?.members ?? []).filter((member) => member.role === "student"),
+    [roomDetail],
+  );
+  const scheduleItems = useMemo(
+    () =>
+      (roomDetail?.scheduleItems ?? [])
+        .slice()
+        .sort(
+          (a, b) =>
+            Number(a.weekday ?? 0) - Number(b.weekday ?? 0) ||
+            String(a.starts_at ?? "").localeCompare(String(b.starts_at ?? "")),
+        ),
+    [roomDetail],
+  );
+  const attendanceSessions = roomDetail?.attendanceSessions ?? [];
+  const latestAttendance = attendanceSessions[0];
+  const latestAttendanceRecords = latestAttendance?.room_attendance_records ?? [];
+  const presentCount = latestAttendanceRecords.filter((record) =>
+    ["present", "late"].includes(String(record.status)),
+  ).length;
+  const attendanceRate =
+    latestAttendanceRecords.length > 0
+      ? Math.round((presentCount / latestAttendanceRecords.length) * 100)
+      : 0;
   const roomOperationalStats = [
     {
       label: "Professeurs",
@@ -437,7 +544,10 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
     {
       label: "Etudiants",
       value: roomCounts.students,
-      text: "Apprenants actuellement relies a cette classe.",
+      text:
+        roomCounts.blockedStudents > 0
+          ? `${roomCounts.blockedStudents} compte(s) bloque(s) a surveiller.`
+          : "Apprenants actuellement relies a cette classe.",
     },
     {
       label: "Assistants",
@@ -453,6 +563,13 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
       label: "Remises",
       value: Number(roomDetail?.submissionSummary?.total ?? 0),
       text: `${Number(roomDetail?.submissionSummary?.pending ?? 0)} en attente de correction.`,
+    },
+    {
+      label: "Presence",
+      value: latestAttendanceRecords.length > 0 ? `${attendanceRate}%` : "N/A",
+      text: latestAttendance
+        ? `Dernier appel: ${formatDate(latestAttendance.session_date)}.`
+        : "Aucun appel enregistre pour cette classe.",
     },
   ];
   const campusAdminCards = [
@@ -717,6 +834,9 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
           course_id: assignmentCourseId || undefined,
           title: assignmentTitle,
           instructions: assignmentInstructions,
+          attachment_path: assignmentAttachment?.path,
+          attachment_name: assignmentAttachment?.name,
+          attachment_type: assignmentAttachment?.mimetype,
         }),
       });
       const data = await res.json();
@@ -729,6 +849,7 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
       setAssignmentTitle("");
       setAssignmentInstructions("");
       setAssignmentCourseId("");
+      setAssignmentAttachment(null);
       setMessage("Devoir publie dans la classe.");
       await loadInstitutionDetails(selectedInstitutionId);
       if (assignmentRoomId === selectedRoomId) {
@@ -736,6 +857,190 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
       }
     } catch {
       setMessage("La creation du devoir a echoue.");
+    }
+  };
+
+  const handleAssignmentFileUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    const targetRoomId = assignmentRoomId || selectedRoomId;
+    if (!file || !token || !targetRoomId) {
+      return;
+    }
+
+    setAssignmentUploading(true);
+    setMessage("");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch(
+        `${apiBaseUrl}/institutions/rooms/${targetRoomId}/assignment-files`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        },
+      );
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMessage(data.message ?? "Upload du fichier impossible.");
+        return;
+      }
+
+      setAssignmentAttachment({
+        path: String(data.path ?? ""),
+        name: String(data.name ?? file.name),
+        mimetype: String(data.mimetype ?? file.type),
+      });
+      setMessage("Piece jointe prete pour le devoir.");
+    } catch {
+      setMessage("Le fichier du devoir n'a pas pu etre envoye.");
+    } finally {
+      setAssignmentUploading(false);
+      event.target.value = "";
+    }
+  };
+
+  const handleCreateScheduleItem = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!token || !selectedRoomId) return;
+
+    setSavingCampusLife(true);
+    try {
+      const res = await fetch(
+        `${apiBaseUrl}/institutions/rooms/${selectedRoomId}/schedule`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            title: scheduleTitle,
+            weekday: Number(scheduleWeekday),
+            starts_at: scheduleStart,
+            ends_at: scheduleEnd || undefined,
+            location: scheduleLocation || undefined,
+          }),
+        },
+      );
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMessage(data.message ?? "Publication du creneau impossible.");
+        return;
+      }
+
+      setScheduleTitle("");
+      setScheduleEnd("");
+      setScheduleLocation("");
+      setMessage("Creneau ajoute a l'emploi du temps.");
+      await loadRoomDetails(selectedRoomId);
+      if (selectedInstitutionId) {
+        await loadInstitutionDetails(selectedInstitutionId);
+      }
+    } catch {
+      setMessage("La publication du creneau a echoue.");
+    } finally {
+      setSavingCampusLife(false);
+    }
+  };
+
+  const handleCreateAttendance = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!token || !selectedRoomId) return;
+
+    setSavingCampusLife(true);
+    try {
+      const records = roomStudentMembers
+        .map((member) => ({
+          student_id: member.profile?.id ?? "",
+          status: attendanceRecords[String(member.profile?.id ?? "")] ?? "present",
+        }))
+        .filter((record) => record.student_id);
+
+      const res = await fetch(
+        `${apiBaseUrl}/institutions/rooms/${selectedRoomId}/attendance`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            title: attendanceTitle || `Appel ${roomDetail?.name ?? ""}`,
+            session_date: attendanceDate,
+            records,
+          }),
+        },
+      );
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMessage(data.message ?? "Enregistrement de l'appel impossible.");
+        return;
+      }
+
+      setAttendanceTitle("");
+      setAttendanceRecords({});
+      setMessage("Appel enregistre pour la classe.");
+      await loadRoomDetails(selectedRoomId);
+      if (selectedInstitutionId) {
+        await loadInstitutionDetails(selectedInstitutionId);
+      }
+    } catch {
+      setMessage("L'appel n'a pas pu etre enregistre.");
+    } finally {
+      setSavingCampusLife(false);
+    }
+  };
+
+  const handleSetMemberStatus = async (
+    memberUserId: string,
+    status: "active" | "blocked",
+  ) => {
+    if (!token || !selectedRoomId || !memberUserId) return;
+
+    setSavingCampusLife(true);
+    try {
+      const res = await fetch(
+        `${apiBaseUrl}/institutions/rooms/${selectedRoomId}/members/${memberUserId}/status`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            status,
+            reason: status === "blocked" ? memberStatusReason : "",
+          }),
+        },
+      );
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMessage(data.message ?? "Modification du statut impossible.");
+        return;
+      }
+
+      setMemberStatusReason("");
+      setMessage(
+        status === "blocked"
+          ? "Etudiant bloque dans cette classe."
+          : "Etudiant reactive dans cette classe.",
+      );
+      await loadRoomDetails(selectedRoomId);
+    } catch {
+      setMessage("Le statut de l'etudiant n'a pas pu etre modifie.");
+    } finally {
+      setSavingCampusLife(false);
     }
   };
 
@@ -1416,6 +1721,19 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
                   </div>
                 </div>
                 <div className={styles.institutionMemberGrid}>
+                  {roomStudentMembers.length > 0 ? (
+                    <label className={styles.formField}>
+                      <span>Motif applique au prochain blocage</span>
+                      <input
+                        type="text"
+                        value={memberStatusReason}
+                        onChange={(event) =>
+                          setMemberStatusReason(event.target.value)
+                        }
+                        placeholder="Ex: frais en attente, discipline, verification administrative"
+                      />
+                    </label>
+                  ) : null}
                   {roomDetail.members.length > 0 ? (
                     roomDetail.members.map((member) => (
                       <article key={member.id} className={styles.institutionMemberCardWide}>
@@ -1424,6 +1742,50 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
                         </strong>
                         <span>{formatRoleLabel(member.role)}</span>
                         <small>{member.profile?.email || "Email non visible"}</small>
+                        {member.role === "student" ? (
+                          <>
+                            <small>
+                              Statut:{" "}
+                              {member.access?.status === "blocked"
+                                ? "bloque"
+                                : "actif"}
+                              {member.access?.reason
+                                ? ` | ${member.access.reason}`
+                                : ""}
+                            </small>
+                            <div className={styles.courseActionRow}>
+                              {member.access?.status === "blocked" ? (
+                                <button
+                                  type="button"
+                                  className={styles.secondaryButton}
+                                  disabled={savingCampusLife}
+                                  onClick={() =>
+                                    void handleSetMemberStatus(
+                                      String(member.profile?.id ?? ""),
+                                      "active",
+                                    )
+                                  }
+                                >
+                                  Reactiver
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className={styles.secondaryButton}
+                                  disabled={savingCampusLife}
+                                  onClick={() =>
+                                    void handleSetMemberStatus(
+                                      String(member.profile?.id ?? ""),
+                                      "blocked",
+                                    )
+                                  }
+                                >
+                                  Bloquer
+                                </button>
+                              )}
+                            </div>
+                          </>
+                        ) : null}
                       </article>
                     ))
                   ) : (
@@ -1463,6 +1825,208 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
               <section className={styles.institutionStudioPanel}>
                 <div className={styles.sectionHeader}>
                   <div>
+                    <p className={styles.sectionLabel}>Emploi du temps</p>
+                    <h3>Publier la semaine</h3>
+                  </div>
+                </div>
+                <form
+                  onSubmit={handleCreateScheduleItem}
+                  className={styles.teacherForm}
+                >
+                  <label className={styles.formField}>
+                    <span>Cours / activite</span>
+                    <input
+                      type="text"
+                      value={scheduleTitle}
+                      onChange={(event) => setScheduleTitle(event.target.value)}
+                      placeholder="Maths, physique, reunion, TP..."
+                    />
+                  </label>
+                  <div className={styles.metaFields}>
+                    <label className={styles.formField}>
+                      <span>Jour</span>
+                      <select
+                        className={styles.selectField}
+                        value={scheduleWeekday}
+                        onChange={(event) =>
+                          setScheduleWeekday(event.target.value)
+                        }
+                      >
+                        {weekdayLabels.map((label, index) => (
+                          <option key={label} value={String(index + 1)}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className={styles.formField}>
+                      <span>Debut</span>
+                      <input
+                        type="time"
+                        value={scheduleStart}
+                        onChange={(event) => setScheduleStart(event.target.value)}
+                      />
+                    </label>
+                  </div>
+                  <div className={styles.metaFields}>
+                    <label className={styles.formField}>
+                      <span>Fin</span>
+                      <input
+                        type="time"
+                        value={scheduleEnd}
+                        onChange={(event) => setScheduleEnd(event.target.value)}
+                      />
+                    </label>
+                    <label className={styles.formField}>
+                      <span>Salle / lien</span>
+                      <input
+                        type="text"
+                        value={scheduleLocation}
+                        onChange={(event) =>
+                          setScheduleLocation(event.target.value)
+                        }
+                        placeholder="Salle A, Zoom, Laboratoire..."
+                      />
+                    </label>
+                  </div>
+                  <button
+                    type="submit"
+                    className={styles.submitButton}
+                    disabled={savingCampusLife}
+                  >
+                    Publier le creneau
+                  </button>
+                </form>
+                <div className={styles.roadmapList}>
+                  {scheduleItems.length > 0 ? (
+                    scheduleItems.map((item) => (
+                      <article key={item.id} className={styles.roadmapItem}>
+                        <strong>{item.title}</strong>
+                        <p>
+                          {weekdayLabels[Number(item.weekday ?? 1) - 1] ??
+                            "Jour"}
+                          {" | "}
+                          {String(item.starts_at).slice(0, 5)}
+                          {item.ends_at
+                            ? ` - ${String(item.ends_at).slice(0, 5)}`
+                            : ""}
+                        </p>
+                        <small>{item.location || "Lieu non precise"}</small>
+                      </article>
+                    ))
+                  ) : (
+                    <p className={styles.paragraph}>
+                      Aucun creneau publie pour cette classe.
+                    </p>
+                  )}
+                </div>
+              </section>
+
+              <section className={styles.institutionStudioPanel}>
+                <div className={styles.sectionHeader}>
+                  <div>
+                    <p className={styles.sectionLabel}>Presence</p>
+                    <h3>Faire l&apos;appel</h3>
+                  </div>
+                </div>
+                <form
+                  onSubmit={handleCreateAttendance}
+                  className={styles.teacherForm}
+                >
+                  <div className={styles.metaFields}>
+                    <label className={styles.formField}>
+                      <span>Titre</span>
+                      <input
+                        type="text"
+                        value={attendanceTitle}
+                        onChange={(event) =>
+                          setAttendanceTitle(event.target.value)
+                        }
+                        placeholder="Appel du matin"
+                      />
+                    </label>
+                    <label className={styles.formField}>
+                      <span>Date</span>
+                      <input
+                        type="date"
+                        value={attendanceDate}
+                        onChange={(event) =>
+                          setAttendanceDate(event.target.value)
+                        }
+                      />
+                    </label>
+                  </div>
+                  <div className={styles.roadmapList}>
+                    {roomStudentMembers.length > 0 ? (
+                      roomStudentMembers.map((member) => {
+                        const studentId = String(member.profile?.id ?? "");
+                        return (
+                          <label key={member.id} className={styles.formField}>
+                            <span>
+                              {member.profile?.fullname ||
+                                member.profile?.email ||
+                                "Etudiant"}
+                            </span>
+                            <select
+                              className={styles.selectField}
+                              value={attendanceRecords[studentId] ?? "present"}
+                              onChange={(event) =>
+                                setAttendanceRecords((current) => ({
+                                  ...current,
+                                  [studentId]: event.target.value as
+                                    | "present"
+                                    | "absent"
+                                    | "late"
+                                    | "excused",
+                                }))
+                              }
+                            >
+                              <option value="present">Present</option>
+                              <option value="absent">Absent</option>
+                              <option value="late">En retard</option>
+                              <option value="excused">Excuse</option>
+                            </select>
+                          </label>
+                        );
+                      })
+                    ) : (
+                      <p className={styles.paragraph}>
+                        Aucun etudiant dans cette classe pour faire l&apos;appel.
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="submit"
+                    className={styles.submitButton}
+                    disabled={savingCampusLife || roomStudentMembers.length === 0}
+                  >
+                    Enregistrer l&apos;appel
+                  </button>
+                </form>
+                <div className={styles.roadmapList}>
+                  {attendanceSessions.length > 0 ? (
+                    attendanceSessions.slice(0, 4).map((session) => (
+                      <article key={session.id} className={styles.roadmapItem}>
+                        <strong>{session.title}</strong>
+                        <p>{formatDate(session.session_date)}</p>
+                        <small>
+                          {(session.room_attendance_records ?? []).length} marque(s)
+                        </small>
+                      </article>
+                    ))
+                  ) : (
+                    <p className={styles.paragraph}>
+                      Aucun appel enregistre pour le moment.
+                    </p>
+                  )}
+                </div>
+              </section>
+            </div>
+
+            <div className={styles.institutionStudioGrid}>
+              <section className={styles.institutionStudioPanel}>
+                <div className={styles.sectionHeader}>
+                  <div>
                     <p className={styles.sectionLabel}>Travaux</p>
                     <h3>Devoirs et exercices</h3>
                   </div>
@@ -1476,6 +2040,12 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
                         <small>
                           {assignment.status} | {formatDate(assignment.due_at)}
                         </small>
+                        {(assignment.files ?? []).length > 0 ? (
+                          <small>
+                            Piece jointe:{" "}
+                            {assignment.files?.[0]?.name ?? "Document"}
+                          </small>
+                        ) : null}
                         <small>
                           {Number(assignment.submissionCount ?? 0)} remises |{" "}
                           {Number(assignment.pendingCount ?? 0)} a corriger |{" "}
@@ -1718,8 +2288,22 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
                   placeholder="Instructions, format attendu, date limite et criteres."
                 />
               </label>
+              <label className={styles.formField}>
+                <span>Piece jointe du devoir</span>
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,image/png,image/jpeg"
+                  disabled={assignmentUploading || !(assignmentRoomId || selectedRoomId)}
+                  onChange={handleAssignmentFileUpload}
+                />
+              </label>
+              {assignmentAttachment ? (
+                <p className={styles.inlineMessage}>
+                  Fichier joint: {assignmentAttachment.name}
+                </p>
+              ) : null}
               <button type="submit" className={styles.submitButton}>
-                Publier le devoir
+                {assignmentUploading ? "Upload en cours..." : "Publier le devoir"}
               </button>
               {selectedCourseForAssignment ? (
                 <p className={styles.inlineMessage}>

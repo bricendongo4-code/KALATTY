@@ -11,6 +11,13 @@ type AuthUser = {
   role?: string;
 };
 
+type UploadedAsset = {
+  buffer: Buffer;
+  mimetype: string;
+  size: number;
+  originalname: string;
+};
+
 type InstitutionRole = 'owner' | 'admin' | 'teacher' | 'student';
 type RoomRole = 'teacher' | 'student' | 'assistant';
 type ManagedInstitutionRole = 'admin' | 'teacher' | 'student';
@@ -168,6 +175,8 @@ export class InstitutionsService {
       roomCoursesRes,
       submissionsRes,
       managedUsersRes,
+      scheduleRes,
+      attendanceRes,
     ] = await Promise.all([
       this.supabaseService.client
         .from('institutions')
@@ -207,6 +216,8 @@ export class InstitutionsService {
             .in('assignment_id', assignmentIds)
         : Promise.resolve({ data: [], error: null }),
       this.loadManagedUsers(institutionId),
+      this.loadScheduleItemsForRooms(roomIds),
+      this.loadAttendanceSessionsForRooms(roomIds),
     ]);
 
     if (institutionRes.error || !institutionRes.data) {
@@ -241,6 +252,14 @@ export class InstitutionsService {
       throw new BadRequestException(managedUsersRes.error.message);
     }
 
+    if (scheduleRes.error && !this.isMissingCampusLifeTableError(scheduleRes.error)) {
+      throw new BadRequestException(scheduleRes.error.message);
+    }
+
+    if (attendanceRes.error && !this.isMissingCampusLifeTableError(attendanceRes.error)) {
+      throw new BadRequestException(attendanceRes.error.message);
+    }
+
     const members = (membersRes.data ?? []).map((row: any) => ({
       id: row.id,
       role: row.role,
@@ -252,6 +271,8 @@ export class InstitutionsService {
     const roomCourses = roomCoursesRes.data ?? [];
     const submissions = submissionsRes.data ?? [];
     const managedUsers = managedUsersRes.data ?? [];
+    const scheduleItems = scheduleRes.data ?? [];
+    const attendanceSessions = attendanceRes.data ?? [];
     const ownersCount = members.filter((member: any) => member.role === 'owner').length;
     const adminsCount = members.filter((member: any) => member.role === 'admin').length;
     const teachersCount = members.filter((member: any) => member.role === 'teacher').length;
@@ -266,6 +287,8 @@ export class InstitutionsService {
       assignments,
       invites,
       managedUsers,
+      scheduleItems,
+      attendanceSessions,
       stats: {
         roomsCount: roomsRes.data?.length ?? 0,
         assignmentsCount: assignments.length,
@@ -284,6 +307,8 @@ export class InstitutionsService {
           ['submitted', 'returned'].includes(String(submission.status ?? '')),
         ).length,
         managedAccountsCount: managedUsers.length,
+        scheduleItemsCount: scheduleItems.length,
+        attendanceSessionsCount: attendanceSessions.length,
         roomUsagePercentage:
           maxRooms > 0 ? Math.round(((roomsRes.data?.length ?? 0) / maxRooms) * 100) : 0,
         studentUsagePercentage:
@@ -584,7 +609,15 @@ export class InstitutionsService {
 
     const assignmentIds = await this.getRoomAssignmentIds(roomId);
 
-    const [roomMembersRes, roomCoursesRes, assignmentsRes, invitesRes] =
+    const [
+      roomMembersRes,
+      roomCoursesRes,
+      assignmentsRes,
+      invitesRes,
+      scheduleRes,
+      attendanceRes,
+      controlsRes,
+    ] =
       await Promise.all([
         this.supabaseService.client
           .from('room_members')
@@ -600,7 +633,9 @@ export class InstitutionsService {
           .order('created_at', { ascending: false }),
         this.supabaseService.client
           .from('assignments')
-          .select('id, title, instructions, status, due_at, created_at, max_score')
+          .select(
+            'id, title, instructions, status, due_at, created_at, max_score, assignment_files ( id, name, file_path, file_type )',
+          )
           .eq('room_id', roomId)
           .order('created_at', { ascending: false }),
         this.supabaseService.client
@@ -610,6 +645,9 @@ export class InstitutionsService {
           )
           .eq('room_id', roomId)
           .order('created_at', { ascending: false }),
+        this.loadScheduleItemsForRooms([roomId]),
+        this.loadAttendanceSessionsForRooms([roomId]),
+        this.loadRoomMemberControls(roomId),
       ]);
 
     const submissionsRes = assignmentIds.length
@@ -650,7 +688,28 @@ export class InstitutionsService {
       throw new BadRequestException(submissionsRes.error.message);
     }
 
+    if (scheduleRes.error && !this.isMissingCampusLifeTableError(scheduleRes.error)) {
+      throw new BadRequestException(scheduleRes.error.message);
+    }
+
+    if (attendanceRes.error && !this.isMissingCampusLifeTableError(attendanceRes.error)) {
+      throw new BadRequestException(attendanceRes.error.message);
+    }
+
+    if (controlsRes.error && !this.isMissingCampusLifeTableError(controlsRes.error)) {
+      throw new BadRequestException(controlsRes.error.message);
+    }
+
     const submissions = submissionsRes.data ?? [];
+    const controlsByUserId = new Map(
+      (controlsRes.data ?? []).map((control: any) => [
+        String(control.user_id),
+        {
+          status: String(control.status ?? 'active'),
+          reason: control.reason ? String(control.reason) : '',
+        },
+      ]),
+    );
 
     return {
       ...room,
@@ -658,6 +717,13 @@ export class InstitutionsService {
         id: row.id,
         role: row.role,
         joinedAt: row.joined_at,
+        access:
+          controlsByUserId.get(
+            String(
+              (Array.isArray(row.profiles) ? row.profiles[0] : row.profiles)?.id ??
+                '',
+            ),
+          ) ?? { status: 'active', reason: '' },
         profile: Array.isArray(row.profiles) ? row.profiles[0] : row.profiles,
       })),
       courses: (roomCoursesRes.data ?? []).map((row: any) => ({
@@ -680,9 +746,12 @@ export class InstitutionsService {
             (submission: any) =>
               submission.status === 'submitted' || submission.status === 'returned',
           ).length,
+          files: assignment.assignment_files ?? [],
         };
       }),
       invites: invitesRes.data ?? [],
+      scheduleItems: scheduleRes.data ?? [],
+      attendanceSessions: attendanceRes.data ?? [],
       submissionSummary: {
         total: submissions.length,
         reviewed: submissions.filter((submission: any) => submission.status === 'reviewed')
@@ -711,6 +780,241 @@ export class InstitutionsService {
           'Etudiant',
       })),
     };
+  }
+
+  async createScheduleItem(
+    user: AuthUser,
+    roomId: string,
+    payload: {
+      title: string;
+      weekday: number;
+      starts_at: string;
+      ends_at?: string;
+      location?: string;
+      notes?: string;
+    },
+  ) {
+    const room = await this.getRoomOrThrow(roomId);
+    await this.assertInstitutionStaff(user.id, room.institution_id, [
+      'owner',
+      'admin',
+      'teacher',
+    ]);
+
+    const title = payload.title?.trim();
+    if (!title) {
+      throw new BadRequestException("Le titre du creneau est obligatoire.");
+    }
+
+    const weekday = Number(payload.weekday);
+    if (!Number.isInteger(weekday) || weekday < 1 || weekday > 7) {
+      throw new BadRequestException('Le jour de la semaine est invalide.');
+    }
+
+    if (!payload.starts_at?.trim()) {
+      throw new BadRequestException("L'heure de debut est obligatoire.");
+    }
+
+    const { data, error } = await this.supabaseService.client
+      .from('room_schedule_items')
+      .insert({
+        room_id: roomId,
+        institution_id: room.institution_id,
+        title,
+        weekday,
+        starts_at: payload.starts_at.trim(),
+        ends_at: payload.ends_at?.trim() || null,
+        location: payload.location?.trim() || null,
+        notes: payload.notes?.trim() || null,
+        created_by: user.id,
+      })
+      .select('*')
+      .single();
+
+    if (error || !data) {
+      throw new BadRequestException(
+        error?.message ?? "Impossible de publier le creneau.",
+      );
+    }
+
+    return data;
+  }
+
+  async updateScheduleItem(
+    user: AuthUser,
+    scheduleItemId: string,
+    payload: {
+      title?: string;
+      weekday?: number;
+      starts_at?: string;
+      ends_at?: string | null;
+      location?: string | null;
+      notes?: string | null;
+    },
+  ) {
+    const { data: existing, error: existingError } =
+      await this.supabaseService.client
+        .from('room_schedule_items')
+        .select('id, room_id, institution_id')
+        .eq('id', scheduleItemId)
+        .maybeSingle();
+
+    if (existingError) {
+      throw new BadRequestException(existingError.message);
+    }
+
+    if (!existing) {
+      throw new NotFoundException('Creneau introuvable.');
+    }
+
+    await this.assertInstitutionStaff(user.id, existing.institution_id, [
+      'owner',
+      'admin',
+      'teacher',
+    ]);
+
+    const updates: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (payload.title !== undefined) updates.title = payload.title.trim();
+    if (payload.weekday !== undefined) updates.weekday = Number(payload.weekday);
+    if (payload.starts_at !== undefined) updates.starts_at = payload.starts_at.trim();
+    if (payload.ends_at !== undefined) updates.ends_at = payload.ends_at?.trim() || null;
+    if (payload.location !== undefined) updates.location = payload.location?.trim() || null;
+    if (payload.notes !== undefined) updates.notes = payload.notes?.trim() || null;
+
+    const { data, error } = await this.supabaseService.client
+      .from('room_schedule_items')
+      .update(updates)
+      .eq('id', scheduleItemId)
+      .select('*')
+      .single();
+
+    if (error || !data) {
+      throw new BadRequestException(
+        error?.message ?? "Impossible de modifier le creneau.",
+      );
+    }
+
+    return data;
+  }
+
+  async createAttendanceSession(
+    user: AuthUser,
+    roomId: string,
+    payload: {
+      title?: string;
+      session_date?: string;
+      records?: Array<{
+        student_id: string;
+        status: 'present' | 'absent' | 'late' | 'excused';
+        note?: string;
+      }>;
+    },
+  ) {
+    const room = await this.getRoomOrThrow(roomId);
+    await this.assertInstitutionStaff(user.id, room.institution_id, [
+      'owner',
+      'admin',
+      'teacher',
+    ]);
+
+    const sessionDate = payload.session_date?.trim()
+      ? new Date(payload.session_date)
+      : new Date();
+
+    if (Number.isNaN(sessionDate.getTime())) {
+      throw new BadRequestException("La date d'appel est invalide.");
+    }
+
+    const title = payload.title?.trim() || `Appel ${room.name}`;
+
+    const { data: session, error: sessionError } =
+      await this.supabaseService.client
+        .from('room_attendance_sessions')
+        .insert({
+          room_id: roomId,
+          institution_id: room.institution_id,
+          title,
+          session_date: sessionDate.toISOString().slice(0, 10),
+          created_by: user.id,
+        })
+        .select('*')
+        .single();
+
+    if (sessionError || !session) {
+      throw new BadRequestException(
+        sessionError?.message ?? "Impossible de creer l'appel.",
+      );
+    }
+
+    const validStatuses = new Set(['present', 'absent', 'late', 'excused']);
+    const records = (payload.records ?? [])
+      .filter((record) => record.student_id?.trim())
+      .map((record) => ({
+        session_id: session.id,
+        room_id: roomId,
+        student_id: record.student_id.trim(),
+        status: validStatuses.has(record.status) ? record.status : 'present',
+        note: record.note?.trim() || null,
+        marked_by: user.id,
+      }));
+
+    if (records.length > 0) {
+      const { error: recordsError } = await this.supabaseService.client
+        .from('room_attendance_records')
+        .upsert(records, { onConflict: 'session_id,student_id' });
+
+      if (recordsError) {
+        throw new BadRequestException(recordsError.message);
+      }
+    }
+
+    return {
+      ...session,
+      recordsCount: records.length,
+    };
+  }
+
+  async setRoomMemberStatus(
+    user: AuthUser,
+    roomId: string,
+    memberUserId: string,
+    payload: { status: 'active' | 'blocked'; reason?: string },
+  ) {
+    const room = await this.getRoomOrThrow(roomId);
+    await this.assertInstitutionStaff(user.id, room.institution_id, [
+      'owner',
+      'admin',
+      'teacher',
+    ]);
+
+    const status = payload.status === 'blocked' ? 'blocked' : 'active';
+
+    const { data, error } = await this.supabaseService.client
+      .from('room_member_controls')
+      .upsert(
+        {
+          room_id: roomId,
+          user_id: memberUserId.trim(),
+          status,
+          reason: payload.reason?.trim() || null,
+          updated_by: user.id,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'room_id,user_id' },
+      )
+      .select('*')
+      .single();
+
+    if (error || !data) {
+      throw new BadRequestException(
+        error?.message ?? "Impossible de modifier le statut de l'etudiant.",
+      );
+    }
+
+    return data;
   }
 
   async addRoomMember(
@@ -796,6 +1100,9 @@ export class InstitutionsService {
       instructions?: string;
       due_at?: string;
       max_score?: number;
+      attachment_path?: string;
+      attachment_name?: string;
+      attachment_type?: string;
     },
   ) {
     const room = await this.getRoomOrThrow(roomId);
@@ -846,7 +1153,75 @@ export class InstitutionsService {
       );
     }
 
+    if (payload.attachment_path?.trim()) {
+      const { error: fileError } = await this.supabaseService.client
+        .from('assignment_files')
+        .insert({
+          assignment_id: data.id,
+          room_id: roomId,
+          name: payload.attachment_name?.trim() || 'Piece jointe',
+          file_path: payload.attachment_path.trim(),
+          file_type: payload.attachment_type?.trim() || 'document',
+          uploaded_by: user.id,
+        });
+
+      if (fileError && !this.isMissingCampusLifeTableError(fileError)) {
+        throw new BadRequestException(fileError.message);
+      }
+    }
+
     return data;
+  }
+
+  async uploadAssignmentFile(user: AuthUser, roomId: string, file: UploadedAsset) {
+    const room = await this.getRoomOrThrow(roomId);
+    await this.assertInstitutionStaff(user.id, room.institution_id, [
+      'owner',
+      'admin',
+      'teacher',
+    ]);
+
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('Le fichier envoye est vide.');
+    }
+
+    const allowedMimeTypes = new Set([
+      'application/pdf',
+      'image/png',
+      'image/jpeg',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ]);
+
+    if (!allowedMimeTypes.has(file.mimetype)) {
+      throw new BadRequestException(
+        'Le devoir doit etre un PDF, une image ou un document Word.',
+      );
+    }
+
+    const safeName = this.sanitizeFilename(file.originalname || 'devoir.pdf');
+    const filePath = `${room.institution_id}/${roomId}/${Date.now()}-${safeName}`;
+    const { error } = await this.supabaseService.client.storage
+      .from('assignment-files')
+      .upload(filePath, file.buffer, {
+        contentType: file.mimetype,
+        upsert: false,
+      });
+
+    if (error) {
+      throw new BadRequestException(
+        error.message ??
+          "L'upload du devoir a echoue. Verifie le bucket assignment-files.",
+      );
+    }
+
+    return {
+      bucket: 'assignment-files',
+      path: filePath,
+      name: file.originalname || safeName,
+      mimetype: file.mimetype,
+      size: file.size,
+    };
   }
 
   async createRoomInvite(
@@ -1244,6 +1619,15 @@ export class InstitutionsService {
     return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
   }
 
+  private sanitizeFilename(value: string) {
+    return value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9._-]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 120);
+  }
+
   private async loadManagedUsers(institutionId: string) {
     if (!(await this.managedUserTableExists())) {
       return { data: [], error: null };
@@ -1275,6 +1659,57 @@ export class InstitutionsService {
       )
       .eq('institution_id', institutionId)
       .order('created_at', { ascending: false });
+  }
+
+  private async loadScheduleItemsForRooms(roomIds: string[]) {
+    if (roomIds.length === 0) {
+      return { data: [], error: null };
+    }
+
+    return this.supabaseService.client
+      .from('room_schedule_items')
+      .select('*')
+      .in('room_id', roomIds)
+      .order('weekday', { ascending: true })
+      .order('starts_at', { ascending: true });
+  }
+
+  private async loadAttendanceSessionsForRooms(roomIds: string[]) {
+    if (roomIds.length === 0) {
+      return { data: [], error: null };
+    }
+
+    return this.supabaseService.client
+      .from('room_attendance_sessions')
+      .select(
+        `
+          id,
+          room_id,
+          title,
+          session_date,
+          created_at,
+          room_attendance_records (
+            id,
+            student_id,
+            status,
+            note,
+            profiles:student_id (
+              fullname,
+              email
+            )
+          )
+        `,
+      )
+      .in('room_id', roomIds)
+      .order('session_date', { ascending: false })
+      .limit(20);
+  }
+
+  private async loadRoomMemberControls(roomId: string) {
+    return this.supabaseService.client
+      .from('room_member_controls')
+      .select('id, room_id, user_id, status, reason, updated_at')
+      .eq('room_id', roomId);
   }
 
   private async persistManagedUserRecord(payload: {
@@ -1355,6 +1790,19 @@ export class InstitutionsService {
       message.includes("could not find the table") ||
       message.includes('schema cache') ||
       message.includes('institution_managed_users')
+    );
+  }
+
+  private isMissingCampusLifeTableError(error: { message?: string } | null | undefined) {
+    const message = String(error?.message ?? '').toLowerCase();
+    return (
+      message.includes('schema cache') ||
+      message.includes('could not find the table') ||
+      message.includes('room_schedule_items') ||
+      message.includes('room_attendance_sessions') ||
+      message.includes('room_attendance_records') ||
+      message.includes('room_member_controls') ||
+      message.includes('assignment_files')
     );
   }
 

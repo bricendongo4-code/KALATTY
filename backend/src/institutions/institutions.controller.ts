@@ -1,5 +1,17 @@
-import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Req,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { InstitutionsService } from './institutions.service';
 
 type RequestUser = {
@@ -7,6 +19,13 @@ type RequestUser = {
     id: string;
     role?: string;
   };
+};
+
+type UploadedAsset = {
+  buffer: Buffer;
+  mimetype: string;
+  size: number;
+  originalname: string;
 };
 
 @Controller('institutions')
@@ -152,6 +171,95 @@ export class InstitutionsController {
     },
   ) {
     return this.institutionsService.createAssignment(req.user, roomId, body);
+  }
+
+  @Post('rooms/:roomId/assignment-files')
+  @UseInterceptors(FileInterceptor('file'))
+  uploadAssignmentFile(
+    @Req() req: RequestUser,
+    @Param('roomId') roomId: string,
+    @UploadedFile() file: UploadedAsset,
+  ) {
+    return this.institutionsService.uploadAssignmentFile(req.user, roomId, file);
+  }
+
+  @Post('rooms/:roomId/schedule')
+  createScheduleItem(
+    @Req() req: RequestUser,
+    @Param('roomId') roomId: string,
+    @Body()
+    body: {
+      title: string;
+      weekday: number;
+      starts_at: string;
+      ends_at?: string;
+      location?: string;
+      notes?: string;
+    },
+  ) {
+    return this.institutionsService.createScheduleItem(req.user, roomId, body);
+  }
+
+  @Patch('schedule/:scheduleItemId')
+  updateScheduleItem(
+    @Req() req: RequestUser,
+    @Param('scheduleItemId') scheduleItemId: string,
+    @Body()
+    body: {
+      title?: string;
+      weekday?: number;
+      starts_at?: string;
+      ends_at?: string | null;
+      location?: string | null;
+      notes?: string | null;
+    },
+  ) {
+    return this.institutionsService.updateScheduleItem(
+      req.user,
+      scheduleItemId,
+      body,
+    );
+  }
+
+  @Post('rooms/:roomId/attendance')
+  createAttendanceSession(
+    @Req() req: RequestUser,
+    @Param('roomId') roomId: string,
+    @Body()
+    body: {
+      title?: string;
+      session_date?: string;
+      records?: Array<{
+        student_id: string;
+        status: 'present' | 'absent' | 'late' | 'excused';
+        note?: string;
+      }>;
+    },
+  ) {
+    return this.institutionsService.createAttendanceSession(
+      req.user,
+      roomId,
+      body,
+    );
+  }
+
+  @Patch('rooms/:roomId/members/:memberUserId/status')
+  setRoomMemberStatus(
+    @Req() req: RequestUser,
+    @Param('roomId') roomId: string,
+    @Param('memberUserId') memberUserId: string,
+    @Body()
+    body: {
+      status: 'active' | 'blocked';
+      reason?: string;
+    },
+  ) {
+    return this.institutionsService.setRoomMemberStatus(
+      req.user,
+      roomId,
+      memberUserId,
+      body,
+    );
   }
 
   @Post('rooms/:roomId/invites')
