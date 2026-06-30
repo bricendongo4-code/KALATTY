@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import styles from "./dashboard.module.css";
 
 export type MobileMenuItem = {
@@ -26,12 +27,17 @@ const iconPaths = {
   grid: "M4 4h6v6H4V4Zm10 0h6v6h-6V4ZM4 14h6v6H4v-6Zm10 0h6v6h-6v-6Z",
   user: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 9a7 7 0 0 1 14 0",
   card: "M3 6h18v13H3V6Zm0 4h18M7 15h4",
-  settings: "M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm0-12v2m0 13v2m8.5-8.5h-2m-13 0h-2m14.5-6-1.5 1.5m-9 9L6 18m12 0-1.5-1.5m-9-9L6 6",
+  settings:
+    "M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm0-12v2m0 13v2m8.5-8.5h-2m-13 0h-2m14.5-6-1.5 1.5m-9 9L6 18m12 0-1.5-1.5m-9-9L6 6",
 };
 
 function MenuIcon({ name }: { name: MobileMenuItem["icon"] }) {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className={styles.mobileMenuIcon}>
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className={styles.mobileMenuIcon}
+    >
       <path d={iconPaths[name]} />
     </svg>
   );
@@ -97,77 +103,87 @@ export default function MobileDashboardMenu({
         <span>Menu</span>
       </button>
 
-      {open ? (
-        <div className={styles.mobileMenuLayer}>
-          <button
-            type="button"
-            className={styles.mobileMenuBackdrop}
-            aria-label="Fermer le menu"
-            onClick={() => setOpen(false)}
-          />
-          <aside
-            id="kalatty-mobile-menu"
-            className={styles.mobileMenuDrawer}
-            aria-label="Navigation du tableau de bord"
-            aria-modal="true"
-            role="dialog"
-          >
-            <div className={styles.mobileMenuBrand}>
-              <Image
-                src="/kalatty-logo.png"
-                alt="Logo Kalatty"
-                width={52}
-                height={52}
-              />
-              <strong>Kalatty</strong>
+      {open && typeof document !== "undefined"
+        ? createPortal(
+            <div className={styles.mobileMenuLayer}>
               <button
                 type="button"
-                ref={closeRef}
-                className={styles.mobileMenuClose}
+                className={styles.mobileMenuBackdrop}
                 aria-label="Fermer le menu"
                 onClick={() => setOpen(false)}
+              />
+              <aside
+                id="kalatty-mobile-menu"
+                className={styles.mobileMenuDrawer}
+                aria-label="Navigation du tableau de bord"
+                aria-modal="true"
+                role="dialog"
               >
-                <span aria-hidden="true">×</span>
-              </button>
-            </div>
+                <div className={styles.mobileMenuBrand}>
+                  <Image
+                    src="/kalatty-logo.png"
+                    alt="Logo Kalatty"
+                    width={52}
+                    height={52}
+                  />
+                  <strong>Kalatty</strong>
+                  <button
+                    type="button"
+                    ref={closeRef}
+                    className={styles.mobileMenuClose}
+                    aria-label="Fermer le menu"
+                    onClick={() => setOpen(false)}
+                  >
+                    <span aria-hidden="true">X</span>
+                  </button>
+                </div>
 
-            <div className={styles.mobileMenuProfile}>
-              <span className={styles.mobileMenuAvatar}>{getInitials(displayName)}</span>
-              <div>
-                <strong>{displayName}</strong>
-                <small>{workspaceTitle}</small>
-              </div>
-            </div>
+                <div className={styles.mobileMenuProfile}>
+                  <span className={styles.mobileMenuAvatar}>
+                    {getInitials(displayName)}
+                  </span>
+                  <div>
+                    <strong>{displayName}</strong>
+                    <small>{workspaceTitle}</small>
+                  </div>
+                </div>
 
-            <nav className={styles.mobileMenuNavigation} aria-label="Sections">
-              <span className={styles.mobileMenuSectionLabel}>Navigation</span>
-              {items.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  className={
-                    activeItem === item.id
-                      ? styles.mobileMenuItemActive
-                      : styles.mobileMenuItem
-                  }
-                  aria-current={activeItem === item.id ? "page" : undefined}
-                  onClick={() => selectItem(item.id)}
+                <nav
+                  className={styles.mobileMenuNavigation}
+                  aria-label="Sections"
                 >
-                  <MenuIcon name={item.icon} />
-                  <span>{item.label}</span>
-                </button>
-              ))}
-            </nav>
+                  <span className={styles.mobileMenuSectionLabel}>
+                    Navigation
+                  </span>
+                  {items.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={
+                        activeItem === item.id
+                          ? styles.mobileMenuItemActive
+                          : styles.mobileMenuItem
+                      }
+                      aria-current={activeItem === item.id ? "page" : undefined}
+                      onClick={() => selectItem(item.id)}
+                    >
+                      <MenuIcon name={item.icon} />
+                      <span>{item.label}</span>
+                    </button>
+                  ))}
+                </nav>
 
-            <div className={styles.mobileMenuFooter}>
-              <button type="button" onClick={onLogout}>
-                Se deconnecter
-              </button>
-              <small>Kalatty, apprendre et piloter autrement.</small>
-            </div>
-          </aside>
-        </div>
-      ) : null}
+                <div className={styles.mobileMenuFooter}>
+                  <button type="button" onClick={onLogout}>
+                    Se deconnecter
+                  </button>
+                  <small>Kalatty, apprendre et piloter autrement.</small>
+                </div>
+              </aside>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

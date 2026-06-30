@@ -90,7 +90,10 @@
 .mobileMenuLayer {
   position: fixed;
   inset: 0;
-  z-index: 1000;
+  z-index: 10000;
+  width: 100vw;
+  height: 100dvh;
+  isolation: isolate;
 }
 
 .mobileMenuBackdrop {
@@ -108,6 +111,8 @@
   position: absolute;
   inset: 0 auto 0 0;
   width: min(88vw, 23rem);
+  height: 100dvh;
+  max-height: 100dvh;
   display: grid;
   grid-template-rows: auto auto 1fr auto;
   color: #edf8f7;
