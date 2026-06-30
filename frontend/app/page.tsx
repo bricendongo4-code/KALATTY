@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { buildLoginUrl } from "./authRedirect";
 import styles from "./page.module.css";
 
 type DiscoveryCourse = {
@@ -212,8 +213,13 @@ export default function Home() {
                 </div>
                 <div className={styles.discoveryFooter}>
                   <strong>{course.priceFcfa} FCFA</strong>
-                  <Link href={`/courses/${course.id}`} className={styles.discoveryLink}>
-                    Voir et commencer
+                  <Link
+                    href={buildLoginUrl(`/courses/${course.id}`)}
+                    className={styles.discoveryLink}
+                  >
+                    {course.priceFcfa > 0
+                      ? "Se connecter pour acheter"
+                      : "Se connecter pour commencer"}
                   </Link>
                 </div>
               </article>
@@ -250,8 +256,11 @@ export default function Home() {
                       {course.totalReviews} avis
                     </p>
                   </div>
-                  <Link href={`/courses/${course.id}`} className={styles.rankLink}>
-                    Details
+                  <Link
+                    href={buildLoginUrl(`/courses/${course.id}`)}
+                    className={styles.rankLink}
+                  >
+                    Se connecter
                   </Link>
                 </article>
               ))

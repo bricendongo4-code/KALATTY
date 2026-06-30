@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { startTransition, useEffect, useRef, useState } from "react";
+import { buildLoginUrl } from "../../authRedirect";
 import styles from "./page.module.css";
 
 type CourseDetail = {
@@ -287,7 +288,7 @@ export default function CourseDetailPage({
 
     const token = localStorage.getItem("kalatty_token");
     if (!token) {
-      startTransition(() => router.push("/login"));
+      startTransition(() => router.push(buildLoginUrl(`/courses/${courseId}`)));
       return;
     }
 
@@ -378,6 +379,9 @@ export default function CourseDetailPage({
   const handleEnroll = async () => {
     const token = localStorage.getItem("kalatty_token");
     if (!token || !course) {
+      if (!token && courseId) {
+        router.push(buildLoginUrl(`/courses/${courseId}`));
+      }
       return;
     }
 
@@ -419,6 +423,9 @@ export default function CourseDetailPage({
   const handlePayment = async () => {
     const token = localStorage.getItem("kalatty_token");
     if (!token || !course) {
+      if (!token && courseId) {
+        router.push(buildLoginUrl(`/courses/${courseId}`));
+      }
       return;
     }
 

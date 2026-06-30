@@ -3,7 +3,11 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { startTransition, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
+import {
+  buildStudentRegisterUrl,
+  sanitizeNextPath,
+} from "../authRedirect";
 import styles from "../auth.module.css";
 
 export default function LoginPage() {
@@ -13,9 +17,17 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [nextPath, setNextPath] = useState("/dashboard");
 
   const apiBaseUrl =
     process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
+
+  useEffect(() => {
+    const requestedPath = new URLSearchParams(window.location.search).get(
+      "next",
+    );
+    setNextPath(sanitizeNextPath(requestedPath));
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,7 +52,7 @@ export default function LoginPage() {
         localStorage.setItem("kalatty_token", data.token);
         localStorage.setItem("kalatty_user", JSON.stringify(data.user ?? null));
         startTransition(() => {
-          router.push("/dashboard");
+          router.push(nextPath);
         });
         return;
       }
@@ -95,10 +107,15 @@ export default function LoginPage() {
       <section className={styles.panel}>
         <div className={styles.panelHeader}>
           <p className={styles.eyebrow}>Connexion</p>
-          <h2>Heureux de te revoir</h2>
+          <h2>
+            {nextPath.startsWith("/courses/")
+              ? "Connecte-toi pour continuer"
+              : "Heureux de te revoir"}
+          </h2>
           <p>
-            Entre dans ton espace Kalatty pour reprendre tes cours et tes
-            exercices.
+            {nextPath.startsWith("/courses/")
+              ? "Un compte Kalatty est obligatoire avant toute inscription ou tout paiement de cours."
+              : "Entre dans ton espace Kalatty pour reprendre tes cours et tes exercices."}
           </p>
         </div>
 
@@ -153,7 +170,10 @@ export default function LoginPage() {
         </form>
 
         <p className={styles.switchText}>
-          Pas encore de compte ? <Link href="/register">Choisir mon inscription</Link>
+          Pas encore de compte ?{" "}
+          <Link href={buildStudentRegisterUrl(nextPath)}>
+            Creer un compte etudiant
+          </Link>
         </p>
       </section>
     </main>
