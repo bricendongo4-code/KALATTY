@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { buildLoginUrl } from "./authRedirect";
 import styles from "./page.module.css";
 
@@ -78,6 +78,155 @@ const fallbackGuides = [
     description: "Le studio enseignant permet d'ajouter miniature, modules, lecons video et exercices sans lien externe.",
   },
 ];
+
+const formatPrice = (priceFcfa: number) =>
+  priceFcfa > 0
+    ? `${new Intl.NumberFormat("fr-FR").format(priceFcfa)} FCFA`
+    : "Gratuit";
+
+function CourseShowcaseCard({ course }: { course: DiscoveryCourse }) {
+  const actionLabel =
+    course.priceFcfa > 0
+      ? "Se connecter pour acheter"
+      : "Se connecter pour commencer";
+  const description =
+    course.shortDescription ||
+    course.description ||
+    "Decouvre le programme complet de ce cours Kalatty.";
+
+  return (
+    <Link
+      href={buildLoginUrl(`/courses/${course.id}`)}
+      className={styles.courseShowcaseCard}
+      aria-label={`${course.title}, ${formatPrice(course.priceFcfa)}. ${actionLabel}`}
+    >
+      <div className={styles.courseThumbnail}>
+        {course.thumbnailUrl ? (
+          <Image
+            src={course.thumbnailUrl}
+            alt={`Miniature du cours ${course.title}`}
+            fill
+            sizes="(max-width: 640px) 76vw, (max-width: 1100px) 38vw, 18rem"
+          />
+        ) : (
+          <div className={styles.courseThumbnailFallback}>
+            <Image
+              src="/kalatty-logo.png"
+              alt=""
+              width={88}
+              height={88}
+            />
+            <span>Cours Kalatty</span>
+          </div>
+        )}
+        <span className={styles.courseImageBadge}>
+          {course.lessonsCount} lecon{course.lessonsCount > 1 ? "s" : ""}
+        </span>
+      </div>
+
+      <div className={styles.courseCardBody}>
+        <h3>{course.title}</h3>
+        <p className={styles.courseTeacher}>{course.teacherName}</p>
+        <div className={styles.courseRatingLine}>
+          <strong>{course.courseRatingAverage.toFixed(1)}</strong>
+          <span aria-label={`Note ${course.courseRatingAverage.toFixed(1)} sur 5`}>
+            /5
+          </span>
+          <small>
+            {course.totalReviews} avis
+          </small>
+        </div>
+        <strong className={styles.coursePrice}>{formatPrice(course.priceFcfa)}</strong>
+        <span className={styles.courseCardCta}>{actionLabel}</span>
+      </div>
+
+      <div className={styles.courseHoverPanel} aria-hidden="true">
+        <span className={styles.courseHoverTag}>A propos du cours</span>
+        <h3>{course.title}</h3>
+        <p>{description}</p>
+        <ul>
+          <li>{course.lessonsCount} lecons dans le programme</li>
+          <li>
+            Formateur : {course.teacherName}
+            {course.teacherExpertise ? `, ${course.teacherExpertise}` : ""}
+          </li>
+          <li>Note des apprenants : {course.courseRatingAverage.toFixed(1)}/5</li>
+        </ul>
+        <strong>{formatPrice(course.priceFcfa)}</strong>
+        <span className={styles.courseHoverAction}>{actionLabel}</span>
+      </div>
+    </Link>
+  );
+}
+
+function CourseRail({
+  eyebrow,
+  title,
+  description,
+  courses,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  courses: DiscoveryCourse[];
+}) {
+  const railRef = useRef<HTMLDivElement | null>(null);
+  const scrollRail = (direction: -1 | 1) => {
+    const rail = railRef.current;
+    if (!rail) return;
+    rail.scrollBy({
+      left: direction * Math.max(280, rail.clientWidth * 0.78),
+      behavior: "smooth",
+    });
+  };
+
+  return (
+    <section className={styles.courseRailSection}>
+      <div className={styles.courseRailHeader}>
+        <div>
+          <span>{eyebrow}</span>
+          <h2>{title}</h2>
+          <p>{description}</p>
+        </div>
+        {courses.length > 1 ? (
+          <div className={styles.courseRailControls} aria-label={`Navigation ${title}`}>
+            <button
+              type="button"
+              aria-label={`Voir les cours precedents dans ${title}`}
+              onClick={() => scrollRail(-1)}
+            >
+              <span aria-hidden="true">←</span>
+            </button>
+            <button
+              type="button"
+              aria-label={`Voir les cours suivants dans ${title}`}
+              onClick={() => scrollRail(1)}
+            >
+              <span aria-hidden="true">→</span>
+            </button>
+          </div>
+        ) : null}
+      </div>
+
+      {courses.length > 0 ? (
+        <div ref={railRef} className={styles.courseRail}>
+          {courses.map((course) => (
+            <CourseShowcaseCard key={course.id} course={course} />
+          ))}
+        </div>
+      ) : (
+        <article className={styles.catalogEmptyState}>
+          <span>Catalogue Kalatty</span>
+          <h3>Les prochains cours arrivent ici</h3>
+          <p>
+            Les miniatures, les prix et les notes apparaitront automatiquement
+            des qu&apos;un formateur publiera son cours.
+          </p>
+        </article>
+      )}
+    </section>
+  );
+}
 
 export default function Home() {
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
@@ -188,98 +337,26 @@ export default function Home() {
         </div>
       </section>
 
-      <section className={styles.discoverySection}>
-        <div className={styles.sectionIntro}>
-          <span>Vitrine Kalatty</span>
-          <h2>Navigation commune pour decouvrir, comparer et commencer</h2>
-          <p>
-            Cette page sert d&apos;entree principale avant les espaces individuels.
-            On y retrouve les meilleurs cours, les recommandations et des guides
-            rapides d&apos;utilisation.
-          </p>
-        </div>
-
-        <div className={styles.discoveryGrid}>
-          {featuredCourses.length > 0 ? (
-            featuredCourses.map((course) => (
-              <article key={course.id} className={styles.discoveryCard}>
-                <span className={styles.discoveryTag}>Cours publie</span>
-                <h3>{course.title}</h3>
-                <p>{course.shortDescription || course.description}</p>
-                <div className={styles.discoveryMeta}>
-                  <span>{course.teacherName}</span>
-                  <span>{course.lessonsCount} lecons</span>
-                  <span>{course.courseRatingAverage.toFixed(1)}/5</span>
-                </div>
-                <div className={styles.discoveryFooter}>
-                  <strong>{course.priceFcfa} FCFA</strong>
-                  <Link
-                    href={buildLoginUrl(`/courses/${course.id}`)}
-                    className={styles.discoveryLink}
-                  >
-                    {course.priceFcfa > 0
-                      ? "Se connecter pour acheter"
-                      : "Se connecter pour commencer"}
-                  </Link>
-                </div>
-              </article>
-            ))
-          ) : (
-            <article className={styles.discoveryCardWide}>
-              <span className={styles.discoveryTag}>Catalogue</span>
-              <h3>Les cours publies apparaissent ici</h3>
-              <p>
-                La vitrine affichera automatiquement les cours publies par les
-                formateurs avec leurs notes, le nombre de lecons et un acces
-                direct vers la fiche detail.
-              </p>
-            </article>
-          )}
-        </div>
+      <section className={styles.catalogShowcase}>
+        <CourseRail
+          eyebrow="Selection Kalatty"
+          title="Cours tendance"
+          description="Les formations publiees qui attirent actuellement le plus l'attention."
+          courses={featuredCourses}
+        />
+        <CourseRail
+          eyebrow="Recommandes par les apprenants"
+          title="Les cours les mieux notes"
+          description="Compare les avis, les formateurs et les programmes avant de choisir."
+          courses={topRatedCourses}
+        />
       </section>
 
-      <section className={styles.rankSection}>
-        <div className={styles.rankColumn}>
-          <div className={styles.sectionIntro}>
-            <span>Les mieux notes</span>
-            <h2>Top cours de la plateforme</h2>
-          </div>
-          <div className={styles.rankList}>
-            {topRatedCourses.length > 0 ? (
-              topRatedCourses.map((course, index) => (
-                <article key={course.id} className={styles.rankCard}>
-                  <strong>#{index + 1}</strong>
-                  <div>
-                    <h3>{course.title}</h3>
-                    <p>
-                      {course.teacherName} | {course.courseRatingAverage.toFixed(1)}/5 |{" "}
-                      {course.totalReviews} avis
-                    </p>
-                  </div>
-                  <Link
-                    href={buildLoginUrl(`/courses/${course.id}`)}
-                    className={styles.rankLink}
-                  >
-                    Se connecter
-                  </Link>
-                </article>
-              ))
-            ) : (
-              <article className={styles.rankCard}>
-                <strong>#1</strong>
-                <div>
-                  <h3>Le classement apparaitra ici</h3>
-                  <p>Des qu&apos;il y aura des notes, les meilleurs cours remonteront automatiquement.</p>
-                </div>
-              </article>
-            )}
-          </div>
-        </div>
-
-        <div className={styles.rankColumn}>
+      <section className={styles.promoSection}>
+        <div className={styles.promoColumn}>
           <div className={styles.sectionIntro}>
             <span>Promotions</span>
-            <h2>Encarts et annonces</h2>
+            <h2>Actualites et opportunites Kalatty</h2>
           </div>
           <div className={styles.promoList}>
             {(promos.length > 0 ? promos : [{ id: "promo-default", title: "Campagnes Kalatty", description: "Cet espace peut mettre en avant une offre etablissement, un nouveau cours ou une campagne de rentree." }]).map((promo) => (

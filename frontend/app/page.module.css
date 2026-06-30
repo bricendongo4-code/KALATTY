@@ -8,12 +8,328 @@
 .hero,
 .discoverySection,
 .rankColumn,
+.courseRailSection,
+.promoColumn,
 .benefitSection,
 .guidesSection {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
   box-shadow: var(--shadow);
+}
+
+.catalogShowcase {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.courseRailSection {
+  min-width: 0;
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem;
+  overflow: hidden;
+}
+
+.courseRailHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 1rem;
+}
+
+.courseRailHeader > div:first-child {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.courseRailHeader > div:first-child > span,
+.catalogEmptyState > span {
+  color: var(--secondary);
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.courseRailHeader h2,
+.catalogEmptyState h3 {
+  margin: 0;
+  color: var(--foreground);
+  font-size: clamp(1.55rem, 3vw, 2.25rem);
+  line-height: 1.12;
+}
+
+.courseRailHeader p,
+.catalogEmptyState p {
+  max-width: 66ch;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.courseRailControls {
+  display: flex;
+  gap: 0.55rem;
+  flex: 0 0 auto;
+}
+
+.courseRailControls button {
+  width: 2.85rem;
+  height: 2.85rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: #ffffff;
+  color: var(--foreground);
+  font-size: 1.15rem;
+  box-shadow: 0 8px 20px rgba(5, 72, 78, 0.08);
+}
+
+.courseRailControls button:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  transform: translateY(-2px);
+}
+
+.courseRail {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(15rem, 18rem);
+  gap: 1rem;
+  padding: 0.25rem 0.1rem 0.85rem;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scroll-snap-type: inline mandatory;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 143, 149, 0.35) transparent;
+}
+
+.courseShowcaseCard {
+  position: relative;
+  min-width: 0;
+  min-height: 24rem;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  overflow: hidden;
+  scroll-snap-align: start;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: #ffffff;
+  color: inherit;
+  box-shadow: 0 12px 30px rgba(8, 55, 67, 0.09);
+  transition:
+    transform 200ms ease,
+    border-color 200ms ease,
+    box-shadow 200ms ease;
+}
+
+.courseShowcaseCard:hover,
+.courseShowcaseCard:focus-visible {
+  transform: translateY(-5px);
+  border-color: rgba(0, 143, 149, 0.5);
+  box-shadow: 0 22px 45px rgba(8, 55, 67, 0.18);
+  outline: none;
+}
+
+.courseThumbnail {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: linear-gradient(135deg, #073a49, #00a69c);
+}
+
+.courseThumbnail > img {
+  object-fit: cover;
+  transition: transform 400ms ease;
+}
+
+.courseShowcaseCard:hover .courseThumbnail > img,
+.courseShowcaseCard:focus-visible .courseThumbnail > img {
+  transform: scale(1.04);
+}
+
+.courseThumbnailFallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 0.25rem;
+  color: #ffffff;
+  background:
+    radial-gradient(circle at 78% 15%, rgba(255, 107, 40, 0.75), transparent 5rem),
+    linear-gradient(135deg, #073a49, #008f95);
+}
+
+.courseThumbnailFallback img {
+  width: 4.5rem;
+  height: auto;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.2));
+}
+
+.courseThumbnailFallback span {
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.courseImageBadge {
+  position: absolute;
+  right: 0.65rem;
+  bottom: 0.65rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(5, 25, 43, 0.82);
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 900;
+  backdrop-filter: blur(8px);
+}
+
+.courseCardBody {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 0.45rem;
+  padding: 0.9rem;
+}
+
+.courseCardBody h3,
+.courseHoverPanel h3 {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.courseCardBody h3 {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.courseTeacher {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.courseRatingLine {
+  display: flex;
+  align-items: baseline;
+  gap: 0.22rem;
+  color: #b84a0b;
+}
+
+.courseRatingLine small {
+  margin-left: 0.25rem;
+  color: var(--muted);
+}
+
+.coursePrice {
+  margin-top: 0.1rem;
+  color: var(--foreground);
+  font-size: 1rem;
+}
+
+.courseCardCta,
+.courseHoverAction {
+  width: fit-content;
+  margin-top: 0.35rem;
+  padding: 0.48rem 0.7rem;
+  border-radius: 999px;
+  background: var(--secondary-soft);
+  color: var(--secondary);
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+.courseHoverPanel {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  align-content: center;
+  gap: 0.75rem;
+  padding: 1.1rem;
+  color: #ffffff;
+  background:
+    radial-gradient(circle at 90% 8%, rgba(255, 107, 40, 0.38), transparent 9rem),
+    linear-gradient(150deg, rgba(5, 35, 50, 0.98), rgba(0, 91, 99, 0.98));
+  opacity: 0;
+  transform: translateY(0.65rem);
+  pointer-events: none;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.courseShowcaseCard:hover .courseHoverPanel,
+.courseShowcaseCard:focus-visible .courseHoverPanel {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.courseHoverPanel h3,
+.courseHoverPanel p,
+.courseHoverPanel strong {
+  color: #ffffff;
+}
+
+.courseHoverPanel p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.55;
+}
+
+.courseHoverPanel ul {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding-left: 1.15rem;
+  color: rgba(255, 255, 255, 0.84);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.courseHoverTag {
+  width: fit-content;
+  padding: 0.35rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(0, 211, 194, 0.18);
+  color: #7ff5eb;
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.courseHoverAction {
+  background: #ffffff;
+  color: #073a49;
+}
+
+.catalogEmptyState {
+  display: grid;
+  gap: 0.65rem;
+  padding: 1.5rem;
+  border: 1px dashed rgba(0, 143, 149, 0.3);
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, rgba(0, 143, 149, 0.06), rgba(255, 107, 40, 0.06));
+}
+
+.promoSection {
+  display: grid;
+}
+
+.promoColumn {
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem;
 }
 
 .hero {
@@ -405,6 +721,8 @@
 
   .hero,
   .discoverySection,
+  .courseRailSection,
+  .promoColumn,
   .benefitSection,
   .guidesSection,
   .rankColumn {
@@ -457,6 +775,46 @@
 
   .discoveryLink {
     width: 100%;
+  }
+
+  .courseRailHeader {
+    align-items: start;
+  }
+
+  .courseRailHeader p {
+    font-size: 0.9rem;
+  }
+
+  .courseRailControls {
+    display: none;
+  }
+
+  .courseRail {
+    grid-auto-columns: minmax(15rem, 78vw);
+    margin-inline: -0.15rem;
+  }
+
+  .courseShowcaseCard {
+    min-height: 23rem;
+  }
+
+  .courseHoverPanel {
+    display: none;
+  }
+}
+
+@media (hover: none) {
+  .courseHoverPanel {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .courseShowcaseCard,
+  .courseThumbnail > img,
+  .courseHoverPanel,
+  .courseRailControls button {
+    transition: none;
   }
 }
 
