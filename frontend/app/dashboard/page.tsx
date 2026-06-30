@@ -171,6 +171,24 @@ const teacherViews: TeacherView[] = [
   "profile",
 ];
 const emptyRecords: Array<Record<string, unknown>> = [];
+const READ_NOTIFICATIONS_KEY_PREFIX = "kalatty_read_notifications";
+
+const getStoredReadNotifications = (storageKey: string) => {
+  if (typeof window === "undefined") return new Set<string>();
+
+  try {
+    const raw = localStorage.getItem(storageKey);
+    const ids = raw ? (JSON.parse(raw) as string[]) : [];
+    return new Set(ids.filter(Boolean));
+  } catch {
+    return new Set<string>();
+  }
+};
+
+const persistReadNotifications = (storageKey: string, ids: Set<string>) => {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(storageKey, JSON.stringify(Array.from(ids).slice(-200)));
+};
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -287,17 +305,28 @@ export default function DashboardPage() {
       const typedData = data as DashboardResponse;
       setDashboardData(typedData);
       try {
+        const notificationStorageKey = `${READ_NOTIFICATIONS_KEY_PREFIX}:${
+          typedData.profile?.email ?? "local"
+        }`;
+        const locallyReadIds = getStoredReadNotifications(notificationStorageKey);
         const notificationsRes = await fetch(`${apiBaseUrl}/notifications`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const notificationsData = await notificationsRes.json();
         if (notificationsRes.ok) {
-          setNotifications(
+          const nextNotifications = (
             Array.isArray(notificationsData.notifications)
-              ? notificationsData.notifications
-              : [],
+              ? (notificationsData.notifications as NotificationItem[])
+              : []
+          ).map((notification) => ({
+            ...notification,
+            read: Boolean(notification.read || locallyReadIds.has(notification.id)),
+          }));
+          setNotifications(nextNotifications);
+          setUnreadNotifications(
+            nextNotifications.filter((notification) => !notification.read)
+              .length,
           );
-          setUnreadNotifications(Number(notificationsData.unreadCount ?? 0));
         }
       } catch {
         setNotifications([]);
@@ -345,6 +374,9 @@ export default function DashboardPage() {
       "",
   ).trim();
   const profile = dashboardData?.profile ?? user;
+  const notificationStorageKey = `${READ_NOTIFICATIONS_KEY_PREFIX}:${
+    profile?.email ?? "local"
+  }`;
   const displayName =
     (isInstitutionAdmin
       ? workspaceInstitutionName
@@ -472,6 +504,42 @@ export default function DashboardPage() {
     (notification) => notification.type === "review",
   );
   const latestNotifications = notifications.slice(0, 6);
+  const markNotificationsAsRead = async (notificationIds: string[]) => {
+    const idsToMark = Array.from(new Set(notificationIds.filter(Boolean)));
+    if (idsToMark.length === 0) {
+      return;
+    }
+
+    const readIds = getStoredReadNotifications(notificationStorageKey);
+    idsToMark.forEach((id) => readIds.add(id));
+    persistReadNotifications(notificationStorageKey, readIds);
+
+    setNotifications((current) => {
+      const next = current.map((notification) =>
+        idsToMark.includes(notification.id)
+          ? { ...notification, read: true }
+          : notification,
+      );
+      setUnreadNotifications(
+        next.filter((notification) => !notification.read).length,
+      );
+      return next;
+    });
+
+    const token = localStorage.getItem("kalatty_token");
+    if (!token) {
+      return;
+    }
+
+    await Promise.allSettled(
+      idsToMark.map((notificationId) =>
+        fetch(`${apiBaseUrl}/notifications/${notificationId}/read`, {
+          method: "PATCH",
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ),
+    );
+  };
   const teacherReviewAverage =
     teacherReviewNotifications.length > 0
       ? Math.round(
@@ -1147,7 +1215,19 @@ export default function DashboardPage() {
               className={styles.notificationBell}
               aria-haspopup="menu"
               aria-expanded={notificationsOpen}
-              onClick={() => setNotificationsOpen((current) => !current)}
+              onClick={() => {
+                setNotificationsOpen((current) => {
+                  const nextOpen = !current;
+                  if (nextOpen) {
+                    void markNotificationsAsRead(
+                      latestNotifications
+                        .filter((notification) => !notification.read)
+                        .map((notification) => notification.id),
+                    );
+                  }
+                  return nextOpen;
+                });
+              }}
             >
               <span>Notifications</span>
               <strong>{unreadNotifications}</strong>
@@ -1170,7 +1250,10 @@ export default function DashboardPage() {
                           href={notification.href}
                           className={styles.notificationItem}
                           role="menuitem"
-                          onClick={() => setNotificationsOpen(false)}
+                          onClick={() => {
+                            setNotificationsOpen(false);
+                            void markNotificationsAsRead([notification.id]);
+                          }}
                         >
                           <span>{notification.type}</span>
                           <strong>{notification.title}</strong>
