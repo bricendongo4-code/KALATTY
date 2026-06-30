@@ -62,6 +62,14 @@
   flex-wrap: wrap;
 }
 
+.dashboardMastheadActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  min-width: min(100%, 26rem);
+}
+
 .dashboardMastheadMeta span {
   padding: 0.55rem 0.85rem;
   border-radius: var(--radius-sm);
@@ -69,6 +77,83 @@
   color: var(--primary-dark);
   font-size: 0.84rem;
   font-weight: 700;
+}
+
+.notificationDropdown {
+  position: relative;
+  z-index: 20;
+}
+
+.notificationBell {
+  min-height: 2.9rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0 0.85rem;
+  border: 1px solid rgba(255, 107, 40, 0.25);
+  border-radius: 999px;
+  background: #fff4e8;
+  color: var(--primary-dark);
+  font-weight: 900;
+  box-shadow: 0 0.7rem 1.4rem rgba(255, 107, 40, 0.12);
+}
+
+.notificationBell strong {
+  min-width: 1.75rem;
+  height: 1.75rem;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--secondary);
+  color: #ffffff;
+  font-size: 0.78rem;
+}
+
+.notificationMenu {
+  position: absolute;
+  top: calc(100% + 0.7rem);
+  right: 0;
+  width: min(23rem, calc(100vw - 2rem));
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+  border: 1px solid rgba(29, 111, 95, 0.14);
+  border-radius: var(--radius);
+  background: rgba(255, 251, 245, 0.98);
+  box-shadow: 0 1.5rem 4rem rgba(16, 42, 67, 0.18);
+}
+
+.notificationMenuHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+}
+
+.notificationMenuHeader strong {
+  color: var(--primary-dark);
+}
+
+.notificationMenuHeader small {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.notificationMenuList {
+  display: grid;
+  gap: 0.65rem;
+  max-height: 22rem;
+  overflow-y: auto;
+  padding-right: 0.2rem;
+}
+
+.notificationMenuFooter {
+  min-height: 2.7rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--primary);
+  color: #ffffff;
+  font-weight: 900;
 }
 
 .hero {
@@ -1601,12 +1686,23 @@
   align-content: start;
 }
 
-.courseStudioBadgeStack span {
+.courseStudioBadgeStack span,
+.thumbnailQuickAction {
   padding: 0.7rem 0.9rem;
   border-radius: var(--radius-sm);
   background: rgba(255, 248, 239, 0.12);
   text-align: center;
   font-weight: 800;
+}
+
+.thumbnailQuickAction {
+  border: 1px solid rgba(255, 248, 239, 0.2);
+  color: #ffffff;
+}
+
+.thumbnailQuickAction:disabled {
+  opacity: 0.7;
+  cursor: wait;
 }
 
 .courseStudioActions {
@@ -1647,6 +1743,79 @@
   background: rgba(29, 111, 95, 0.08);
   color: var(--primary-dark);
   line-height: 1.6;
+}
+
+.draftRecoveryCard {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.95rem;
+  border: 1px solid rgba(255, 107, 40, 0.22);
+  border-radius: var(--radius);
+  background: rgba(255, 244, 232, 0.72);
+}
+
+.draftRecoveryCard strong {
+  color: var(--primary-dark);
+}
+
+.draftRecoveryCard small {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.draftRecoveryCard button {
+  width: fit-content;
+  border: none;
+  border-radius: 999px;
+  background: var(--secondary);
+  color: #ffffff;
+  font-weight: 900;
+  padding: 0.65rem 0.9rem;
+}
+
+.thumbnailDropzone {
+  min-height: 7rem;
+  display: grid;
+  place-items: center;
+  gap: 0.4rem;
+  padding: 1rem;
+  border: 1px dashed rgba(0, 143, 149, 0.42);
+  border-radius: var(--radius);
+  background:
+    radial-gradient(
+      circle at 100% 0%,
+      rgba(0, 143, 149, 0.1),
+      transparent 10rem
+    ),
+    rgba(255, 255, 255, 0.78);
+  color: var(--primary-dark);
+  text-align: center;
+}
+
+.thumbnailDropzone strong,
+.thumbnailDropzone small {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.thumbnailDropzone small {
+  color: var(--muted);
+}
+
+.thumbnailDropzone:disabled {
+  opacity: 0.72;
+  cursor: wait;
+}
+
+.visuallyHiddenInput {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
 }
 
 .checkboxRow {
@@ -2066,6 +2235,28 @@
 
   .dashboardMastheadMeta {
     width: 100%;
+  }
+
+  .dashboardMastheadActions {
+    width: 100%;
+    justify-content: stretch;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .notificationDropdown,
+  .notificationBell {
+    width: 100%;
+  }
+
+  .notificationBell {
+    justify-content: space-between;
+  }
+
+  .notificationMenu {
+    left: 0;
+    right: auto;
+    width: min(100%, calc(100vw - 2rem));
   }
 
   .dashboardMastheadMeta span {

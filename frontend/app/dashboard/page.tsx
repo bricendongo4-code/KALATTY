@@ -221,6 +221,7 @@ export default function DashboardPage() {
     [],
   );
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   const updateDashboardUrl = (view: StudentView | TeacherView) => {
     const nextUrl = new URL(window.location.href);
@@ -429,6 +430,7 @@ export default function DashboardPage() {
   const teacherReviewNotifications = notifications.filter(
     (notification) => notification.type === "review",
   );
+  const latestNotifications = notifications.slice(0, 6);
   const teacherReviewAverage =
     teacherReviewNotifications.length > 0
       ? Math.round(
@@ -1097,9 +1099,83 @@ export default function DashboardPage() {
             </strong>
           </div>
         </Link>
-        <div className={styles.dashboardMastheadMeta}>
-          <span>{workspaceTitle}</span>
-          <span>{displayName}</span>
+        <div className={styles.dashboardMastheadActions}>
+          <div className={styles.notificationDropdown}>
+            <button
+              type="button"
+              className={styles.notificationBell}
+              aria-haspopup="menu"
+              aria-expanded={notificationsOpen}
+              onClick={() => setNotificationsOpen((current) => !current)}
+            >
+              <span>Notifications</span>
+              <strong>{unreadNotifications}</strong>
+            </button>
+            {notificationsOpen ? (
+              <div className={styles.notificationMenu} role="menu">
+                <div className={styles.notificationMenuHeader}>
+                  <strong>Centre d&apos;alertes</strong>
+                  <small>
+                    {unreadNotifications} non lue
+                    {unreadNotifications > 1 ? "s" : ""}
+                  </small>
+                </div>
+                <div className={styles.notificationMenuList}>
+                  {latestNotifications.length > 0 ? (
+                    latestNotifications.map((notification) =>
+                      notification.href ? (
+                        <Link
+                          key={notification.id}
+                          href={notification.href}
+                          className={styles.notificationItem}
+                          role="menuitem"
+                          onClick={() => setNotificationsOpen(false)}
+                        >
+                          <span>{notification.type}</span>
+                          <strong>{notification.title}</strong>
+                          <small>{notification.message}</small>
+                        </Link>
+                      ) : (
+                        <article
+                          key={notification.id}
+                          className={styles.notificationItem}
+                        >
+                          <span>{notification.type}</span>
+                          <strong>{notification.title}</strong>
+                          <small>{notification.message}</small>
+                        </article>
+                      ),
+                    )
+                  ) : (
+                    <article className={styles.notificationItem}>
+                      <span>system</span>
+                      <strong>Aucune alerte urgente</strong>
+                      <small>
+                        Les devoirs, corrections, avis et invitations
+                        apparaitront ici.
+                      </small>
+                    </article>
+                  )}
+                </div>
+                {role === "teacher" ? (
+                  <button
+                    type="button"
+                    className={styles.notificationMenuFooter}
+                    onClick={() => {
+                      setNotificationsOpen(false);
+                      changeTeacherView("courses");
+                    }}
+                  >
+                    Voir les avis et commentaires
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+          <div className={styles.dashboardMastheadMeta}>
+            <span>{workspaceTitle}</span>
+            <span>{displayName}</span>
+          </div>
         </div>
       </section>
 
@@ -1209,52 +1285,6 @@ export default function DashboardPage() {
                     "Type d'etablissement a completer"}
             </span>
           </div>
-        </div>
-      </section>
-
-      <section className={styles.notificationPanel}>
-        <div className={styles.sectionHeader}>
-          <div>
-            <p className={styles.sectionLabel}>Notifications</p>
-            <h2>Alertes importantes</h2>
-          </div>
-          <span className={styles.sectionHint}>
-            {unreadNotifications} non lue{unreadNotifications > 1 ? "s" : ""}
-          </span>
-        </div>
-        <div className={styles.notificationList}>
-          {notifications.length > 0 ? (
-            notifications.slice(0, 4).map((notification) =>
-              notification.href ? (
-                <Link
-                  key={notification.id}
-                  href={notification.href}
-                  className={styles.notificationItem}
-                >
-                  <span>{notification.type}</span>
-                  <strong>{notification.title}</strong>
-                  <small>{notification.message}</small>
-                </Link>
-              ) : (
-                <article
-                  key={notification.id}
-                  className={styles.notificationItem}
-                >
-                  <span>{notification.type}</span>
-                  <strong>{notification.title}</strong>
-                  <small>{notification.message}</small>
-                </article>
-              ),
-            )
-          ) : (
-            <article className={styles.notificationItem}>
-              <span>system</span>
-              <strong>Aucune alerte urgente</strong>
-              <small>
-                Les nouveaux devoirs, cours et invitations apparaitront ici.
-              </small>
-            </article>
-          )}
         </div>
       </section>
 

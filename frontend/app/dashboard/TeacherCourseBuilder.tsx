@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import styles from "./dashboard.module.css";
 
 type LessonDraft = {
@@ -21,6 +21,19 @@ type ModuleDraft = {
 };
 
 type BuilderStep = "landing" | "basics" | "curriculum" | "publish";
+type CourseDraftSnapshot = {
+  step: BuilderStep;
+  courseTitle: string;
+  courseDescription: string;
+  courseShortDescription: string;
+  coursePrice: string;
+  courseStatus: "draft" | "published" | "archived";
+  thumbnailPath: string;
+  modules: ModuleDraft[];
+  savedAt: string;
+};
+
+const COURSE_BUILDER_DRAFT_KEY = "kalatty_teacher_course_builder_draft_v1";
 
 const createLesson = (): LessonDraft => ({
   title: "",
@@ -50,6 +63,7 @@ export default function TeacherCourseBuilder({
   editingCourseId,
   onCancelEdit,
 }: Props) {
+  const thumbnailInputRef = useRef<HTMLInputElement | null>(null);
   const [step, setStep] = useState<BuilderStep>("landing");
   const [courseTitle, setCourseTitle] = useState("");
   const [courseDescription, setCourseDescription] = useState("");
@@ -64,6 +78,8 @@ export default function TeacherCourseBuilder({
   const [courseMessage, setCourseMessage] = useState("");
   const [courseLoading, setCourseLoading] = useState(false);
   const [loadingCourseDraft, setLoadingCourseDraft] = useState(false);
+  const [localDraftReady, setLocalDraftReady] = useState(false);
+  const [localDraftMessage, setLocalDraftMessage] = useState("");
 
   const totalLessons = useMemo(
     () =>
@@ -116,6 +132,34 @@ export default function TeacherCourseBuilder({
 
   const completedChecklist = checklist.filter((item) => item.done).length;
 
+  const hasMeaningfulDraft = useMemo(
+    () =>
+      courseTitle.trim().length > 0 ||
+      courseDescription.trim().length > 0 ||
+      courseShortDescription.trim().length > 0 ||
+      coursePrice.trim().length > 0 ||
+      thumbnailPath.trim().length > 0 ||
+      modules.some(
+        (currentModule) =>
+          currentModule.title.trim().length > 0 ||
+          currentModule.description.trim().length > 0 ||
+          currentModule.lessons.some(
+            (lesson) =>
+              lesson.title.trim().length > 0 ||
+              lesson.content.trim().length > 0 ||
+              lesson.video_path.trim().length > 0,
+          ),
+      ),
+    [
+      courseDescription,
+      coursePrice,
+      courseShortDescription,
+      courseTitle,
+      modules,
+      thumbnailPath,
+    ],
+  );
+
   const resetBuilder = () => {
     setCourseTitle("");
     setCourseDescription("");
@@ -127,11 +171,75 @@ export default function TeacherCourseBuilder({
     setStep("landing");
   };
 
+  const clearLocalDraft = () => {
+    localStorage.removeItem(COURSE_BUILDER_DRAFT_KEY);
+    resetBuilder();
+    setLocalDraftMessage("Brouillon local efface.");
+  };
+
   useEffect(() => {
     const token = localStorage.getItem("kalatty_token");
 
     if (!editingCourseId) {
-      resetBuilder();
+      const rawDraft = localStorage.getItem(COURSE_BUILDER_DRAFT_KEY);
+
+      if (!rawDraft) {
+        resetBuilder();
+        setLocalDraftReady(true);
+        setLocalDraftMessage("");
+        return;
+      }
+
+      try {
+        const draft = JSON.parse(rawDraft) as Partial<CourseDraftSnapshot>;
+        setCourseTitle(String(draft.courseTitle ?? ""));
+        setCourseDescription(String(draft.courseDescription ?? ""));
+        setCourseShortDescription(String(draft.courseShortDescription ?? ""));
+        setCoursePrice(String(draft.coursePrice ?? ""));
+        setCourseStatus(
+          draft.courseStatus === "draft" || draft.courseStatus === "archived"
+            ? draft.courseStatus
+            : "published",
+        );
+        setThumbnailPath(String(draft.thumbnailPath ?? ""));
+        setModules(
+          Array.isArray(draft.modules) && draft.modules.length > 0
+            ? draft.modules.map((module) => ({
+                id: module.id,
+                title: String(module.title ?? ""),
+                description: String(module.description ?? ""),
+                lessons:
+                  Array.isArray(module.lessons) && module.lessons.length > 0
+                    ? module.lessons.map((lesson) => ({
+                        id: lesson.id,
+                        title: String(lesson.title ?? ""),
+                        video_path: String(lesson.video_path ?? ""),
+                        content: String(lesson.content ?? ""),
+                        duration_seconds: String(lesson.duration_seconds ?? ""),
+                        is_preview: Boolean(lesson.is_preview),
+                        uploading: false,
+                      }))
+                    : [createLesson()],
+              }))
+            : [createModule()],
+        );
+        setStep(
+          draft.step === "basics" ||
+            draft.step === "curriculum" ||
+            draft.step === "publish"
+            ? draft.step
+            : "landing",
+        );
+        setLocalDraftMessage(
+          "Brouillon retrouve automatiquement sur cet appareil.",
+        );
+      } catch {
+        localStorage.removeItem(COURSE_BUILDER_DRAFT_KEY);
+        resetBuilder();
+        setLocalDraftMessage("Ancien brouillon illisible, il a ete nettoye.");
+      }
+
+      setLocalDraftReady(true);
       return;
     }
 
@@ -214,6 +322,54 @@ export default function TeacherCourseBuilder({
 
     void loadCourseDraft();
   }, [apiBaseUrl, editingCourseId]);
+
+  useEffect(() => {
+    if (editingCourseId || !localDraftReady) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      if (!hasMeaningfulDraft) {
+        localStorage.removeItem(COURSE_BUILDER_DRAFT_KEY);
+        return;
+      }
+
+      const draft: CourseDraftSnapshot = {
+        step,
+        courseTitle,
+        courseDescription,
+        courseShortDescription,
+        coursePrice,
+        courseStatus,
+        thumbnailPath,
+        modules: modules.map((module) => ({
+          ...module,
+          lessons: module.lessons.map((lesson) => ({
+            ...lesson,
+            uploading: false,
+          })),
+        })),
+        savedAt: new Date().toISOString(),
+      };
+
+      localStorage.setItem(COURSE_BUILDER_DRAFT_KEY, JSON.stringify(draft));
+      setLocalDraftMessage("Brouillon sauvegarde automatiquement.");
+    }, 600);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    courseDescription,
+    coursePrice,
+    courseShortDescription,
+    courseStatus,
+    courseTitle,
+    editingCourseId,
+    hasMeaningfulDraft,
+    localDraftReady,
+    modules,
+    step,
+    thumbnailPath,
+  ]);
 
   const updateModule = (index: number, nextModule: ModuleDraft) => {
     setModules((current) =>
@@ -390,6 +546,10 @@ export default function TeacherCourseBuilder({
       }
 
       await onCourseCreated();
+      if (!isEditing) {
+        localStorage.removeItem(COURSE_BUILDER_DRAFT_KEY);
+        setLocalDraftMessage("");
+      }
       resetBuilder();
       setCourseMessage(
         isEditing ? "Cours modifie avec succes." : "Cours cree avec succes.",
@@ -451,6 +611,16 @@ export default function TeacherCourseBuilder({
             </button>
           ) : null}
 
+          {!editingCourseId && localDraftMessage ? (
+            <div className={styles.draftRecoveryCard}>
+              <strong>Brouillon intelligent</strong>
+              <small>{localDraftMessage}</small>
+              <button type="button" onClick={clearLocalDraft}>
+                Effacer et repartir a zero
+              </button>
+            </div>
+          ) : null}
+
           <div className={styles.courseStudioSnapshot}>
             <span>Progression du setup</span>
             <strong>
@@ -490,6 +660,14 @@ export default function TeacherCourseBuilder({
         </aside>
 
         <form onSubmit={handleCreateCourse} className={styles.courseStudioMain}>
+          <input
+            ref={thumbnailInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleThumbnailUpload}
+            className={styles.visuallyHiddenInput}
+          />
+
           {loadingCourseDraft ? (
             <section className={styles.courseStudioPanel}>
               <p className={styles.paragraph}>
@@ -535,11 +713,16 @@ export default function TeacherCourseBuilder({
                             ? "Brouillon"
                             : "Archive"}
                       </span>
-                      <span>
+                      <button
+                        type="button"
+                        className={styles.thumbnailQuickAction}
+                        onClick={() => thumbnailInputRef.current?.click()}
+                        disabled={thumbnailUploading}
+                      >
                         {thumbnailPath
                           ? "Miniature envoyee"
                           : "Miniature a envoyer"}
-                      </span>
+                      </button>
                     </div>
                   </div>
 
@@ -669,11 +852,23 @@ export default function TeacherCourseBuilder({
 
                     <label className={styles.formField}>
                       <span>Miniature du cours</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleThumbnailUpload}
-                      />
+                      <button
+                        type="button"
+                        className={styles.thumbnailDropzone}
+                        onClick={() => thumbnailInputRef.current?.click()}
+                        disabled={thumbnailUploading}
+                      >
+                        <strong>
+                          {thumbnailPath
+                            ? "Changer la miniature"
+                            : "Cliquer pour ajouter une miniature"}
+                        </strong>
+                        <small>
+                          {thumbnailUploading
+                            ? "Envoi de l'image en cours..."
+                            : thumbnailPath || "PNG, JPG ou WEBP recommande."}
+                        </small>
+                      </button>
                     </label>
                   </div>
 
