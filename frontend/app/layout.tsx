@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./globals.css";
+import NavigationBackButton from "./NavigationBackButton";
 
 export const metadata: Metadata = {
   title: "Kalatty",
@@ -32,6 +33,7 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <body>
+        <NavigationBackButton />
         {children}
         <footer className="siteFooter">
           <div className="siteFooterGlow" aria-hidden="true" />
@@ -72,29 +74,38 @@ export default function RootLayout({
               </div>
             </section>
 
-            <nav className="siteFooterLinks" aria-label="Navigation secondaire">
-              <div>
-                <h2>Plateforme</h2>
-                <Link href="/">Accueil</Link>
-                <Link href="/about">A propos</Link>
-                <Link href="/pricing">Tarifs</Link>
-                <Link href="/contact">Contact</Link>
-                <Link href="/dashboard">Tableau de bord</Link>
-              </div>
-              <div>
-                <h2>Etablissements</h2>
-                <Link href="/register/institution">Creer un campus</Link>
-                <Link href="/dashboard">Classes et comptes</Link>
-                <Link href="/dashboard">Devoirs et corrections</Link>
-                <Link href="/pricing">Plans et abonnement</Link>
-              </div>
-              <div>
-                <h2>Confiance</h2>
-                <span>Videos hebergees sur Kalatty</span>
-                <span>Acces par role utilisateur</span>
-                <span>Paiement en preparation</span>
-                <span>Support local Cameroun</span>
-              </div>
+            <nav
+              className="siteFooterLinks siteFooterDropdowns"
+              aria-label="Navigation secondaire"
+            >
+              <details open>
+                <summary>Plateforme</summary>
+                <div className="siteFooterDropdownPanel">
+                  <Link href="/">Accueil</Link>
+                  <Link href="/about">A propos</Link>
+                  <Link href="/pricing">Tarifs</Link>
+                  <Link href="/contact">Contact</Link>
+                  <Link href="/dashboard">Tableau de bord</Link>
+                </div>
+              </details>
+              <details>
+                <summary>Etablissements</summary>
+                <div className="siteFooterDropdownPanel">
+                  <Link href="/register/institution">Creer un campus</Link>
+                  <Link href="/dashboard">Classes et comptes</Link>
+                  <Link href="/dashboard">Devoirs et corrections</Link>
+                  <Link href="/pricing">Plans et abonnement</Link>
+                </div>
+              </details>
+              <details>
+                <summary>Confiance</summary>
+                <div className="siteFooterDropdownPanel">
+                  <span>Videos hebergees sur Kalatty</span>
+                  <span>Acces par role utilisateur</span>
+                  <span>Paiement en preparation</span>
+                  <span>Support local Cameroun</span>
+                </div>
+              </details>
             </nav>
 
             <section className="siteFooterCta" aria-label="Invitation Kalatty">
