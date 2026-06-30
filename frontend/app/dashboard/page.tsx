@@ -4,7 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { startTransition, useEffect, useEffectEvent, useState } from "react";
-import InstitutionWorkspace from "./InstitutionWorkspace";
+import InstitutionWorkspace, { InstitutionView } from "./InstitutionWorkspace";
+import MobileDashboardMenu, { MobileMenuItem } from "./MobileDashboardMenu";
 import PasswordSettings from "./PasswordSettings";
 import TeacherCourseBuilder from "./TeacherCourseBuilder";
 import styles from "./dashboard.module.css";
@@ -211,6 +212,8 @@ export default function DashboardPage() {
   const [error, setError] = useState("");
   const [studentView, setStudentView] = useState<StudentView>("home");
   const [teacherView, setTeacherView] = useState<TeacherView>("overview");
+  const [institutionView, setInstitutionView] =
+    useState<InstitutionView>("overview");
   const [studentSearch, setStudentSearch] = useState("");
   const [teacherSearch, setTeacherSearch] = useState("");
   const [institutionSearch, setInstitutionSearch] = useState("");
@@ -260,6 +263,11 @@ export default function DashboardPage() {
   const changeTeacherView = (view: TeacherView) => {
     setTeacherView(view);
     updateDashboardUrl(view);
+  };
+
+  const changeInstitutionView = (view: InstitutionView) => {
+    setInstitutionView(view);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   useEffect(() => {
@@ -416,6 +424,51 @@ export default function DashboardPage() {
         : isInstitutionStudent
           ? "Retrouve tes cours Kalatty, tes classes d'etablissement et les devoirs diffuses par ton campus."
           : "Accueil catalogue, reprise des cours et lien avec l'etablissement.";
+  const mobileMenuItems: MobileMenuItem[] =
+    role === "student"
+      ? [
+          { id: "home", label: "Accueil", icon: "home" },
+          { id: "progress", label: "Mon cursus", icon: "book" },
+          {
+            id: "institutions",
+            label: isInstitutionStudent ? "Mon campus" : "Mes etablissements",
+            icon: "grid",
+          },
+          { id: "profile", label: "Mon compte", icon: "user" },
+        ]
+      : role === "teacher"
+        ? [
+            { id: "overview", label: "Pilotage", icon: "home" },
+            { id: "courses", label: "Mes cours", icon: "folder" },
+            { id: "classes", label: "Mes classes", icon: "grid" },
+            { id: "studio", label: "Studio de creation", icon: "book" },
+            { id: "profile", label: "Mon compte", icon: "user" },
+          ]
+        : [
+            { id: "overview", label: "Vue d'ensemble", icon: "home" },
+            { id: "accounts", label: "Comptes du campus", icon: "user" },
+            { id: "classes", label: "Classes", icon: "grid" },
+            { id: "courses", label: "Cours affectes", icon: "folder" },
+            { id: "billing", label: "Abonnement", icon: "card" },
+            { id: "settings", label: "Parametres", icon: "settings" },
+          ];
+  const activeMobileMenuItem =
+    role === "student"
+      ? studentView
+      : role === "teacher"
+        ? teacherView
+        : institutionView;
+  const handleMobileMenuSelect = (itemId: string) => {
+    if (role === "student") {
+      changeStudentView(itemId as StudentView);
+      return;
+    }
+    if (role === "teacher") {
+      changeTeacherView(itemId as TeacherView);
+      return;
+    }
+    changeInstitutionView(itemId as InstitutionView);
+  };
   const studentCourses = dashboardData?.courses ?? [];
   const teacherCourses = dashboardData?.courses ?? [];
   const teacherRooms = dashboardData?.teacherRooms ?? emptyRecords;
@@ -1209,6 +1262,14 @@ export default function DashboardPage() {
           </div>
         </Link>
         <div className={styles.dashboardMastheadActions}>
+          <MobileDashboardMenu
+            displayName={displayName}
+            workspaceTitle={workspaceTitle}
+            activeItem={activeMobileMenuItem}
+            items={mobileMenuItems}
+            onSelect={handleMobileMenuSelect}
+            onLogout={handleLogout}
+          />
           <div className={styles.notificationDropdown}>
             <button
               type="button"
@@ -1328,7 +1389,7 @@ export default function DashboardPage() {
 
           <div className={styles.actions}>
             {role === "student" ? (
-              <label className={styles.viewPicker}>
+              <label className={`${styles.viewPicker} ${styles.desktopNavigationControl}`}>
                 <span>
                   {isInstitutionStudent
                     ? "Menu etudiant campus"
@@ -1349,7 +1410,7 @@ export default function DashboardPage() {
                 </select>
               </label>
             ) : role === "teacher" ? (
-              <label className={styles.viewPicker}>
+              <label className={`${styles.viewPicker} ${styles.desktopNavigationControl}`}>
                 <span>
                   {isInstitutionTeacher
                     ? "Menu professeur campus"
@@ -1369,10 +1430,12 @@ export default function DashboardPage() {
                 </select>
               </label>
             ) : null}
-            <div className={styles.roleBadge}>{workspaceTitle}</div>
+            <div className={`${styles.roleBadge} ${styles.desktopNavigationControl}`}>
+              {workspaceTitle}
+            </div>
             <button
               type="button"
-              className={styles.logoutButton}
+              className={`${styles.logoutButton} ${styles.desktopNavigationControl}`}
               onClick={handleLogout}
             >
               Se deconnecter
@@ -1415,7 +1478,7 @@ export default function DashboardPage() {
       {role === "student" ? (
         <>
           <section className={styles.studentSwitch}>
-            <div className={styles.studentTabs}>
+            <div className={`${styles.studentTabs} ${styles.desktopViewTabs}`}>
               <button
                 type="button"
                 className={
@@ -2039,7 +2102,7 @@ export default function DashboardPage() {
         <>
           <section className={styles.studentSwitch}>
             <div
-              className={styles.studentTabs}
+              className={`${styles.studentTabs} ${styles.desktopViewTabs}`}
               aria-label="Sections de l'espace formateur"
             >
               <button
@@ -2764,7 +2827,11 @@ export default function DashboardPage() {
           )}
         </>
       ) : (
-        <InstitutionWorkspace apiBaseUrl={apiBaseUrl} />
+        <InstitutionWorkspace
+          apiBaseUrl={apiBaseUrl}
+          navigationView={institutionView}
+          onNavigationViewChange={setInstitutionView}
+        />
       )}
     </main>
   );

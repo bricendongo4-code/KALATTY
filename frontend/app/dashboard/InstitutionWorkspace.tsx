@@ -222,9 +222,11 @@ type DiscoveryPayload = {
 
 type Props = {
   apiBaseUrl: string;
+  navigationView?: InstitutionView;
+  onNavigationViewChange?: (view: InstitutionView) => void;
 };
 
-type InstitutionView = "overview" | "accounts" | "classes" | "courses" | "billing" | "settings";
+export type InstitutionView = "overview" | "accounts" | "classes" | "courses" | "billing" | "settings";
 
 const formatRoleLabel = (role: string) => {
   if (role === "student") return "Etudiant";
@@ -271,8 +273,18 @@ const weekdayLabels = [
   "Dimanche",
 ];
 
-export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
-  const [activeView, setActiveView] = useState<InstitutionView>("overview");
+export default function InstitutionWorkspace({
+  apiBaseUrl,
+  navigationView,
+  onNavigationViewChange,
+}: Props) {
+  const [internalActiveView, setInternalActiveView] =
+    useState<InstitutionView>("overview");
+  const activeView = navigationView ?? internalActiveView;
+  const setActiveView = (view: InstitutionView) => {
+    setInternalActiveView(view);
+    onNavigationViewChange?.(view);
+  };
   const [institutions, setInstitutions] = useState<InstitutionSummary[]>([]);
   const [selectedInstitutionId, setSelectedInstitutionId] = useState("");
   const [selectedRoomId, setSelectedRoomId] = useState("");
@@ -1130,7 +1142,7 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
             ))}
           </div>
 
-          <div className={styles.studentTabs}>
+          <div className={`${styles.studentTabs} ${styles.desktopViewTabs}`}>
             <button
               type="button"
               className={activeView === "overview" ? styles.activeTab : styles.studentTab}
