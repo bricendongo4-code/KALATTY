@@ -1513,8 +1513,8 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
                     <h3>Professeurs et etudiants</h3>
                   </div>
                 </div>
-                <div className={styles.institutionMemberGrid}>
-                  {roomStudentMembers.length > 0 ? (
+                {roomStudentMembers.length > 0 ? (
+                  <div className={styles.institutionMemberAdminBar}>
                     <label className={styles.formField}>
                       <span>Motif applique au prochain blocage</span>
                       <input
@@ -1526,7 +1526,12 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
                         placeholder="Ex: frais en attente, discipline, verification administrative"
                       />
                     </label>
-                  ) : null}
+                    <small>
+                      Ce motif sera uniquement utilise si vous bloquez un etudiant.
+                    </small>
+                  </div>
+                ) : null}
+                <div className={styles.institutionMemberGrid}>
                   {roomDetail.members.length > 0 ? (
                     roomDetail.members.map((member) => (
                       <article key={member.id} className={styles.institutionMemberCardWide}>
