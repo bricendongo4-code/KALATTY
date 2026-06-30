@@ -40,6 +40,8 @@ type DashboardResponse = {
   stats: Record<string, number>;
   courses: Array<Record<string, unknown>>;
   catalogCourses?: Array<Record<string, unknown>>;
+  campusCourses?: Array<Record<string, unknown>>;
+  campusSchedule?: Array<Record<string, unknown>>;
   teacherRooms?: Array<Record<string, unknown>>;
   studentInstitutions?: Array<Record<string, unknown>>;
   studentRooms?: Array<Record<string, unknown>>;
@@ -102,6 +104,8 @@ type DiscoveryCourse = {
   enrolled?: boolean;
   ratingAverage?: number;
   lessonsCount?: number;
+  campusOnly?: boolean;
+  roomNames?: string[];
 };
 
 const studentTimeline = [
@@ -385,10 +389,34 @@ export default function DashboardPage() {
   const teacherRooms = dashboardData?.teacherRooms ?? emptyRecords;
   const studentInstitutions = dashboardData?.studentInstitutions ?? [];
   const studentRooms = dashboardData?.studentRooms ?? [];
+  const campusSchedule = dashboardData?.campusSchedule ?? [];
   const heroCourse = studentCourses[0];
   const discoveryCourses: DiscoveryCourse[] =
-    (dashboardData?.catalogCourses?.length ?? 0) > 0
-      ? (dashboardData?.catalogCourses ?? [])
+    isInstitutionStudent
+      ? (dashboardData?.campusCourses ?? []).map((course, index) => ({
+          id: String(course.id ?? `campus-course-${index}`),
+          title: String(course.title ?? "Cours campus"),
+          description: String(
+            course.description ?? "Cours attribue par ton etablissement.",
+          ),
+          progress: Number(course.progress ?? 0),
+          badge: String(course.badge ?? "Campus"),
+          category: Array.isArray(course.roomNames)
+            ? course.roomNames.join(", ")
+            : String(course.category ?? "Classe"),
+          priceFcfa: Number(course.priceFcfa ?? 0),
+          teacherName: String(
+            course.teacherName ?? "Professeur etablissement",
+          ),
+          ratingAverage: Number(course.ratingAverage ?? 0),
+          lessonsCount: Number(course.lessonsCount ?? 0),
+          campusOnly: true,
+          roomNames: Array.isArray(course.roomNames)
+            ? course.roomNames.map(String)
+            : [],
+        }))
+      : (dashboardData?.catalogCourses?.length ?? 0) > 0
+        ? (dashboardData?.catalogCourses ?? [])
           .slice(0, 6)
           .map((course, index) => ({
             id: String(course.id ?? `course-${index}`),
@@ -406,7 +434,20 @@ export default function DashboardPage() {
             ratingAverage: Number(course.ratingAverage ?? 0),
             lessonsCount: Number(course.lessonsCount ?? 0),
           }))
-      : fallbackDiscovery;
+        : fallbackDiscovery;
+  const weeklySchedule = isInstitutionStudent
+    ? campusSchedule.map((item, index) => ({
+        day: String(item.day ?? "A venir"),
+        topic: String(item.title ?? "Activite programmee"),
+        time: String(item.time ?? ""),
+        roomName: String(item.roomName ?? "Salle"),
+        id: String(item.id ?? `schedule-${index}`),
+      }))
+    : studentTimeline.map((item, index) => ({
+        ...item,
+        roomName: "",
+        id: `${item.day}-${item.topic}-${index}`,
+      }));
   const studentQuery = studentSearch.trim().toLowerCase();
   const teacherQuery = teacherSearch.trim().toLowerCase();
   const filteredDiscovery = discoveryCourses.filter((course) =>
@@ -1456,11 +1497,21 @@ export default function DashboardPage() {
                 <section className={styles.card}>
                   <div className={styles.sectionHeader}>
                     <div>
-                      <p className={styles.sectionLabel}>Catalogue</p>
-                      <h2>Parcours recommandes</h2>
+                      <p className={styles.sectionLabel}>
+                        {isInstitutionStudent ? "Campus" : "Catalogue"}
+                      </p>
+                      <h2>
+                        {isInstitutionStudent
+                          ? "Cours de mon etablissement"
+                          : "Parcours recommandes"}
+                      </h2>
                     </div>
                     <span className={styles.sectionHint}>
-                      {profile?.school_name || "Selection adaptee a ton profil"}
+                      {isInstitutionStudent
+                        ? workspaceInstitutionName ||
+                          "Cours attribues par le campus"
+                        : profile?.school_name ||
+                          "Selection adaptee a ton profil"}
                     </span>
                   </div>
                   <label className={styles.searchBar}>
@@ -1485,9 +1536,11 @@ export default function DashboardPage() {
                         <p>{course.description}</p>
                         <div className={styles.discoveryFooter}>
                           <strong>
-                            {"priceFcfa" in course
-                              ? `${Number(course.priceFcfa ?? 0)} FCFA`
-                              : `${course.progress}%`}
+                            {isInstitutionStudent
+                              ? "Cours campus"
+                              : "priceFcfa" in course
+                                ? `${Number(course.priceFcfa ?? 0)} FCFA`
+                                : `${course.progress}%`}
                           </strong>
                           <span>
                             {"teacherName" in course
@@ -1497,7 +1550,7 @@ export default function DashboardPage() {
                               : "Reprendre"}
                           </span>
                         </div>
-                        {"ratingAverage" in course ? (
+                        {!isInstitutionStudent && "ratingAverage" in course ? (
                           <div className={styles.discoveryMetaRow}>
                             <span>
                               {Number(course.ratingAverage ?? 0).toFixed(1)}/5
@@ -1515,7 +1568,7 @@ export default function DashboardPage() {
                             Voir le cours
                           </Link>
                         ) : null}
-                        {"priceFcfa" in course ? (
+                        {!isInstitutionStudent && "priceFcfa" in course ? (
                           Number(course.priceFcfa ?? 0) > 0 ? (
                             <Link
                               href={`/courses/${course.id}`}
@@ -1553,7 +1606,9 @@ export default function DashboardPage() {
                   ) : null}
                   {filteredDiscovery.length === 0 ? (
                     <p className={styles.paragraph}>
-                      Aucun parcours ne correspond a cette recherche.
+                      {isInstitutionStudent
+                        ? "Aucun cours n'est encore attribue a tes classes. Ton etablissement pourra les ajouter depuis l'espace administrateur."
+                        : "Aucun parcours ne correspond a cette recherche."}
                     </p>
                   ) : null}
                 </section>
@@ -1591,22 +1646,33 @@ export default function DashboardPage() {
                   <div className={styles.sectionHeader}>
                     <div>
                       <p className={styles.sectionLabel}>Planification</p>
-                      <h2>Mon rythme de la semaine</h2>
+                      <h2>
+                        {isInstitutionStudent
+                          ? "Emploi du temps campus"
+                          : "Mon rythme de la semaine"}
+                      </h2>
                     </div>
                   </div>
                   <div className={styles.timeline}>
-                    {studentTimeline.map((item) => (
-                      <div
-                        key={`${item.day}-${item.topic}`}
-                        className={styles.timelineItem}
-                      >
-                        <strong>{item.day}</strong>
-                        <div>
-                          <p>{item.topic}</p>
-                          <span>{item.time}</span>
+                    {weeklySchedule.length > 0 ? (
+                      weeklySchedule.map((item) => (
+                        <div key={item.id} className={styles.timelineItem}>
+                          <strong>{item.day}</strong>
+                          <div>
+                            <p>{item.topic}</p>
+                            <span>{item.time}</span>
+                            {item.roomName ? (
+                              <small>{item.roomName}</small>
+                            ) : null}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))
+                    ) : (
+                      <p className={styles.paragraph}>
+                        Aucun horaire n&apos;a encore ete publie par ton
+                        etablissement.
+                      </p>
+                    )}
                   </div>
                 </section>
                 <section className={styles.card}>

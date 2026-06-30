@@ -217,6 +217,36 @@ export class DashboardService {
           .order('created_at', { ascending: false })
       : { data: [] as Array<Record<string, unknown>> };
 
+    const { data: roomCourseRows } = roomIds.length
+      ? await this.supabaseService.client
+          .from('room_courses')
+          .select(
+            `
+              id,
+              room_id,
+              created_at,
+              rooms (
+                id,
+                name
+              ),
+              courses (
+                id,
+                title,
+                description,
+                short_description,
+                price_fcfa,
+                thumbnail_url,
+                profiles:teacher_id (
+                  fullname
+                ),
+                lessons ( id )
+              )
+            `,
+          )
+          .in('room_id', roomIds)
+          .order('created_at', { ascending: false })
+      : { data: [] as Array<Record<string, unknown>> };
+
     const catalogCourseIds = (catalogRows ?? []).map((course: any) => course.id);
     const catalogReviewResult = catalogCourseIds.length
       ? await this.supabaseService.client
@@ -319,6 +349,50 @@ export class DashboardService {
       ),
     }));
 
+    const campusCoursesMap = new Map<string, Record<string, unknown>>();
+    for (const row of roomCourseRows ?? []) {
+      const course = Array.isArray((row as any).courses)
+        ? (row as any).courses[0]
+        : (row as any).courses;
+      const room = Array.isArray((row as any).rooms)
+        ? (row as any).rooms[0]
+        : (row as any).rooms;
+
+      if (!course?.id) {
+        continue;
+      }
+
+      const courseId = String(course.id);
+      const existingRooms = Array.isArray(campusCoursesMap.get(courseId)?.roomNames)
+        ? (campusCoursesMap.get(courseId)?.roomNames as string[])
+        : [];
+      const roomName = String(room?.name ?? 'Classe');
+
+      campusCoursesMap.set(courseId, {
+        id: courseId,
+        title: course.title ?? 'Cours campus',
+        description:
+          course.short_description ??
+          course.description ??
+          'Cours attribue par ton etablissement.',
+        fullDescription: course.description ?? '',
+        priceFcfa: Number(course.price_fcfa ?? 0),
+        thumbnailUrl: course.thumbnail_url ?? '',
+        teacherName: course.profiles?.fullname ?? 'Professeur etablissement',
+        badge: 'Campus',
+        category: roomName,
+        roomId: row.room_id ?? room?.id ?? '',
+        roomNames: existingRooms.includes(roomName)
+          ? existingRooms
+          : existingRooms.concat(roomName),
+        lessonsCount: course.lessons?.length ?? 0,
+        ratingAverage: 0,
+        campusOnly: true,
+      });
+    }
+
+    const campusCourses = Array.from(campusCoursesMap.values());
+
     const studentInstitutions = (institutionMembershipRows ?? []).map((row: any) => {
       const institution = Array.isArray(row.institutions)
         ? row.institutions[0]
@@ -370,6 +444,34 @@ export class DashboardService {
           : `Consulter les annonces de ${room.name}.`,
       );
 
+    const campusSchedule = (roomAssignmentRows ?? [])
+      .filter((assignment: any) => assignment.due_at)
+      .slice()
+      .sort(
+        (a: any, b: any) =>
+          new Date(a.due_at).getTime() - new Date(b.due_at).getTime(),
+      )
+      .slice(0, 6)
+      .map((assignment: any) => {
+        const room = studentRooms.find(
+          (studentRoom: any) => studentRoom.id === assignment.room_id,
+        );
+        const dueDate = new Date(assignment.due_at);
+
+        return {
+          id: assignment.id,
+          title: assignment.title ?? 'Activite programmee',
+          roomName: room?.name ?? 'Salle',
+          date: assignment.due_at,
+          day: dueDate.toLocaleDateString('fr-FR', { weekday: 'short' }),
+          time: dueDate.toLocaleTimeString('fr-FR', {
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+          type: 'devoir',
+        };
+      });
+
     return {
       role: 'student',
       workspace,
@@ -388,11 +490,14 @@ export class DashboardService {
             : 0,
         totalLessons,
         availableCatalogCourses: catalogCourses.length,
+        campusCourses: campusCourses.length,
         linkedInstitutions: studentInstitutions.length,
         activeRooms: studentRooms.length,
       },
       courses: enrollmentsList,
       catalogCourses,
+      campusCourses,
+      campusSchedule,
       studentInstitutions,
       studentRooms,
       tasks:
