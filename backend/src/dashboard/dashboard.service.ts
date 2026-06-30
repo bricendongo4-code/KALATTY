@@ -55,7 +55,9 @@ export class DashboardService {
   private async getProfile(userId: string) {
     const { data, error } = await this.supabaseService.client
       .from('profiles')
-      .select('id, email, fullname, role, country, level, school_name, expertise, bio')
+      .select(
+        'id, email, fullname, role, country, level, school_name, expertise, bio',
+      )
       .eq('id', userId)
       .single();
 
@@ -85,7 +87,9 @@ export class DashboardService {
       .from('profiles')
       .update(updates)
       .eq('id', userId)
-      .select('id, email, fullname, role, country, level, school_name, expertise, bio')
+      .select(
+        'id, email, fullname, role, country, level, school_name, expertise, bio',
+      )
       .single();
 
     if (error || !data) {
@@ -158,10 +162,11 @@ export class DashboardService {
       .eq('status', 'published')
       .order('created_at', { ascending: false });
 
-    const { data: institutionMembershipRows } = await this.supabaseService.client
-      .from('institution_members')
-      .select(
-        `
+    const { data: institutionMembershipRows } =
+      await this.supabaseService.client
+        .from('institution_members')
+        .select(
+          `
           id,
           role,
           joined_at,
@@ -174,9 +179,9 @@ export class DashboardService {
             subscription_status
           )
         `,
-      )
-      .eq('user_id', profile.id)
-      .order('joined_at', { ascending: false });
+        )
+        .eq('user_id', profile.id)
+        .order('joined_at', { ascending: false });
 
     const { data: roomMembershipRows } = await this.supabaseService.client
       .from('room_members')
@@ -261,29 +266,43 @@ export class DashboardService {
           .order('created_at', { ascending: false })
       : { data: [] as Array<Record<string, unknown>> };
 
-    const catalogCourseIds = (catalogRows ?? []).map((course: any) => course.id);
+    const catalogCourseIds = (catalogRows ?? []).map(
+      (course: any) => course.id,
+    );
     const catalogReviewResult = catalogCourseIds.length
       ? await this.supabaseService.client
           .from('course_reviews')
           .select('course_id, rating')
           .in('course_id', catalogCourseIds)
       : { data: [] as Array<Record<string, unknown>>, error: null };
-    const catalogReviewRows = this.isMissingTableError(catalogReviewResult.error)
+    const catalogReviewRows = this.isMissingTableError(
+      catalogReviewResult.error,
+    )
       ? []
       : (catalogReviewResult.data ?? []);
 
     const enrollmentsList = (enrollments ?? []).map((item: any) => {
       const progressByLesson = new Map<string, string>();
       for (const row of progressRows ?? []) {
-        const lessonData = Array.isArray(row.lessons) ? row.lessons[0] : row.lessons;
-        if (lessonData?.course_id === item.courses?.id && !progressByLesson.has(lessonData.id)) {
+        const lessonData = Array.isArray(row.lessons)
+          ? row.lessons[0]
+          : row.lessons;
+        if (
+          lessonData?.course_id === item.courses?.id &&
+          !progressByLesson.has(lessonData.id)
+        ) {
           progressByLesson.set(lessonData.id, row.status ?? 'started');
         }
       }
 
-      const orderedLessons = ((item.courses?.course_modules ?? []) as Array<any>)
+      const orderedLessons = (
+        (item.courses?.course_modules ?? []) as Array<any>
+      )
         .slice()
-        .sort((a: any, b: any) => Number(a.order_index ?? 0) - Number(b.order_index ?? 0))
+        .sort(
+          (a: any, b: any) =>
+            Number(a.order_index ?? 0) - Number(b.order_index ?? 0),
+        )
         .flatMap((module: any) =>
           (module.lessons ?? [])
             .slice()
@@ -307,7 +326,8 @@ export class DashboardService {
       );
       const nextLesson =
         nextLessonData?.title ??
-        (orderedLessons[0]?.title ?? 'Aucune lecon disponible');
+        orderedLessons[0]?.title ??
+        'Aucune lecon disponible';
 
       return {
         id: item.courses?.id ?? item.id,
@@ -322,7 +342,9 @@ export class DashboardService {
 
     const uniqueLessonProgress = new Map<string, string>();
     for (const row of progressRows ?? []) {
-      const lessonData = Array.isArray(row.lessons) ? row.lessons[0] : row.lessons;
+      const lessonData = Array.isArray(row.lessons)
+        ? row.lessons[0]
+        : row.lessons;
       if (lessonData?.id && !uniqueLessonProgress.has(lessonData.id)) {
         uniqueLessonProgress.set(lessonData.id, row.status ?? 'started');
       }
@@ -331,15 +353,20 @@ export class DashboardService {
     const completedLessons = Array.from(uniqueLessonProgress.values()).filter(
       (status) => status === 'completed',
     ).length;
-    const totalLessons = (enrollments ?? []).reduce((sum: number, item: any) => {
-      const lessonsCount = ((item.courses?.course_modules ?? []) as Array<any>).reduce(
-        (moduleSum: number, module: any) =>
-          moduleSum + ((module.lessons ?? []) as Array<any>).length,
-        0,
-      );
+    const totalLessons = (enrollments ?? []).reduce(
+      (sum: number, item: any) => {
+        const lessonsCount = (
+          (item.courses?.course_modules ?? []) as Array<any>
+        ).reduce(
+          (moduleSum: number, module: any) =>
+            moduleSum + ((module.lessons ?? []) as Array<any>).length,
+          0,
+        );
 
-      return sum + lessonsCount;
-    }, 0);
+        return sum + lessonsCount;
+      },
+      0,
+    );
     const catalogCourses = (catalogRows ?? []).map((course: any) => ({
       id: course.id,
       title: course.title ?? 'Cours sans titre',
@@ -377,7 +404,9 @@ export class DashboardService {
       }
 
       const courseId = String(course.id);
-      const existingRooms = Array.isArray(campusCoursesMap.get(courseId)?.roomNames)
+      const existingRooms = Array.isArray(
+        campusCoursesMap.get(courseId)?.roomNames,
+      )
         ? (campusCoursesMap.get(courseId)?.roomNames as string[])
         : [];
       const roomName = String(room?.name ?? 'Classe');
@@ -402,27 +431,32 @@ export class DashboardService {
         lessonsCount: course.lessons?.length ?? 0,
         ratingAverage: 0,
         campusOnly: true,
+        enrolled: true,
+        institutionAccess: true,
+        accessSource: 'institution',
       });
     }
 
     const campusCourses = Array.from(campusCoursesMap.values());
 
-    const studentInstitutions = (institutionMembershipRows ?? []).map((row: any) => {
-      const institution = Array.isArray(row.institutions)
-        ? row.institutions[0]
-        : row.institutions;
+    const studentInstitutions = (institutionMembershipRows ?? []).map(
+      (row: any) => {
+        const institution = Array.isArray(row.institutions)
+          ? row.institutions[0]
+          : row.institutions;
 
-      return {
-        id: institution?.id ?? row.id,
-        name: institution?.name ?? 'Etablissement',
-        slug: institution?.slug ?? '',
-        institutionType: institution?.institution_type ?? '',
-        planName: institution?.plan_name ?? '',
-        subscriptionStatus: institution?.subscription_status ?? '',
-        membershipRole: row.role ?? 'student',
-        joinedAt: row.joined_at,
-      };
-    });
+        return {
+          id: institution?.id ?? row.id,
+          name: institution?.name ?? 'Etablissement',
+          slug: institution?.slug ?? '',
+          institutionType: institution?.institution_type ?? '',
+          planName: institution?.plan_name ?? '',
+          subscriptionStatus: institution?.subscription_status ?? '',
+          membershipRole: row.role ?? 'student',
+          joinedAt: row.joined_at,
+        };
+      },
+    );
 
     const studentRooms = (roomMembershipRows ?? []).map((row: any) => {
       const room = Array.isArray(row.rooms) ? row.rooms[0] : row.rooms;
@@ -505,10 +539,10 @@ export class DashboardService {
           type: 'devoir',
         };
       });
-    const campusSchedule = [...campusClassSchedule, ...campusAssignmentSchedule].slice(
-      0,
-      8,
-    );
+    const campusSchedule = [
+      ...campusClassSchedule,
+      ...campusAssignmentSchedule,
+    ].slice(0, 8);
 
     return {
       role: 'student',
@@ -521,7 +555,8 @@ export class DashboardService {
           enrollmentsList.length > 0
             ? Math.round(
                 enrollmentsList.reduce(
-                  (sum: number, item: { progress: number }) => sum + item.progress,
+                  (sum: number, item: { progress: number }) =>
+                    sum + item.progress,
                   0,
                 ) / enrollmentsList.length,
               )
@@ -538,12 +573,15 @@ export class DashboardService {
       campusSchedule,
       studentInstitutions,
       studentRooms,
-      tasks:
-        enrollmentsList.slice(0, 3).map((course: any) =>
+      tasks: enrollmentsList
+        .slice(0, 3)
+        .map((course: any) =>
           course.progress >= 100
             ? `Revoir les points cles du cours ${course.title}.`
             : `Continuer ${course.title} et travailler ${course.nextLesson}.`,
-        ).concat(studentInstitutionTasks).slice(0, 5),
+        )
+        .concat(studentInstitutionTasks)
+        .slice(0, 5),
     };
   }
 
@@ -586,7 +624,8 @@ export class DashboardService {
       description: course.description ?? '',
       priceFcfa: Number(course.price_fcfa ?? 0),
       videoUrl:
-        course.lessons?.find((lesson: any) => lesson.video_path)?.video_path ?? '',
+        course.lessons?.find((lesson: any) => lesson.video_path)?.video_path ??
+        '',
       thumbnailUrl: course.thumbnail_url ?? '',
       createdAt: course.created_at,
       learners: course.enrollments?.length ?? 0,
@@ -608,7 +647,9 @@ export class DashboardService {
         publishedCourses: coursesList.length,
         totalLearners,
         averageLearners:
-          coursesList.length > 0 ? Math.round(totalLearners / coursesList.length) : 0,
+          coursesList.length > 0
+            ? Math.round(totalLearners / coursesList.length)
+            : 0,
         totalRevenue: revenueStats.totalRevenue,
         monthRevenue: revenueStats.monthRevenue,
         activeClasses: teacherRooms.length,
@@ -636,8 +677,7 @@ export class DashboardService {
       memberContext?.institutionId ?? managedContext?.institutionId ?? null;
     const institutionName =
       memberContext?.institutionName ?? managedContext?.institutionName ?? null;
-    const institutionRole =
-      memberContext?.role ?? managedContext?.role ?? null;
+    const institutionRole = memberContext?.role ?? managedContext?.role ?? null;
     const managed = Boolean(managedContext);
 
     if (
@@ -663,7 +703,10 @@ export class DashboardService {
       return {
         dashboardRole: 'teacher',
         workspace: {
-          kind: institutionRole === 'teacher' ? 'institution-teacher' : 'public-teacher',
+          kind:
+            institutionRole === 'teacher'
+              ? 'institution-teacher'
+              : 'public-teacher',
           institutionId,
           institutionName,
           institutionRole,
@@ -731,7 +774,9 @@ export class DashboardService {
   }
 
   private async getManagedInstitutionContext(userId: string) {
-    const hasManagedUserTable = await this.hasTable('institution_managed_users');
+    const hasManagedUserTable = await this.hasTable(
+      'institution_managed_users',
+    );
     if (!hasManagedUserTable) {
       return null;
     }
@@ -956,7 +1001,9 @@ export class DashboardService {
       }
     }
 
-    const institutionIds = institutions.map((institution) => institution.id).filter(Boolean);
+    const institutionIds = institutions
+      .map((institution) => institution.id)
+      .filter(Boolean);
     const [roomsRes, institutionMembersRes] = institutionIds.length
       ? await Promise.all([
           this.supabaseService.client
@@ -973,7 +1020,9 @@ export class DashboardService {
           { data: [] as Array<Record<string, unknown>>, error: null },
         ];
 
-    const roomIds = (roomsRes.data ?? []).map((room: any) => room.id).filter(Boolean);
+    const roomIds = (roomsRes.data ?? [])
+      .map((room: any) => room.id)
+      .filter(Boolean);
     const [roomCoursesRes, submissionsRes] = roomIds.length
       ? await Promise.all([
           this.supabaseService.client
@@ -1027,7 +1076,7 @@ export class DashboardService {
           ? `Configurer les premieres salles de ${institutionName}.`
           : `Verifier les classes actives de ${institutionName}.`,
         studentCount === 0
-          ? "Inviter des etudiants ou eleves avec des liens de groupe."
+          ? 'Inviter des etudiants ou eleves avec des liens de groupe.'
           : 'Suivre les inscriptions et affectations dans les classes.',
         assignedCourses === 0
           ? 'Associer des cours aux classes pour lancer le campus.'
@@ -1053,7 +1102,9 @@ export class DashboardService {
     return (data ?? []).map((row: any) => row.id).filter(Boolean);
   }
 
-  private isMissingCampusLifeTableError(error: { message?: string } | null | undefined) {
+  private isMissingCampusLifeTableError(
+    error: { message?: string } | null | undefined,
+  ) {
     const message = String(error?.message ?? '').toLowerCase();
     return (
       message.includes('schema cache') ||
@@ -1062,7 +1113,9 @@ export class DashboardService {
     );
   }
 
-  private isMissingTableError(error: { message?: string; code?: string } | null) {
+  private isMissingTableError(
+    error: { message?: string; code?: string } | null,
+  ) {
     if (!error) {
       return false;
     }

@@ -467,6 +467,11 @@ export class CoursesService {
       throw new ForbiddenException("Ce cours n'est pas accessible.");
     }
 
+    const studentAccess =
+      role === 'student'
+        ? await this.getStudentCourseAccess(user.id, courseId)
+        : { hasAccess: false, institutionAccess: false };
+
     const lessonIds = (course.course_modules ?? []).flatMap((module: any) =>
       (module.lessons ?? []).map((lesson: any) => lesson.id),
     );
@@ -583,10 +588,15 @@ export class CoursesService {
         totalLessons > 0
           ? Math.round((startedLessons / totalLessons) * 100)
           : 0,
-      enrolled:
-        role === 'student'
-          ? await this.isUserEnrolled(user.id, course.id)
-          : false,
+      enrolled: role === 'student' ? studentAccess.hasAccess : false,
+      institutionAccess:
+        role === 'student' ? studentAccess.institutionAccess : false,
+      accessSource:
+        role === 'student' && studentAccess.institutionAccess
+          ? 'institution'
+          : role === 'student' && studentAccess.hasAccess
+            ? 'enrollment'
+            : null,
     };
   }
 
@@ -688,6 +698,22 @@ export class CoursesService {
       );
     }
 
+    const studentAccess = await this.getStudentCourseAccess(user.id, courseId);
+    if (studentAccess.institutionAccess) {
+      return {
+        id: course.id,
+        title: course.title ?? 'Cours sans titre',
+        description:
+          course.short_description ?? course.description ?? 'Cours Kalatty',
+        progress: 0,
+        nextLesson: 'Commencer la premiere lecon',
+        enrolled: true,
+        institutionAccess: true,
+        accessSource: 'institution',
+        message: "Acces inclus par l'etablissement.",
+      };
+    }
+
     const { data: existingEnrollment, error: existingError } =
       await this.supabaseService.client
         .from('enrollments')
@@ -776,10 +802,13 @@ export class CoursesService {
     const isStudent = role === 'student';
 
     if (isStudent) {
-      const enrolled = await this.isUserEnrolled(user.id, courseId);
-      if (!enrolled && !lesson.is_preview) {
+      const studentAccess = await this.getStudentCourseAccess(
+        user.id,
+        courseId,
+      );
+      if (!studentAccess.hasAccess && !lesson.is_preview) {
         throw new ForbiddenException(
-          'Inscris-toi au cours pour enregistrer ta progression sur cette lecon.',
+          'Inscris-toi au cours ou rejoins une classe autorisee pour enregistrer ta progression.',
         );
       }
     } else if (!isTeacherOwner && !isAdmin) {
@@ -846,21 +875,65 @@ export class CoursesService {
     };
   }
 
-  private async isUserEnrolled(userId: string, courseId: string) {
-    const { data, error } = await this.supabaseService.client
-      .from('enrollments')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('course_id', courseId)
-      .maybeSingle();
+  private async getStudentCourseAccess(userId: string, courseId: string) {
+    const [enrollmentResult, membershipsResult] = await Promise.all([
+      this.supabaseService.client
+        .from('enrollments')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('course_id', courseId)
+        .maybeSingle(),
+      this.supabaseService.client
+        .from('room_members')
+        .select('room_id')
+        .eq('user_id', userId)
+        .eq('role', 'student'),
+    ]);
 
-    if (error) {
+    if (enrollmentResult.error) {
       throw new BadRequestException(
-        error.message ?? "Impossible de verifier l'inscription au cours.",
+        enrollmentResult.error.message ??
+          "Impossible de verifier l'inscription au cours.",
       );
     }
 
-    return Boolean(data?.id);
+    if (membershipsResult.error) {
+      throw new BadRequestException(
+        membershipsResult.error.message ??
+          "Impossible de verifier l'acces de la classe.",
+      );
+    }
+
+    if (enrollmentResult.data?.id) {
+      return { hasAccess: true, institutionAccess: false };
+    }
+
+    const roomIds = (membershipsResult.data ?? [])
+      .map((membership: any) => String(membership.room_id ?? ''))
+      .filter(Boolean);
+
+    if (roomIds.length === 0) {
+      return { hasAccess: false, institutionAccess: false };
+    }
+
+    const { data: assignedCourse, error: assignedCourseError } =
+      await this.supabaseService.client
+        .from('room_courses')
+        .select('id')
+        .eq('course_id', courseId)
+        .in('room_id', roomIds)
+        .limit(1)
+        .maybeSingle();
+
+    if (assignedCourseError) {
+      throw new BadRequestException(
+        assignedCourseError.message ??
+          "Impossible de verifier l'affectation du cours a la classe.",
+      );
+    }
+
+    const institutionAccess = Boolean(assignedCourse?.id);
+    return { hasAccess: institutionAccess, institutionAccess };
   }
 
   private async getLessonProgressMap(userId: string, lessonIds: string[]) {
@@ -1011,10 +1084,13 @@ export class CoursesService {
     }
 
     if (role === 'student') {
-      const enrolled = await this.isUserEnrolled(user.id, courseId);
-      if (!enrolled) {
+      const studentAccess = await this.getStudentCourseAccess(
+        user.id,
+        courseId,
+      );
+      if (!studentAccess.hasAccess) {
         throw new ForbiddenException(
-          'Tu dois etre inscrit au cours avant de laisser un avis.',
+          'Tu dois etre inscrit au cours ou y avoir acces via ta classe avant de laisser un avis.',
         );
       }
     }

@@ -95,6 +95,16 @@ export class PaymentsService {
       );
     }
 
+    if (await this.hasInstitutionCourseAccess(user.id, courseId)) {
+      return {
+        alreadyEnrolled: true,
+        institutionAccess: true,
+        accessSource: 'institution',
+        message:
+          "Ce cours est inclus par ton etablissement. Aucun paiement n'est necessaire.",
+      };
+    }
+
     const priceFcfa = Number(course.price_fcfa ?? 0);
     if (priceFcfa <= 0) {
       throw new BadRequestException(
@@ -271,6 +281,46 @@ export class PaymentsService {
       instructions:
         "Flux d'abonnement pret pour integration. La confirmation s'effectue actuellement en mode demo.",
     };
+  }
+
+  private async hasInstitutionCourseAccess(userId: string, courseId: string) {
+    const { data: memberships, error: membershipsError } =
+      await this.supabaseService.client
+        .from('room_members')
+        .select('room_id')
+        .eq('user_id', userId)
+        .eq('role', 'student');
+
+    if (membershipsError) {
+      throw new BadRequestException(
+        membershipsError.message ??
+          "Impossible de verifier l'acces de la classe.",
+      );
+    }
+
+    const roomIds = (memberships ?? [])
+      .map((membership: any) => String(membership.room_id ?? ''))
+      .filter(Boolean);
+
+    if (roomIds.length === 0) return false;
+
+    const { data: assignedCourse, error: assignedCourseError } =
+      await this.supabaseService.client
+        .from('room_courses')
+        .select('id')
+        .eq('course_id', courseId)
+        .in('room_id', roomIds)
+        .limit(1)
+        .maybeSingle();
+
+    if (assignedCourseError) {
+      throw new BadRequestException(
+        assignedCourseError.message ??
+          "Impossible de verifier l'affectation du cours a la classe.",
+      );
+    }
+
+    return Boolean(assignedCourse?.id);
   }
 
   async activateInstitutionSubscription(

@@ -19,6 +19,8 @@ type CourseDetail = {
   status: string;
   lessonsCount: number;
   enrolled: boolean;
+  institutionAccess?: boolean;
+  accessSource?: "institution" | "enrollment" | null;
   courseRatingAverage: number;
   teacherRatingAverage: number;
   completedLessons: number;
@@ -409,9 +411,22 @@ export default function CourseDetailPage({
       }
 
       setCourse((current) =>
-        current ? { ...current, enrolled: true } : current,
+        current
+          ? {
+              ...current,
+              enrolled: true,
+              institutionAccess: Boolean(data.institutionAccess),
+              accessSource: data.institutionAccess
+                ? "institution"
+                : current.accessSource,
+            }
+          : current,
       );
-      setMessage("Inscription reussie. Tu peux maintenant suivre ce cours.");
+      setMessage(
+        typeof data.message === "string"
+          ? data.message
+          : "Inscription reussie. Tu peux maintenant suivre ce cours.",
+      );
       await reloadCourse();
     } catch {
       setMessage("L'inscription au cours a echoue.");
@@ -458,9 +473,22 @@ export default function CourseDetailPage({
 
       if (checkoutData.alreadyEnrolled) {
         setCourse((current) =>
-          current ? { ...current, enrolled: true } : current,
+          current
+            ? {
+                ...current,
+                enrolled: true,
+                institutionAccess: Boolean(checkoutData.institutionAccess),
+                accessSource: checkoutData.institutionAccess
+                  ? "institution"
+                  : current.accessSource,
+              }
+            : current,
         );
-        setMessage("Tu es deja inscrit a ce cours.");
+        setMessage(
+          typeof checkoutData.message === "string"
+            ? checkoutData.message
+            : "Tu es deja inscrit a ce cours.",
+        );
         return;
       }
 
@@ -878,7 +906,11 @@ export default function CourseDetailPage({
             </p>
 
             <div className={styles.metaRow}>
-              <span>{course.priceFcfa} FCFA</span>
+              <span>
+                {course.institutionAccess
+                  ? "Inclus par votre etablissement"
+                  : `${course.priceFcfa} FCFA`}
+              </span>
               <span>{course.teacherName}</span>
               <span>{course.lessonsCount} lecons</span>
               <span>{course.courseRatingAverage}/5 cours</span>
@@ -917,17 +949,19 @@ export default function CourseDetailPage({
                 }
                 hidden={role === "teacher"}
               >
-                {course.priceFcfa > 0
-                  ? course.enrolled
-                    ? "Deja debloque"
-                    : paymentLoading
-                      ? "Paiement..."
-                      : "Payer et debloquer"
-                  : course.enrolled
-                    ? "Deja inscrit"
-                    : enrolling
-                      ? "Inscription..."
-                      : "S'inscrire au cours"}
+                {course.institutionAccess
+                  ? "Acces etablissement actif"
+                  : course.priceFcfa > 0
+                    ? course.enrolled
+                      ? "Deja debloque"
+                      : paymentLoading
+                        ? "Paiement..."
+                        : "Payer et debloquer"
+                    : course.enrolled
+                      ? "Deja inscrit"
+                      : enrolling
+                        ? "Inscription..."
+                        : "S'inscrire au cours"}
               </button>
               <button
                 type="button"
@@ -949,6 +983,13 @@ export default function CourseDetailPage({
               </Link>
             </div>
 
+            {course.institutionAccess ? (
+              <p className={styles.inlineMessage}>
+                Ce cours a ete affecte a votre classe. Votre etablissement prend
+                en charge l&apos;acces : aucun paiement individuel n&apos;est
+                demande.
+              </p>
+            ) : null}
             {message ? <p className={styles.inlineMessage}>{message}</p> : null}
             {course.priceFcfa > 0 && !course.enrolled ? (
               <section className={styles.paymentPanel}>
