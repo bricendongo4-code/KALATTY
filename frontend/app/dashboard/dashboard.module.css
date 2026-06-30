@@ -3,9 +3,12 @@
   padding: 1.5rem;
   display: grid;
   gap: 1.5rem;
+  overflow: visible;
 }
 
 .dashboardMasthead {
+  position: relative;
+  z-index: 80;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -81,7 +84,7 @@
 
 .notificationDropdown {
   position: relative;
-  z-index: 20;
+  z-index: 120;
 }
 
 .notificationBell {
@@ -113,6 +116,7 @@
   position: absolute;
   top: calc(100% + 0.7rem);
   right: 0;
+  z-index: 200;
   width: min(23rem, calc(100vw - 2rem));
   display: grid;
   gap: 0.85rem;
@@ -157,6 +161,8 @@
 }
 
 .hero {
+  position: relative;
+  z-index: 1;
   display: grid;
   gap: 1.5rem;
   padding: 1.75rem;
