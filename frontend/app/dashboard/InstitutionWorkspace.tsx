@@ -286,16 +286,6 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
   const [institutionType, setInstitutionType] = useState("");
   const [roomName, setRoomName] = useState("");
   const [roomDescription, setRoomDescription] = useState("");
-  const [assignmentRoomId, setAssignmentRoomId] = useState("");
-  const [assignmentCourseId, setAssignmentCourseId] = useState("");
-  const [assignmentTitle, setAssignmentTitle] = useState("");
-  const [assignmentInstructions, setAssignmentInstructions] = useState("");
-  const [assignmentAttachment, setAssignmentAttachment] = useState<{
-    path: string;
-    name: string;
-    mimetype: string;
-  } | null>(null);
-  const [assignmentUploading, setAssignmentUploading] = useState(false);
   const [inviteRoomId, setInviteRoomId] = useState("");
   const [inviteRole, setInviteRole] = useState<"student" | "teacher" | "assistant">("student");
   const [generatedLink, setGeneratedLink] = useState("");
@@ -314,18 +304,6 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
     role: string;
   } | null>(null);
   const [resettingManagedUserId, setResettingManagedUserId] = useState("");
-  const [scheduleTitle, setScheduleTitle] = useState("");
-  const [scheduleWeekday, setScheduleWeekday] = useState("1");
-  const [scheduleStart, setScheduleStart] = useState("08:00");
-  const [scheduleEnd, setScheduleEnd] = useState("");
-  const [scheduleLocation, setScheduleLocation] = useState("");
-  const [attendanceTitle, setAttendanceTitle] = useState("");
-  const [attendanceDate, setAttendanceDate] = useState(() =>
-    new Date().toISOString().slice(0, 10),
-  );
-  const [attendanceRecords, setAttendanceRecords] = useState<
-    Record<string, "present" | "absent" | "late" | "excused">
-  >({});
   const [savingCampusLife, setSavingCampusLife] = useState(false);
   const [memberStatusReason, setMemberStatusReason] = useState("");
 
@@ -597,14 +575,6 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
     return catalogCourses.filter((course) => !assignedIds.has(course.id));
   }, [catalogCourses, roomDetail]);
 
-  const selectedCourseForAssignment = useMemo(
-    () =>
-      catalogCourses.find((course) => course.id === assignmentCourseId) ??
-      roomDetail?.courses.find((entry) => entry.course?.id === assignmentCourseId)?.course ??
-      null,
-    [assignmentCourseId, catalogCourses, roomDetail],
-  );
-
   const loadInstitutions = async () => {
     if (!token) return;
 
@@ -650,7 +620,6 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
 
       setDetail(data);
       const defaultRoomId = data.rooms[0]?.id || "";
-      setAssignmentRoomId((current) => current || defaultRoomId);
       setInviteRoomId((current) => current || defaultRoomId);
       setManagedUserRoomId((current) => current || defaultRoomId);
       setSelectedRoomId((current) => current || defaultRoomId);
@@ -816,188 +785,6 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
       await loadRoomDetails(selectedRoomId);
     } catch {
       setMessage("L'affectation du cours a echoue.");
-    }
-  };
-
-  const handleCreateAssignment = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!token || !assignmentRoomId) return;
-
-    try {
-      const res = await fetch(`${apiBaseUrl}/institutions/rooms/${assignmentRoomId}/assignments`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          course_id: assignmentCourseId || undefined,
-          title: assignmentTitle,
-          instructions: assignmentInstructions,
-          attachment_path: assignmentAttachment?.path,
-          attachment_name: assignmentAttachment?.name,
-          attachment_type: assignmentAttachment?.mimetype,
-        }),
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        setMessage(data.message ?? "Creation du devoir impossible.");
-        return;
-      }
-
-      setAssignmentTitle("");
-      setAssignmentInstructions("");
-      setAssignmentCourseId("");
-      setAssignmentAttachment(null);
-      setMessage("Devoir publie dans la classe.");
-      await loadInstitutionDetails(selectedInstitutionId);
-      if (assignmentRoomId === selectedRoomId) {
-        await loadRoomDetails(selectedRoomId);
-      }
-    } catch {
-      setMessage("La creation du devoir a echoue.");
-    }
-  };
-
-  const handleAssignmentFileUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const file = event.target.files?.[0];
-    const targetRoomId = assignmentRoomId || selectedRoomId;
-    if (!file || !token || !targetRoomId) {
-      return;
-    }
-
-    setAssignmentUploading(true);
-    setMessage("");
-
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const res = await fetch(
-        `${apiBaseUrl}/institutions/rooms/${targetRoomId}/assignment-files`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: formData,
-        },
-      );
-      const data = await res.json();
-
-      if (!res.ok) {
-        setMessage(data.message ?? "Upload du fichier impossible.");
-        return;
-      }
-
-      setAssignmentAttachment({
-        path: String(data.path ?? ""),
-        name: String(data.name ?? file.name),
-        mimetype: String(data.mimetype ?? file.type),
-      });
-      setMessage("Piece jointe prete pour le devoir.");
-    } catch {
-      setMessage("Le fichier du devoir n'a pas pu etre envoye.");
-    } finally {
-      setAssignmentUploading(false);
-      event.target.value = "";
-    }
-  };
-
-  const handleCreateScheduleItem = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!token || !selectedRoomId) return;
-
-    setSavingCampusLife(true);
-    try {
-      const res = await fetch(
-        `${apiBaseUrl}/institutions/rooms/${selectedRoomId}/schedule`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            title: scheduleTitle,
-            weekday: Number(scheduleWeekday),
-            starts_at: scheduleStart,
-            ends_at: scheduleEnd || undefined,
-            location: scheduleLocation || undefined,
-          }),
-        },
-      );
-      const data = await res.json();
-
-      if (!res.ok) {
-        setMessage(data.message ?? "Publication du creneau impossible.");
-        return;
-      }
-
-      setScheduleTitle("");
-      setScheduleEnd("");
-      setScheduleLocation("");
-      setMessage("Creneau ajoute a l'emploi du temps.");
-      await loadRoomDetails(selectedRoomId);
-      if (selectedInstitutionId) {
-        await loadInstitutionDetails(selectedInstitutionId);
-      }
-    } catch {
-      setMessage("La publication du creneau a echoue.");
-    } finally {
-      setSavingCampusLife(false);
-    }
-  };
-
-  const handleCreateAttendance = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!token || !selectedRoomId) return;
-
-    setSavingCampusLife(true);
-    try {
-      const records = roomStudentMembers
-        .map((member) => ({
-          student_id: member.profile?.id ?? "",
-          status: attendanceRecords[String(member.profile?.id ?? "")] ?? "present",
-        }))
-        .filter((record) => record.student_id);
-
-      const res = await fetch(
-        `${apiBaseUrl}/institutions/rooms/${selectedRoomId}/attendance`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            title: attendanceTitle || `Appel ${roomDetail?.name ?? ""}`,
-            session_date: attendanceDate,
-            records,
-          }),
-        },
-      );
-      const data = await res.json();
-
-      if (!res.ok) {
-        setMessage(data.message ?? "Enregistrement de l'appel impossible.");
-        return;
-      }
-
-      setAttendanceTitle("");
-      setAttendanceRecords({});
-      setMessage("Appel enregistre pour la classe.");
-      await loadRoomDetails(selectedRoomId);
-      if (selectedInstitutionId) {
-        await loadInstitutionDetails(selectedInstitutionId);
-      }
-    } catch {
-      setMessage("L'appel n'a pas pu etre enregistre.");
-    } finally {
-      setSavingCampusLife(false);
     }
   };
 
@@ -1505,7 +1292,7 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
         </section>
         ) : null}
 
-        {(activeView === "overview" || activeView === "classes") ? (
+        {activeView === "classes" ? (
         <section className={styles.card}>
           <div className={styles.sectionHeader}>
             <div>
@@ -1545,7 +1332,7 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
         </section>
         ) : null}
 
-        {(activeView === "overview" || activeView === "accounts") ? (
+        {activeView === "accounts" ? (
         <section className={styles.card}>
           <div className={styles.sectionHeader}>
             <div>
@@ -1690,11 +1477,11 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
         </section>
         ) : null}
 
-        {roomDetail && (activeView === "overview" || activeView === "classes" || activeView === "courses") ? (
+        {roomDetail && activeView === "classes" ? (
           <section className={styles.card}>
             <div className={styles.sectionHeader}>
               <div>
-                <p className={styles.sectionLabel}>Classe active</p>
+                <p className={styles.sectionLabel}>Dossier de classe</p>
                 <h2>{roomDetail.name}</h2>
               </div>
               <span className={styles.sectionHint}>
@@ -1711,6 +1498,12 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
                 </article>
               ))}
             </div>
+
+            <p className={styles.inlineMessage}>
+              Vue administrateur: vous gardez la supervision, les droits et la
+              securite. Les devoirs, l&apos;appel et les ajustements de planning
+              restent dans l&apos;espace des professeurs rattaches a la classe.
+            </p>
 
             <div className={styles.institutionStudioGrid}>
               <section className={styles.institutionStudioPanel}>
@@ -1826,77 +1619,14 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
                 <div className={styles.sectionHeader}>
                   <div>
                     <p className={styles.sectionLabel}>Emploi du temps</p>
-                    <h3>Publier la semaine</h3>
+                    <h3>Semaine publiee</h3>
                   </div>
                 </div>
-                <form
-                  onSubmit={handleCreateScheduleItem}
-                  className={styles.teacherForm}
-                >
-                  <label className={styles.formField}>
-                    <span>Cours / activite</span>
-                    <input
-                      type="text"
-                      value={scheduleTitle}
-                      onChange={(event) => setScheduleTitle(event.target.value)}
-                      placeholder="Maths, physique, reunion, TP..."
-                    />
-                  </label>
-                  <div className={styles.metaFields}>
-                    <label className={styles.formField}>
-                      <span>Jour</span>
-                      <select
-                        className={styles.selectField}
-                        value={scheduleWeekday}
-                        onChange={(event) =>
-                          setScheduleWeekday(event.target.value)
-                        }
-                      >
-                        {weekdayLabels.map((label, index) => (
-                          <option key={label} value={String(index + 1)}>
-                            {label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className={styles.formField}>
-                      <span>Debut</span>
-                      <input
-                        type="time"
-                        value={scheduleStart}
-                        onChange={(event) => setScheduleStart(event.target.value)}
-                      />
-                    </label>
-                  </div>
-                  <div className={styles.metaFields}>
-                    <label className={styles.formField}>
-                      <span>Fin</span>
-                      <input
-                        type="time"
-                        value={scheduleEnd}
-                        onChange={(event) => setScheduleEnd(event.target.value)}
-                      />
-                    </label>
-                    <label className={styles.formField}>
-                      <span>Salle / lien</span>
-                      <input
-                        type="text"
-                        value={scheduleLocation}
-                        onChange={(event) =>
-                          setScheduleLocation(event.target.value)
-                        }
-                        placeholder="Salle A, Zoom, Laboratoire..."
-                      />
-                    </label>
-                  </div>
-                  <button
-                    type="submit"
-                    className={styles.submitButton}
-                    disabled={savingCampusLife}
-                  >
-                    Publier le creneau
-                  </button>
-                </form>
+                <p className={styles.paragraph}>
+                  L&apos;administration supervise les creneaux. La publication et
+                  les ajustements quotidiens doivent rester dans l&apos;espace du
+                  professeur rattache a la classe.
+                </p>
                 <div className={styles.roadmapList}>
                   {scheduleItems.length > 0 ? (
                     scheduleItems.map((item) => (
@@ -1926,83 +1656,13 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
                 <div className={styles.sectionHeader}>
                   <div>
                     <p className={styles.sectionLabel}>Presence</p>
-                    <h3>Faire l&apos;appel</h3>
+                    <h3>Registre d&apos;appel</h3>
                   </div>
                 </div>
-                <form
-                  onSubmit={handleCreateAttendance}
-                  className={styles.teacherForm}
-                >
-                  <div className={styles.metaFields}>
-                    <label className={styles.formField}>
-                      <span>Titre</span>
-                      <input
-                        type="text"
-                        value={attendanceTitle}
-                        onChange={(event) =>
-                          setAttendanceTitle(event.target.value)
-                        }
-                        placeholder="Appel du matin"
-                      />
-                    </label>
-                    <label className={styles.formField}>
-                      <span>Date</span>
-                      <input
-                        type="date"
-                        value={attendanceDate}
-                        onChange={(event) =>
-                          setAttendanceDate(event.target.value)
-                        }
-                      />
-                    </label>
-                  </div>
-                  <div className={styles.roadmapList}>
-                    {roomStudentMembers.length > 0 ? (
-                      roomStudentMembers.map((member) => {
-                        const studentId = String(member.profile?.id ?? "");
-                        return (
-                          <label key={member.id} className={styles.formField}>
-                            <span>
-                              {member.profile?.fullname ||
-                                member.profile?.email ||
-                                "Etudiant"}
-                            </span>
-                            <select
-                              className={styles.selectField}
-                              value={attendanceRecords[studentId] ?? "present"}
-                              onChange={(event) =>
-                                setAttendanceRecords((current) => ({
-                                  ...current,
-                                  [studentId]: event.target.value as
-                                    | "present"
-                                    | "absent"
-                                    | "late"
-                                    | "excused",
-                                }))
-                              }
-                            >
-                              <option value="present">Present</option>
-                              <option value="absent">Absent</option>
-                              <option value="late">En retard</option>
-                              <option value="excused">Excuse</option>
-                            </select>
-                          </label>
-                        );
-                      })
-                    ) : (
-                      <p className={styles.paragraph}>
-                        Aucun etudiant dans cette classe pour faire l&apos;appel.
-                      </p>
-                    )}
-                  </div>
-                  <button
-                    type="submit"
-                    className={styles.submitButton}
-                    disabled={savingCampusLife || roomStudentMembers.length === 0}
-                  >
-                    Enregistrer l&apos;appel
-                  </button>
-                </form>
+                <p className={styles.paragraph}>
+                  Les appels sont consultables par l&apos;admin, mais doivent etre
+                  effectues par les professeurs depuis leur espace classe.
+                </p>
                 <div className={styles.roadmapList}>
                   {attendanceSessions.length > 0 ? (
                     attendanceSessions.slice(0, 4).map((session) => (
@@ -2142,7 +1802,7 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
           </section>
         ) : null}
 
-        {(activeView === "classes" || activeView === "courses") ? (
+        {activeView === "classes" ? (
         <section className={styles.institutionActionGrid}>
           <section className={styles.card}>
             <div className={styles.sectionHeader}>
@@ -2176,8 +1836,11 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
               </button>
             </form>
           </section>
+        </section>
+        ) : null}
 
-          {activeView === "courses" ? (
+        {activeView === "courses" ? (
+        <section className={styles.institutionActionGrid}>
           <section className={styles.card}>
             <div className={styles.sectionHeader}>
               <div>
@@ -2221,101 +1884,34 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
               </button>
             </form>
           </section>
-          ) : null}
         </section>
         ) : null}
 
-        {(activeView === "courses" || activeView === "overview") ? (
+        {activeView === "accounts" ? (
         <section className={styles.institutionActionGrid}>
           <section className={styles.card}>
             <div className={styles.sectionHeader}>
               <div>
-                <p className={styles.sectionLabel}>Devoir</p>
-                <h2>Publier un devoir de classe</h2>
+                <p className={styles.sectionLabel}>Separation des roles</p>
+                <h2>Admin, professeurs et eleves</h2>
               </div>
             </div>
-            <form onSubmit={handleCreateAssignment} className={styles.teacherForm}>
-              <div className={styles.metaFields}>
-                <label className={styles.formField}>
-                  <span>Classe cible</span>
-                  <select
-                    className={styles.selectField}
-                    value={assignmentRoomId}
-                    onChange={(event) => setAssignmentRoomId(event.target.value)}
-                  >
-                    <option value="">Choisir une classe</option>
-                    {(detail?.rooms ?? []).map((room) => (
-                      <option key={room.id} value={room.id}>
-                        {room.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className={styles.formField}>
-                  <span>Cours lie</span>
-                  <select
-                    className={styles.selectField}
-                    value={assignmentCourseId}
-                    onChange={(event) => setAssignmentCourseId(event.target.value)}
-                  >
-                    <option value="">Aucun cours precis</option>
-                    {(roomDetail?.courses ?? []).map((entry) =>
-                      entry.course?.id ? (
-                        <option key={entry.id} value={String(entry.course.id)}>
-                          {entry.course.title}
-                        </option>
-                      ) : null,
-                    )}
-                  </select>
-                </label>
-              </div>
-              <label className={styles.formField}>
-                <span>Titre du devoir</span>
-                <input
-                  type="text"
-                  value={assignmentTitle}
-                  onChange={(event) => setAssignmentTitle(event.target.value)}
-                  placeholder="Devoir de mathematiques semaine 2"
-                />
-              </label>
-              <label className={styles.formField}>
-                <span>Consignes</span>
-                <textarea
-                  className={styles.formTextarea}
-                  rows={4}
-                  value={assignmentInstructions}
-                  onChange={(event) => setAssignmentInstructions(event.target.value)}
-                  placeholder="Instructions, format attendu, date limite et criteres."
-                />
-              </label>
-              <label className={styles.formField}>
-                <span>Piece jointe du devoir</span>
-                <input
-                  type="file"
-                  accept=".pdf,.doc,.docx,image/png,image/jpeg"
-                  disabled={assignmentUploading || !(assignmentRoomId || selectedRoomId)}
-                  onChange={handleAssignmentFileUpload}
-                />
-              </label>
-              {assignmentAttachment ? (
-                <p className={styles.inlineMessage}>
-                  Fichier joint: {assignmentAttachment.name}
-                </p>
-              ) : null}
-              <button type="submit" className={styles.submitButton}>
-                {assignmentUploading ? "Upload en cours..." : "Publier le devoir"}
-              </button>
-              {selectedCourseForAssignment ? (
-                <p className={styles.inlineMessage}>
-                  Devoir rattache a: {"title" in selectedCourseForAssignment
-                    ? String(selectedCourseForAssignment.title ?? "")
-                    : ""}
-                </p>
-              ) : null}
-            </form>
+            <div className={styles.roadmapList}>
+              <article className={styles.roadmapItem}>
+                <strong>Administrateur</strong>
+                <p>Creer les comptes, structurer les classes, affecter les cours, bloquer ou reactiver un eleve.</p>
+              </article>
+              <article className={styles.roadmapItem}>
+                <strong>Professeur</strong>
+                <p>Publier les devoirs, faire l&apos;appel, ajuster le planning et suivre les copies de ses classes.</p>
+              </article>
+              <article className={styles.roadmapItem}>
+                <strong>Etudiant</strong>
+                <p>Acceder uniquement aux cours, devoirs, planning et annonces de son etablissement.</p>
+              </article>
+            </div>
           </section>
 
-          {activeView === "overview" ? (
           <section className={styles.card}>
             <div className={styles.sectionHeader}>
               <div>
@@ -2371,7 +1967,6 @@ export default function InstitutionWorkspace({ apiBaseUrl }: Props) {
               </div>
             ) : null}
           </section>
-          ) : null}
         </section>
         ) : null}
 
