@@ -115,6 +115,7 @@ export class DashboardService {
             id,
             title,
             description,
+            thumbnail_url,
             course_modules (
               lessons (
                 id,
@@ -334,6 +335,7 @@ export class DashboardService {
         enrollmentId: item.id,
         title: item.courses?.title ?? 'Cours sans titre',
         description: item.courses?.description ?? '',
+        thumbnailUrl: item.courses?.thumbnail_url ?? '',
         progress,
         nextLesson,
         enrolledAt: item.enrolled_at,

@@ -117,7 +117,11 @@
   grid-template-rows: auto auto 1fr auto;
   color: #edf8f7;
   background:
-    radial-gradient(circle at 12% 2%, rgba(0, 211, 194, 0.16), transparent 12rem),
+    radial-gradient(
+      circle at 12% 2%,
+      rgba(0, 211, 194, 0.16),
+      transparent 12rem
+    ),
     linear-gradient(180deg, #071426 0%, #0a1930 100%);
   box-shadow: 1.5rem 0 4rem rgba(3, 12, 27, 0.35);
   animation: mobileMenuEnter 220ms ease-out both;
@@ -299,7 +303,11 @@
 }
 
 .mobileMenuItemActive {
-  background: linear-gradient(90deg, rgba(0, 211, 194, 0.24), rgba(0, 143, 149, 0.08));
+  background: linear-gradient(
+    90deg,
+    rgba(0, 211, 194, 0.24),
+    rgba(0, 143, 149, 0.08)
+  );
 }
 
 .mobileMenuItemActive::before {
@@ -2877,4 +2885,99 @@
 .desktopNavigationControl,
 .studentTabs.desktopViewTabs {
   display: none;
+}
+
+/* Course shelves keep each dashboard compact on every device. */
+.discoveryGrid,
+.courseList,
+.teacherCourseGrid {
+  display: grid;
+  grid-template-columns: none;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(16rem, 19rem);
+  gap: 1rem;
+  padding: 0.2rem 0.1rem 0.8rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-inline: contain;
+  scroll-snap-type: inline mandatory;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 143, 149, 0.34) transparent;
+}
+
+.discoveryGrid > *,
+.courseList > *,
+.teacherCourseGrid > * {
+  scroll-snap-align: start;
+}
+
+.discoveryCard,
+.courseCard,
+.teacherCourseCard {
+  align-content: start;
+  overflow: hidden;
+}
+
+.dashboardCourseThumbnail {
+  position: relative;
+  width: calc(100% + 2rem);
+  margin: -1rem -1rem 0.1rem;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: linear-gradient(135deg, #073a49, #008f95);
+}
+
+.dashboardCourseThumbnail > img {
+  object-fit: cover;
+  transition: transform 260ms ease;
+}
+
+.discoveryCard:hover .dashboardCourseThumbnail > img,
+.courseCard:hover .dashboardCourseThumbnail > img,
+.teacherCourseCard:hover .dashboardCourseThumbnail > img {
+  transform: scale(1.035);
+}
+
+.dashboardCourseFallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 0.25rem;
+  color: #ffffff;
+  background:
+    radial-gradient(
+      circle at 82% 15%,
+      rgba(255, 107, 40, 0.78),
+      transparent 5rem
+    ),
+    linear-gradient(135deg, #073a49, #008f95);
+}
+
+.dashboardCourseFallback img {
+  width: 3.5rem;
+  height: auto;
+}
+
+.dashboardCourseFallback span {
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 640px) {
+  .discoveryGrid,
+  .courseList,
+  .teacherCourseGrid {
+    grid-auto-columns: minmax(13.5rem, 64vw);
+    margin-inline: -0.15rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboardCourseThumbnail > img {
+    transition: none;
+  }
 }

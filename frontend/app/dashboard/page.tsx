@@ -105,6 +105,7 @@ type DiscoveryCourse = {
   enrolled?: boolean;
   ratingAverage?: number;
   lessonsCount?: number;
+  thumbnailUrl?: string;
   campusOnly?: boolean;
   roomNames?: string[];
 };
@@ -195,6 +196,21 @@ export default function DashboardPage() {
   const router = useRouter();
   const apiBaseUrl =
     process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
+  const storageBaseUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://njoucnnjlrwbbhnktaho.supabase.co"}/storage/v1/object/public`;
+  const getCourseThumbnailUrl = (path: unknown) => {
+    const value = String(path ?? "").trim();
+    if (!value) return "";
+    if (value.startsWith("http://") || value.startsWith("https://")) {
+      return value;
+    }
+
+    const encodedPath = value
+      .split("/")
+      .filter(Boolean)
+      .map((segment) => encodeURIComponent(segment))
+      .join("/");
+    return `${storageBaseUrl}/course-thumbnails/${encodedPath}`;
+  };
   const [user] = useState<StoredUser | null>(() => {
     if (typeof window === "undefined") return null;
     const rawUser = localStorage.getItem("kalatty_user");
@@ -316,7 +332,9 @@ export default function DashboardPage() {
         const notificationStorageKey = `${READ_NOTIFICATIONS_KEY_PREFIX}:${
           typedData.profile?.email ?? "local"
         }`;
-        const locallyReadIds = getStoredReadNotifications(notificationStorageKey);
+        const locallyReadIds = getStoredReadNotifications(
+          notificationStorageKey,
+        );
         const notificationsRes = await fetch(`${apiBaseUrl}/notifications`, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -328,7 +346,9 @@ export default function DashboardPage() {
               : []
           ).map((notification) => ({
             ...notification,
-            read: Boolean(notification.read || locallyReadIds.has(notification.id)),
+            read: Boolean(
+              notification.read || locallyReadIds.has(notification.id),
+            ),
           }));
           setNotifications(nextNotifications);
           setUnreadNotifications(
@@ -476,32 +496,30 @@ export default function DashboardPage() {
   const studentRooms = dashboardData?.studentRooms ?? [];
   const campusSchedule = dashboardData?.campusSchedule ?? [];
   const heroCourse = studentCourses[0];
-  const discoveryCourses: DiscoveryCourse[] =
-    isInstitutionStudent
-      ? (dashboardData?.campusCourses ?? []).map((course, index) => ({
-          id: String(course.id ?? `campus-course-${index}`),
-          title: String(course.title ?? "Cours campus"),
-          description: String(
-            course.description ?? "Cours attribue par ton etablissement.",
-          ),
-          progress: Number(course.progress ?? 0),
-          badge: String(course.badge ?? "Campus"),
-          category: Array.isArray(course.roomNames)
-            ? course.roomNames.join(", ")
-            : String(course.category ?? "Classe"),
-          priceFcfa: Number(course.priceFcfa ?? 0),
-          teacherName: String(
-            course.teacherName ?? "Professeur etablissement",
-          ),
-          ratingAverage: Number(course.ratingAverage ?? 0),
-          lessonsCount: Number(course.lessonsCount ?? 0),
-          campusOnly: true,
-          roomNames: Array.isArray(course.roomNames)
-            ? course.roomNames.map(String)
-            : [],
-        }))
-      : (dashboardData?.catalogCourses?.length ?? 0) > 0
-        ? (dashboardData?.catalogCourses ?? [])
+  const discoveryCourses: DiscoveryCourse[] = isInstitutionStudent
+    ? (dashboardData?.campusCourses ?? []).map((course, index) => ({
+        id: String(course.id ?? `campus-course-${index}`),
+        title: String(course.title ?? "Cours campus"),
+        description: String(
+          course.description ?? "Cours attribue par ton etablissement.",
+        ),
+        progress: Number(course.progress ?? 0),
+        badge: String(course.badge ?? "Campus"),
+        category: Array.isArray(course.roomNames)
+          ? course.roomNames.join(", ")
+          : String(course.category ?? "Classe"),
+        priceFcfa: Number(course.priceFcfa ?? 0),
+        teacherName: String(course.teacherName ?? "Professeur etablissement"),
+        ratingAverage: Number(course.ratingAverage ?? 0),
+        lessonsCount: Number(course.lessonsCount ?? 0),
+        thumbnailUrl: String(course.thumbnailUrl ?? ""),
+        campusOnly: true,
+        roomNames: Array.isArray(course.roomNames)
+          ? course.roomNames.map(String)
+          : [],
+      }))
+    : (dashboardData?.catalogCourses?.length ?? 0) > 0
+      ? (dashboardData?.catalogCourses ?? [])
           .slice(0, 6)
           .map((course, index) => ({
             id: String(course.id ?? `course-${index}`),
@@ -518,8 +536,9 @@ export default function DashboardPage() {
             teacherName: String(course.teacherName ?? "Formateur Kalatty"),
             ratingAverage: Number(course.ratingAverage ?? 0),
             lessonsCount: Number(course.lessonsCount ?? 0),
+            thumbnailUrl: String(course.thumbnailUrl ?? ""),
           }))
-        : fallbackDiscovery;
+      : fallbackDiscovery;
   const weeklySchedule = isInstitutionStudent
     ? campusSchedule.map((item, index) => ({
         day: String(item.day ?? "A venir"),
@@ -1389,7 +1408,9 @@ export default function DashboardPage() {
 
           <div className={styles.actions}>
             {role === "student" ? (
-              <label className={`${styles.viewPicker} ${styles.desktopNavigationControl}`}>
+              <label
+                className={`${styles.viewPicker} ${styles.desktopNavigationControl}`}
+              >
                 <span>
                   {isInstitutionStudent
                     ? "Menu etudiant campus"
@@ -1410,7 +1431,9 @@ export default function DashboardPage() {
                 </select>
               </label>
             ) : role === "teacher" ? (
-              <label className={`${styles.viewPicker} ${styles.desktopNavigationControl}`}>
+              <label
+                className={`${styles.viewPicker} ${styles.desktopNavigationControl}`}
+              >
                 <span>
                   {isInstitutionTeacher
                     ? "Menu professeur campus"
@@ -1430,7 +1453,9 @@ export default function DashboardPage() {
                 </select>
               </label>
             ) : null}
-            <div className={`${styles.roleBadge} ${styles.desktopNavigationControl}`}>
+            <div
+              className={`${styles.roleBadge} ${styles.desktopNavigationControl}`}
+            >
               {workspaceTitle}
             </div>
             <button
@@ -1672,6 +1697,26 @@ export default function DashboardPage() {
                   <div className={styles.discoveryGrid}>
                     {filteredDiscovery.map((course) => (
                       <article key={course.id} className={styles.discoveryCard}>
+                        <div className={styles.dashboardCourseThumbnail}>
+                          {getCourseThumbnailUrl(course.thumbnailUrl) ? (
+                            <Image
+                              src={getCourseThumbnailUrl(course.thumbnailUrl)}
+                              alt={`Miniature du cours ${course.title}`}
+                              fill
+                              sizes="(max-width: 640px) 64vw, 19rem"
+                            />
+                          ) : (
+                            <div className={styles.dashboardCourseFallback}>
+                              <Image
+                                src="/kalatty-logo.png"
+                                alt=""
+                                width={64}
+                                height={64}
+                              />
+                              <span>Cours Kalatty</span>
+                            </div>
+                          )}
+                        </div>
                         <div className={styles.discoveryTop}>
                           <span className={styles.discoveryBadge}>
                             {course.badge}
@@ -1895,6 +1940,26 @@ export default function DashboardPage() {
                           key={String(course.id)}
                           className={styles.courseCard}
                         >
+                          <div className={styles.dashboardCourseThumbnail}>
+                            {getCourseThumbnailUrl(course.thumbnailUrl) ? (
+                              <Image
+                                src={getCourseThumbnailUrl(course.thumbnailUrl)}
+                                alt={`Miniature du cours ${String(course.title ?? "Cours")}`}
+                                fill
+                                sizes="(max-width: 640px) 64vw, 19rem"
+                              />
+                            ) : (
+                              <div className={styles.dashboardCourseFallback}>
+                                <Image
+                                  src="/kalatty-logo.png"
+                                  alt=""
+                                  width={64}
+                                  height={64}
+                                />
+                                <span>Cours Kalatty</span>
+                              </div>
+                            )}
+                          </div>
                           <div className={styles.courseHead}>
                             <div>
                               <h3>
@@ -2342,6 +2407,28 @@ export default function DashboardPage() {
                             key={String(course.id)}
                             className={styles.teacherCourseCard}
                           >
+                            <div className={styles.dashboardCourseThumbnail}>
+                              {getCourseThumbnailUrl(course.thumbnailUrl) ? (
+                                <Image
+                                  src={getCourseThumbnailUrl(
+                                    course.thumbnailUrl,
+                                  )}
+                                  alt={`Miniature du cours ${String(course.title ?? "Cours")}`}
+                                  fill
+                                  sizes="(max-width: 640px) 64vw, 19rem"
+                                />
+                              ) : (
+                                <div className={styles.dashboardCourseFallback}>
+                                  <Image
+                                    src="/kalatty-logo.png"
+                                    alt=""
+                                    width={64}
+                                    height={64}
+                                  />
+                                  <span>Cours Kalatty</span>
+                                </div>
+                              )}
+                            </div>
                             <div className={styles.teacherMeta}>
                               <span>
                                 {Number(course.lessonsCount ?? 0)} lecons
