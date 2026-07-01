@@ -606,7 +606,7 @@ export default function TeacherCourseBuilder({
 
       await onCourseCreated();
       resetBuilder();
-      setCourseMessage("Cours supprime definitivement.");
+      setCourseMessage(data.message ?? "Cours supprime definitivement.");
       onCancelEdit?.();
     } catch {
       setCourseMessage("La suppression du cours a echoue.");

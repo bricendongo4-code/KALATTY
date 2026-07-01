@@ -631,7 +631,8 @@ export class DashboardService {
           lessons ( id, video_path )
         `,
       )
-      .eq('teacher_id', profile.id);
+      .eq('teacher_id', profile.id)
+      .neq('status', 'archived');
 
     const thumbnailUrls = await this.resolveStorageUrls(
       'course-thumbnails',

@@ -192,6 +192,7 @@ export class CoursesService {
         `,
       )
       .eq('teacher_id', user.id)
+      .neq('status', 'archived')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -459,18 +460,19 @@ export class CoursesService {
       );
     }
 
-    if (
-      course.status !== 'published' &&
-      role !== 'admin' &&
-      !(role === 'teacher' && course.teacher_id === user.id)
-    ) {
-      throw new ForbiddenException("Ce cours n'est pas accessible.");
-    }
-
     const studentAccess =
       role === 'student'
         ? await this.getStudentCourseAccess(user.id, courseId)
         : { hasAccess: false, institutionAccess: false };
+
+    if (
+      course.status !== 'published' &&
+      role !== 'admin' &&
+      !(role === 'teacher' && course.teacher_id === user.id) &&
+      !(role === 'student' && studentAccess.hasAccess)
+    ) {
+      throw new ForbiddenException("Ce cours n'est pas accessible.");
+    }
 
     const lessonIds = (course.course_modules ?? []).flatMap((module: any) =>
       (module.lessons ?? []).map((lesson: any) => lesson.id),
@@ -1280,9 +1282,19 @@ export class CoursesService {
       ['paid', 'refunded'].includes(String(payment.status ?? '')),
     );
     if (protectedPayments.length > 0) {
-      throw new BadRequestException(
-        'Ce cours possede un historique financier. Archive-le afin de conserver les paiements et les justificatifs.',
-      );
+      const { error: archiveError } = await this.supabaseService.client
+        .from('courses')
+        .update({ status: 'archived' })
+        .eq('id', course.id);
+      this.assertCourseDeletionQuery(archiveError, 'le retrait du cours');
+
+      return {
+        id: course.id,
+        status: 'archived',
+        deletionMode: 'financial-archive',
+        message:
+          'Cours retire du catalogue et de ton espace. Les apprenants deja inscrits conservent leur acces.',
+      };
     }
 
     const lessonIds = (lessonsResult.data ?? [])
