@@ -1183,6 +1183,10 @@ export class CoursesService {
       this.getDefaultCourseThumbnailUrl();
     const priceFcfa = Number(payload.price_fcfa ?? 0);
     const status = this.normalizeCourseStatus(payload.status, course.status);
+    const publicationUpdate =
+      status === 'published' && course.status !== 'published'
+        ? { created_at: new Date().toISOString() }
+        : {};
     const modules = (payload.modules ?? []).filter((module) =>
       module?.title?.trim(),
     );
@@ -1205,6 +1209,7 @@ export class CoursesService {
           price_fcfa: priceFcfa,
           thumbnail_url: thumbnailPath,
           status,
+          ...publicationUpdate,
         })
         .eq('id', course.id)
         .select(
