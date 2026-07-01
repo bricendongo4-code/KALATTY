@@ -2074,6 +2074,59 @@
   padding: 0.65rem 0.9rem;
 }
 
+.courseDangerZone {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
+  margin-top: 1.25rem;
+  padding: 1rem;
+  border: 1px solid rgba(190, 38, 38, 0.28);
+  border-radius: var(--radius);
+  background: rgba(255, 241, 241, 0.82);
+}
+
+.courseDangerZone > div:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.courseDangerZone span {
+  color: #a31d1d;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.courseDangerZone p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.dangerButton {
+  min-height: 2.8rem;
+  padding: 0.7rem 1rem;
+  border: 1px solid #b42323;
+  border-radius: 999px;
+  background: #b42323;
+  color: #ffffff;
+  font-weight: 900;
+}
+
+.dangerButton:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.courseDeleteConfirmation {
+  min-width: min(100%, 24rem);
+  display: grid;
+  gap: 0.75rem;
+}
+
 .thumbnailDropzone {
   min-height: 7rem;
   display: grid;
@@ -2653,6 +2706,15 @@
 }
 
 @media (max-width: 640px) {
+  .courseDangerZone {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .courseDangerZone > .dangerButton {
+    width: 100%;
+  }
+
   .dashboardShell {
     padding: max(0.75rem, env(safe-area-inset-top))
       max(0.75rem, env(safe-area-inset-right))

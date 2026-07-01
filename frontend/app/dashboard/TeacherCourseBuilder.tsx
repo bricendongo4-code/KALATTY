@@ -80,6 +80,9 @@ export default function TeacherCourseBuilder({
   const [loadingCourseDraft, setLoadingCourseDraft] = useState(false);
   const [localDraftReady, setLocalDraftReady] = useState(false);
   const [localDraftMessage, setLocalDraftMessage] = useState("");
+  const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
+  const [deleteConfirmationText, setDeleteConfirmationText] = useState("");
+  const [courseDeleting, setCourseDeleting] = useState(false);
 
   const totalLessons = useMemo(
     () =>
@@ -169,6 +172,8 @@ export default function TeacherCourseBuilder({
     setThumbnailPath("");
     setModules([createModule()]);
     setStep("landing");
+    setDeleteConfirmationOpen(false);
+    setDeleteConfirmationText("");
   };
 
   const clearLocalDraft = () => {
@@ -569,6 +574,44 @@ export default function TeacherCourseBuilder({
       );
     } finally {
       setCourseLoading(false);
+    }
+  };
+
+  const handleDeleteCourse = async () => {
+    const token = localStorage.getItem("kalatty_token");
+    if (!token || !editingCourseId) {
+      setCourseMessage("Session ou cours introuvable.");
+      return;
+    }
+
+    if (deleteConfirmationText.trim() !== courseTitle.trim()) {
+      setCourseMessage("Saisis exactement le titre du cours pour confirmer.");
+      return;
+    }
+
+    setCourseDeleting(true);
+    setCourseMessage("");
+
+    try {
+      const res = await fetch(`${apiBaseUrl}/courses/${editingCourseId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = (await res.json()) as { message?: string };
+
+      if (!res.ok) {
+        setCourseMessage(data.message ?? "Le cours n'a pas pu etre supprime.");
+        return;
+      }
+
+      await onCourseCreated();
+      resetBuilder();
+      setCourseMessage("Cours supprime definitivement.");
+      onCancelEdit?.();
+    } catch {
+      setCourseMessage("La suppression du cours a echoue.");
+    } finally {
+      setCourseDeleting(false);
     }
   };
 
@@ -1294,6 +1337,71 @@ export default function TeacherCourseBuilder({
 
           {courseMessage ? (
             <p className={styles.inlineMessage}>{courseMessage}</p>
+          ) : null}
+
+          {editingCourseId ? (
+            <section className={styles.courseDangerZone}>
+              <div>
+                <span>Zone dangereuse</span>
+                <strong>Supprimer entierement ce cours</strong>
+                <p>
+                  Le cours, ses lecons et ses inscriptions seront supprimes. Les
+                  devoirs deja remis resteront conserves sans lien au cours.
+                </p>
+              </div>
+
+              {!deleteConfirmationOpen ? (
+                <button
+                  type="button"
+                  className={styles.dangerButton}
+                  onClick={() => setDeleteConfirmationOpen(true)}
+                >
+                  Demander la suppression
+                </button>
+              ) : (
+                <div className={styles.courseDeleteConfirmation}>
+                  <label className={styles.formField}>
+                    <span>
+                      Saisis <strong>{courseTitle}</strong> pour confirmer
+                    </span>
+                    <input
+                      type="text"
+                      value={deleteConfirmationText}
+                      onChange={(event) =>
+                        setDeleteConfirmationText(event.target.value)
+                      }
+                      autoComplete="off"
+                    />
+                  </label>
+                  <div className={styles.courseStudioActions}>
+                    <button
+                      type="button"
+                      className={styles.secondaryButton}
+                      onClick={() => {
+                        setDeleteConfirmationOpen(false);
+                        setDeleteConfirmationText("");
+                      }}
+                      disabled={courseDeleting}
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.dangerButton}
+                      onClick={() => void handleDeleteCourse()}
+                      disabled={
+                        courseDeleting ||
+                        deleteConfirmationText.trim() !== courseTitle.trim()
+                      }
+                    >
+                      {courseDeleting
+                        ? "Suppression..."
+                        : "Supprimer definitivement"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </section>
           ) : null}
         </form>
       </div>

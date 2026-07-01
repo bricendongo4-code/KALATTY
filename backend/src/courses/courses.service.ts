@@ -1248,6 +1248,189 @@ export class CoursesService {
     };
   }
 
+  async deleteCourse(user: AuthUser, courseId: string) {
+    const course = await this.assertTeacherCourseAccess(user, courseId);
+
+    const [lessonsResult, exercisesResult, assetsResult, paymentsResult] =
+      await Promise.all([
+        this.supabaseService.client
+          .from('lessons')
+          .select('id, video_path')
+          .eq('course_id', course.id),
+        this.supabaseService.client
+          .from('exercises')
+          .select('id')
+          .eq('course_id', course.id),
+        this.supabaseService.client
+          .from('course_assets')
+          .select('file_path')
+          .eq('course_id', course.id),
+        this.supabaseService.client
+          .from('payments')
+          .select('id, status')
+          .eq('course_id', course.id),
+      ]);
+
+    this.assertCourseDeletionQuery(lessonsResult.error, 'les lecons');
+    this.assertCourseDeletionQuery(exercisesResult.error, 'les exercices');
+    this.assertCourseDeletionQuery(assetsResult.error, 'les ressources');
+    this.assertCourseDeletionQuery(paymentsResult.error, 'les paiements');
+
+    const protectedPayments = (paymentsResult.data ?? []).filter((payment) =>
+      ['paid', 'refunded'].includes(String(payment.status ?? '')),
+    );
+    if (protectedPayments.length > 0) {
+      throw new BadRequestException(
+        'Ce cours possede un historique financier. Archive-le afin de conserver les paiements et les justificatifs.',
+      );
+    }
+
+    const lessonIds = (lessonsResult.data ?? [])
+      .map((lesson) => String(lesson.id ?? ''))
+      .filter(Boolean);
+    const exerciseIds = (exercisesResult.data ?? [])
+      .map((exercise) => String(exercise.id ?? ''))
+      .filter(Boolean);
+    const exerciseFilesResult = exerciseIds.length
+      ? await this.supabaseService.client
+          .from('exercise_files')
+          .select('file_path')
+          .in('exercise_id', exerciseIds)
+      : { data: [], error: null };
+
+    this.assertCourseDeletionQuery(
+      exerciseFilesResult.error,
+      "les fichiers d'exercices",
+    );
+
+    const assignmentsUpdate = await this.supabaseService.client
+      .from('assignments')
+      .update({ course_id: null, lesson_id: null })
+      .eq('course_id', course.id);
+    this.assertCourseDeletionQuery(assignmentsUpdate.error, 'les devoirs');
+
+    const teacherReviewsUpdate = await this.supabaseService.client
+      .from('teacher_reviews')
+      .update({ course_id: null })
+      .eq('course_id', course.id);
+    if (
+      teacherReviewsUpdate.error &&
+      !this.isMissingTableError(teacherReviewsUpdate.error)
+    ) {
+      this.assertCourseDeletionQuery(
+        teacherReviewsUpdate.error,
+        'les avis formateur',
+      );
+    }
+
+    if (lessonIds.length > 0) {
+      const progressDelete = await this.supabaseService.client
+        .from('progress')
+        .delete()
+        .in('lesson_id', lessonIds);
+      this.assertCourseDeletionQuery(progressDelete.error, 'la progression');
+    }
+
+    if (exerciseIds.length > 0) {
+      const exerciseFilesDelete = await this.supabaseService.client
+        .from('exercise_files')
+        .delete()
+        .in('exercise_id', exerciseIds);
+      this.assertCourseDeletionQuery(
+        exerciseFilesDelete.error,
+        "les fichiers d'exercices",
+      );
+    }
+
+    const contentDeleteResults = await Promise.all([
+      this.supabaseService.client
+        .from('exercises')
+        .delete()
+        .eq('course_id', course.id),
+      this.supabaseService.client
+        .from('course_assets')
+        .delete()
+        .eq('course_id', course.id),
+    ]);
+    contentDeleteResults.forEach((result) =>
+      this.assertCourseDeletionQuery(result.error, 'le contenu du cours'),
+    );
+
+    const lessonsDelete = await this.supabaseService.client
+      .from('lessons')
+      .delete()
+      .eq('course_id', course.id);
+    this.assertCourseDeletionQuery(lessonsDelete.error, 'les lecons');
+
+    const modulesDelete = await this.supabaseService.client
+      .from('course_modules')
+      .delete()
+      .eq('course_id', course.id);
+    this.assertCourseDeletionQuery(modulesDelete.error, 'les modules');
+
+    const associationDeleteResults = await Promise.all([
+      this.supabaseService.client
+        .from('enrollments')
+        .delete()
+        .eq('course_id', course.id),
+      this.supabaseService.client
+        .from('room_courses')
+        .delete()
+        .eq('course_id', course.id),
+      this.supabaseService.client
+        .from('institution_courses')
+        .delete()
+        .eq('course_id', course.id),
+      this.supabaseService.client
+        .from('course_reviews')
+        .delete()
+        .eq('course_id', course.id),
+      this.supabaseService.client
+        .from('payments')
+        .delete()
+        .eq('course_id', course.id),
+    ]);
+    associationDeleteResults.forEach((result) =>
+      this.assertCourseDeletionQuery(result.error, 'les associations du cours'),
+    );
+
+    const { error: courseDeleteError } = await this.supabaseService.client
+      .from('courses')
+      .delete()
+      .eq('id', course.id);
+    this.assertCourseDeletionQuery(courseDeleteError, 'le cours');
+
+    const thumbnailPath = String(course.thumbnail_url ?? '').trim();
+    const videoPaths = (lessonsResult.data ?? [])
+      .map((lesson) => String(lesson.video_path ?? '').trim())
+      .filter(Boolean);
+    const filePaths = [
+      ...(assetsResult.data ?? []).map((asset) =>
+        String(asset.file_path ?? '').trim(),
+      ),
+      ...(exerciseFilesResult.data ?? []).map((file) =>
+        String(file.file_path ?? '').trim(),
+      ),
+    ].filter(Boolean);
+
+    await Promise.all([
+      this.removeStorageFiles(
+        'course-thumbnails',
+        thumbnailPath && !thumbnailPath.startsWith('http')
+          ? [thumbnailPath]
+          : [],
+      ),
+      this.removeStorageFiles('course-videos', videoPaths),
+      this.removeStorageFiles('course-files', filePaths),
+    ]);
+
+    return {
+      id: course.id,
+      status: 'deleted',
+      message: 'Cours supprime definitivement.',
+    };
+  }
+
   private async assertTeacher(user: AuthUser) {
     const role = await this.resolveRole(user);
 
@@ -1628,6 +1811,30 @@ export class CoursesService {
       .in('lesson_id', lessonIds);
 
     return (data ?? []).map((exercise: any) => exercise.id).filter(Boolean);
+  }
+
+  private assertCourseDeletionQuery(
+    error: { message?: string } | null | undefined,
+    resource: string,
+  ) {
+    if (!error) {
+      return;
+    }
+
+    throw new BadRequestException(
+      error.message ?? `Impossible de supprimer ${resource}.`,
+    );
+  }
+
+  private async removeStorageFiles(bucket: string, paths: string[]) {
+    const uniquePaths = Array.from(
+      new Set(paths.map((path) => path.trim()).filter(Boolean)),
+    );
+    if (uniquePaths.length === 0) {
+      return;
+    }
+
+    await this.supabaseService.client.storage.from(bucket).remove(uniquePaths);
   }
 
   private async resolveStorageUrl(bucket: string, path: string) {

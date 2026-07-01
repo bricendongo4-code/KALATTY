@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -87,6 +88,12 @@ export class CoursesController {
       courseId,
       body as Parameters<CoursesService['updateCourse']>[2],
     );
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Delete(':courseId')
+  remove(@Req() req: RequestUser, @Param('courseId') courseId: string) {
+    return this.coursesService.deleteCourse(req.user, courseId);
   }
 
   @UseGuards(AuthGuard('jwt'))
