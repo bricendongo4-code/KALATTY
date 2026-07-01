@@ -282,6 +282,17 @@ export class DashboardService {
       ? []
       : (catalogReviewResult.data ?? []);
 
+    const thumbnailUrls = await this.resolveStorageUrls('course-thumbnails', [
+      ...(enrollments ?? []).map((item: any) => item.courses?.thumbnail_url),
+      ...(catalogRows ?? []).map((course: any) => course.thumbnail_url),
+      ...(roomCourseRows ?? []).map((row: any) => {
+        const course = Array.isArray(row.courses)
+          ? row.courses[0]
+          : row.courses;
+        return course?.thumbnail_url;
+      }),
+    ]);
+
     const enrollmentsList = (enrollments ?? []).map((item: any) => {
       const progressByLesson = new Map<string, string>();
       for (const row of progressRows ?? []) {
@@ -335,7 +346,8 @@ export class DashboardService {
         enrollmentId: item.id,
         title: item.courses?.title ?? 'Cours sans titre',
         description: item.courses?.description ?? '',
-        thumbnailUrl: item.courses?.thumbnail_url ?? '',
+        thumbnailUrl:
+          thumbnailUrls.get(String(item.courses?.thumbnail_url ?? '')) ?? '',
         progress,
         nextLesson,
         enrolledAt: item.enrolled_at,
@@ -378,7 +390,7 @@ export class DashboardService {
         'Cours disponible sur Kalatty.',
       fullDescription: course.description ?? '',
       priceFcfa: Number(course.price_fcfa ?? 0),
-      thumbnailUrl: course.thumbnail_url ?? '',
+      thumbnailUrl: thumbnailUrls.get(String(course.thumbnail_url ?? '')) ?? '',
       teacherName: course.profiles?.fullname ?? 'Formateur Kalatty',
       badge: 'Disponible',
       category: 'Catalogue',
@@ -422,7 +434,8 @@ export class DashboardService {
           'Cours attribue par ton etablissement.',
         fullDescription: course.description ?? '',
         priceFcfa: Number(course.price_fcfa ?? 0),
-        thumbnailUrl: course.thumbnail_url ?? '',
+        thumbnailUrl:
+          thumbnailUrls.get(String(course.thumbnail_url ?? '')) ?? '',
         teacherName: course.profiles?.fullname ?? 'Professeur etablissement',
         badge: 'Campus',
         category: roomName,
@@ -620,6 +633,11 @@ export class DashboardService {
       )
       .eq('teacher_id', profile.id);
 
+    const thumbnailUrls = await this.resolveStorageUrls(
+      'course-thumbnails',
+      (courses ?? []).map((course: any) => course.thumbnail_url),
+    );
+
     const coursesList = (courses ?? []).map((course: any) => ({
       id: course.id,
       title: course.title,
@@ -628,7 +646,7 @@ export class DashboardService {
       videoUrl:
         course.lessons?.find((lesson: any) => lesson.video_path)?.video_path ??
         '',
-      thumbnailUrl: course.thumbnail_url ?? '',
+      thumbnailUrl: thumbnailUrls.get(String(course.thumbnail_url ?? '')) ?? '',
       createdAt: course.created_at,
       learners: course.enrollments?.length ?? 0,
       lessonsCount: course.lessons?.length ?? 0,
@@ -664,6 +682,32 @@ export class DashboardService {
         'Suivre les inscriptions des derniers apprenants.',
       ],
     };
+  }
+
+  private async resolveStorageUrls(bucket: string, paths: unknown[]) {
+    const uniquePaths = Array.from(
+      new Set(
+        paths
+          .map((path) => String(path ?? '').trim())
+          .filter((path) => path.length > 0),
+      ),
+    );
+
+    const entries = await Promise.all(
+      uniquePaths.map(async (path) => {
+        if (path.startsWith('http://') || path.startsWith('https://')) {
+          return [path, path] as const;
+        }
+
+        const { data, error } = await this.supabaseService.client.storage
+          .from(bucket)
+          .createSignedUrl(path, 60 * 60 * 24 * 7);
+
+        return [path, error || !data?.signedUrl ? '' : data.signedUrl] as const;
+      }),
+    );
+
+    return new Map(entries);
   }
 
   private async resolveDashboardContext(
