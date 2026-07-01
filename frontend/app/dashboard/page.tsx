@@ -1275,7 +1275,7 @@ export default function DashboardPage() {
   return (
     <main className={styles.dashboardShell}>
       <section className={styles.dashboardMasthead}>
-        <Link href="/" className={styles.dashboardBrandLink}>
+        <Link href="/dashboard" className={styles.dashboardBrandLink}>
           <Image
             src="/kalatty-logo.png"
             alt="Logo Kalatty"
@@ -1399,7 +1399,7 @@ export default function DashboardPage() {
       <section className={styles.hero}>
         <div className={styles.heroTop}>
           <div>
-            <Link href="/" className={styles.heroBrandLink}>
+            <Link href="/dashboard" className={styles.heroBrandLink}>
               <div className={styles.heroBrand}>
                 <Image
                   src="/kalatty-logo.png"

@@ -4,6 +4,7 @@ import Link from "next/link";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./globals.css";
 import NavigationBackButton from "./NavigationBackButton";
+import SessionAwareHomeLink from "./SessionAwareHomeLink";
 
 export const metadata: Metadata = {
   title: "Kalatty",
@@ -42,10 +43,9 @@ export default function RootLayout({
               className="siteFooterBrand"
               aria-label="Presentation Kalatty"
             >
-              <Link
-                href="/"
+              <SessionAwareHomeLink
                 className="siteFooterLogoLink"
-                aria-label="Retour a l'accueil Kalatty"
+                ariaLabel="Retour a l'accueil Kalatty"
               >
                 <Image
                   src="/kalatty-logo.png"
@@ -58,7 +58,7 @@ export default function RootLayout({
                   <strong>Kalatty</strong>
                   <small>Apprendre, enseigner, piloter.</small>
                 </span>
-              </Link>
+              </SessionAwareHomeLink>
               <p>
                 La plateforme e-learning qui connecte les apprenants, les
                 formateurs independants et les etablissements dans un espace

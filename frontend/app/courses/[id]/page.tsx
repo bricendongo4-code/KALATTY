@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { startTransition, useEffect, useRef, useState } from "react";
 import { buildLoginUrl } from "../../authRedirect";
+import SessionAwareHomeLink from "../../SessionAwareHomeLink";
 import styles from "./page.module.css";
 
 type CourseDetail = {
@@ -879,7 +880,10 @@ export default function CourseDetailPage({
       <section className={styles.hero}>
         <div className={styles.heroTop}>
           <div className={styles.heroTopLinks}>
-            <Link href="/" className={styles.brandLink}>
+            <SessionAwareHomeLink
+              className={styles.brandLink}
+              ariaLabel="Retour a l'espace Kalatty"
+            >
               <Image
                 src="/kalatty-logo.png"
                 alt="Logo Kalatty"
@@ -889,7 +893,7 @@ export default function CourseDetailPage({
                 priority
               />
               <strong>Kalatty</strong>
-            </Link>
+            </SessionAwareHomeLink>
             <Link href="/dashboard" className={styles.backLink}>
               Retour au dashboard
             </Link>
