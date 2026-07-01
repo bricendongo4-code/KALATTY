@@ -1104,7 +1104,8 @@ export class CoursesService {
     const title = typeof payload.title === 'string' ? payload.title.trim() : '';
     const description = payload.description?.trim() || null;
     const shortDescription = payload.short_description?.trim() || null;
-    const thumbnailPath = payload.thumbnail_path?.trim() || null;
+    const thumbnailPath =
+      payload.thumbnail_path?.trim() || this.getDefaultCourseThumbnailUrl();
     const priceFcfa = Number(payload.price_fcfa ?? 0);
     const status = this.normalizeCourseStatus(payload.status, 'published');
     const modules = (payload.modules ?? []).filter((module) =>
@@ -1176,7 +1177,10 @@ export class CoursesService {
     const title = typeof payload.title === 'string' ? payload.title.trim() : '';
     const description = payload.description?.trim() || null;
     const shortDescription = payload.short_description?.trim() || null;
-    const thumbnailPath = payload.thumbnail_path?.trim() || null;
+    const thumbnailPath =
+      payload.thumbnail_path?.trim() ||
+      String(course.thumbnail_url ?? '').trim() ||
+      this.getDefaultCourseThumbnailUrl();
     const priceFcfa = Number(payload.price_fcfa ?? 0);
     const status = this.normalizeCourseStatus(payload.status, course.status);
     const modules = (payload.modules ?? []).filter((module) =>
@@ -1644,5 +1648,13 @@ export class CoursesService {
     }
 
     return data.signedUrl;
+  }
+
+  private getDefaultCourseThumbnailUrl() {
+    const frontendUrl = (
+      process.env.FRONTEND_URL ?? 'https://kalatty-frontend.vercel.app'
+    ).replace(/\/+$/, '');
+
+    return `${frontendUrl}/kalatty-logo.png`;
   }
 }

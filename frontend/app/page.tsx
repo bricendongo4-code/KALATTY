@@ -235,7 +235,9 @@ export default function Home() {
   useEffect(() => {
     const loadDiscovery = async () => {
       try {
-        const res = await fetch(`${apiBaseUrl}/courses/discover`);
+        const res = await fetch(`${apiBaseUrl}/courses/discover`, {
+          cache: "no-store",
+        });
         const data = await res.json();
 
         if (!res.ok) {

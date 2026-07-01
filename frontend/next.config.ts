@@ -11,6 +11,10 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "njoucnnjlrwbbhnktaho.supabase.co",
       },
+      {
+        protocol: "https",
+        hostname: "kalatty-frontend.vercel.app",
+      },
     ],
   },
 };

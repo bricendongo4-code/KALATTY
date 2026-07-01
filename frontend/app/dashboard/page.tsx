@@ -314,6 +314,7 @@ export default function DashboardPage() {
     try {
       const res = await fetch(`${apiBaseUrl}/dashboard`, {
         headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
       });
       const data = await res.json();
       if (!res.ok) {
@@ -379,6 +380,20 @@ export default function DashboardPage() {
 
   useEffect(() => {
     void fetchDashboardOnLoad();
+
+    const refreshVisibleDashboard = () => {
+      if (document.visibilityState === "visible") {
+        void fetchDashboardOnLoad();
+      }
+    };
+
+    window.addEventListener("focus", refreshVisibleDashboard);
+    document.addEventListener("visibilitychange", refreshVisibleDashboard);
+
+    return () => {
+      window.removeEventListener("focus", refreshVisibleDashboard);
+      document.removeEventListener("visibilitychange", refreshVisibleDashboard);
+    };
   }, [apiBaseUrl, router]);
 
   const role: DashboardRole =
@@ -519,25 +534,23 @@ export default function DashboardPage() {
           : [],
       }))
     : (dashboardData?.catalogCourses?.length ?? 0) > 0
-      ? (dashboardData?.catalogCourses ?? [])
-          .slice(0, 6)
-          .map((course, index) => ({
-            id: String(course.id ?? `course-${index}`),
-            title: String(course.title ?? "Cours sans titre"),
-            description: String(
-              course.description ?? "Parcours a decouvrir sur Kalatty.",
-            ),
-            progress: Number(course.progress ?? 0),
-            badge: String(
-              course.badge ?? (index === 0 ? "Disponible" : "Catalogue"),
-            ),
-            category: String(course.category ?? "Catalogue"),
-            priceFcfa: Number(course.priceFcfa ?? 0),
-            teacherName: String(course.teacherName ?? "Formateur Kalatty"),
-            ratingAverage: Number(course.ratingAverage ?? 0),
-            lessonsCount: Number(course.lessonsCount ?? 0),
-            thumbnailUrl: String(course.thumbnailUrl ?? ""),
-          }))
+      ? (dashboardData?.catalogCourses ?? []).map((course, index) => ({
+          id: String(course.id ?? `course-${index}`),
+          title: String(course.title ?? "Cours sans titre"),
+          description: String(
+            course.description ?? "Parcours a decouvrir sur Kalatty.",
+          ),
+          progress: Number(course.progress ?? 0),
+          badge: String(
+            course.badge ?? (index === 0 ? "Disponible" : "Catalogue"),
+          ),
+          category: String(course.category ?? "Catalogue"),
+          priceFcfa: Number(course.priceFcfa ?? 0),
+          teacherName: String(course.teacherName ?? "Formateur Kalatty"),
+          ratingAverage: Number(course.ratingAverage ?? 0),
+          lessonsCount: Number(course.lessonsCount ?? 0),
+          thumbnailUrl: String(course.thumbnailUrl ?? ""),
+        }))
       : fallbackDiscovery;
   const weeklySchedule = isInstitutionStudent
     ? campusSchedule.map((item, index) => ({

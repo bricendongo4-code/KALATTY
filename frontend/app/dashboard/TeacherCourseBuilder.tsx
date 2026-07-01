@@ -552,7 +552,13 @@ export default function TeacherCourseBuilder({
       }
       resetBuilder();
       setCourseMessage(
-        isEditing ? "Cours modifie avec succes." : "Cours cree avec succes.",
+        isEditing
+          ? "Cours modifie avec succes."
+          : courseStatus === "published"
+            ? "Cours publie : il est maintenant visible par les etudiants."
+            : courseStatus === "draft"
+              ? "Brouillon enregistre. Il reste prive jusqu'a sa publication."
+              : "Cours enregistre comme archive.",
       );
       onCancelEdit?.();
     } catch {
@@ -848,6 +854,13 @@ export default function TeacherCourseBuilder({
                         <option value="draft">Brouillon</option>
                         <option value="archived">Archive</option>
                       </select>
+                      <small>
+                        {courseStatus === "published"
+                          ? "Visible dans le catalogue etudiant apres enregistrement."
+                          : courseStatus === "draft"
+                            ? "Le brouillon reste prive et ne sera pas visible par les etudiants."
+                            : "Un cours archive est retire du catalogue etudiant."}
+                      </small>
                     </label>
 
                     <label className={styles.formField}>
@@ -866,7 +879,8 @@ export default function TeacherCourseBuilder({
                         <small>
                           {thumbnailUploading
                             ? "Envoi de l'image en cours..."
-                            : thumbnailPath || "PNG, JPG ou WEBP recommande."}
+                            : thumbnailPath ||
+                              "Facultatif : le logo Kalatty sera utilise par defaut."}
                         </small>
                       </button>
                     </label>
@@ -1266,7 +1280,11 @@ export default function TeacherCourseBuilder({
                           : "Publication..."
                         : editingCourseId
                           ? "Enregistrer les modifications"
-                          : "Creer le cours"}
+                          : courseStatus === "published"
+                            ? "Publier le cours"
+                            : courseStatus === "draft"
+                              ? "Enregistrer le brouillon"
+                              : "Archiver le cours"}
                     </button>
                   </div>
                 </section>
