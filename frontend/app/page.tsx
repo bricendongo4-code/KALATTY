@@ -49,14 +49,14 @@ const benefits = [
     href: "/register/teacher",
   },
   {
-    title: "Etablissements",
+    title: "Établissements",
     text: "Une console campus pour inviter, organiser les salles, affecter les cours et piloter les devoirs.",
     href: "/register/institution",
   },
 ];
 
 const highlights = [
-  "Cours video heberges",
+  "Cours vidéo hébergés",
   "Classes avec invitations",
   "Devoirs et corrections",
   "Roles et permissions",
@@ -64,20 +64,20 @@ const highlights = [
 
 const heroStats = [
   { value: "3", label: "espaces connectes" },
-  { value: "24/7", label: "acces aux cours" },
+  { value: "24/7", label: "accès aux cours" },
   { value: "1", label: "campus unifie" },
 ];
 
 const productLinks = [
   {
-    title: "Creer un campus",
-    text: "Comptes, classes, professeurs et eleves geres depuis une meme interface.",
+    title: "Créer un campus",
+    text: "Comptes, classes, professeurs et élèves gérés depuis une même interface.",
     href: "/register/institution",
-    label: "Etablissement",
+    label: "Établissement",
   },
   {
     title: "Publier un cours",
-    text: "Miniature, programme, lecons video, prix et publication controlee.",
+    text: "Miniature, programme, leçons vidéo, prix et publication contrôlée.",
     href: "/register/teacher",
     label: "Formateur",
   },
@@ -85,7 +85,7 @@ const productLinks = [
     title: "Reprendre un parcours",
     text: "Catalogue, progression, cours campus et devoirs accessibles rapidement.",
     href: "/register/student",
-    label: "Etudiant",
+    label: "Étudiant",
   },
 ];
 
@@ -106,12 +106,12 @@ const launchPillars = [
   {
     title: "Learning marketplace",
     metric: "Cours publics",
-    text: "Une vitrine claire avec miniatures, prix, notes, avis et acces controle avant paiement.",
+    text: "Une vitrine claire avec miniatures, prix, notes, avis et accès contrôlé avant paiement.",
   },
   {
     title: "Studio formateur",
     metric: "Creation guidee",
-    text: "Un parcours de publication qui garde les brouillons, les videos, les modules et les revenus au meme endroit.",
+    text: "Un parcours de publication qui garde les brouillons, les vidéos, les modules et les revenus au même endroit.",
   },
   {
     title: "Campus établissement",
@@ -122,16 +122,35 @@ const launchPillars = [
 
 const productProof = [
   { value: "Role-based", label: "chaque profil a son espace" },
-  { value: "Mobile-first", label: "cours et dashboards lisibles sur telephone" },
+  { value: "Mobile-first", label: "cours et dashboards lisibles sur téléphone" },
   { value: "Campus-ready", label: "mode établissement séparé du catalogue public" },
-  { value: "Video native", label: "contenus charges dans Kalatty, pas par lien externe" },
+  { value: "Vidéo native", label: "contenus chargés dans Kalatty, pas par lien externe" },
+];
+
+const marketCapabilities = [
+  {
+    title: "Catalogue prêt à vendre",
+    text: "Des fiches de cours avec miniature, prix, note, nombre d'avis et accès bloqué tant que l'utilisateur n'est pas connecté.",
+  },
+  {
+    title: "Campus autonome",
+    text: "Un établissement peut gérer ses propres comptes, classes, enseignants, emplois du temps, devoirs et présences.",
+  },
+  {
+    title: "Expérience mobile prioritaire",
+    text: "Les cours coulissent horizontalement, les menus sont compacts et les actions importantes restent faciles à atteindre.",
+  },
+  {
+    title: "Socle prêt pour paiement",
+    text: "La séparation entre cours publics, cours affectés à une classe et abonnements établissement prépare une monétisation claire.",
+  },
 ];
 
 const fallbackGuides = [
   {
     id: "guide-1",
     title: "Trouver un cours",
-    description: "Parcours l'accueil, ouvre la fiche cours puis inscris-toi pour demarrer les videos et les avis.",
+    description: "Parcours l'accueil, ouvre la fiche cours puis inscris-toi pour démarrer les vidéos et les avis.",
   },
   {
     id: "guide-2",
@@ -141,7 +160,7 @@ const fallbackGuides = [
   {
     id: "guide-3",
     title: "Publier comme formateur",
-    description: "Le studio enseignant permet d'ajouter miniature, modules, lecons video et exercices sans lien externe.",
+    description: "Le studio enseignant permet d'ajouter miniature, modules, leçons vidéo et exercices sans lien externe.",
   },
 ];
 
@@ -158,7 +177,7 @@ function CourseShowcaseCard({ course }: { course: DiscoveryCourse }) {
   const description =
     course.shortDescription ||
     course.description ||
-    "Decouvre le programme complet de ce cours Kalatty.";
+    "Découvre le programme complet de ce cours Kalatty.";
 
   return (
     <Link
@@ -186,7 +205,7 @@ function CourseShowcaseCard({ course }: { course: DiscoveryCourse }) {
           </div>
         )}
         <span className={styles.courseImageBadge}>
-          {course.lessonsCount} lecon{course.lessonsCount > 1 ? "s" : ""}
+          {course.lessonsCount} leçon{course.lessonsCount > 1 ? "s" : ""}
         </span>
       </div>
 
@@ -207,11 +226,11 @@ function CourseShowcaseCard({ course }: { course: DiscoveryCourse }) {
       </div>
 
       <div className={styles.courseHoverPanel} aria-hidden="true">
-        <span className={styles.courseHoverTag}>A propos du cours</span>
+        <span className={styles.courseHoverTag}>À propos du cours</span>
         <h3>{course.title}</h3>
         <p>{description}</p>
         <ul>
-          <li>{course.lessonsCount} lecons dans le programme</li>
+          <li>{course.lessonsCount} leçons dans le programme</li>
           <li>
             Formateur : {course.teacherName}
             {course.teacherExpertise ? `, ${course.teacherExpertise}` : ""}
@@ -258,7 +277,7 @@ function CourseRail({
           <div className={styles.courseRailControls} aria-label={`Navigation ${title}`}>
             <button
               type="button"
-              aria-label={`Voir les cours precedents dans ${title}`}
+              aria-label={`Voir les cours précédents dans ${title}`}
               onClick={() => scrollRail(-1)}
             >
               <span aria-hidden="true">‹</span>
@@ -285,8 +304,8 @@ function CourseRail({
           <span>Catalogue Kalatty</span>
           <h3>Les prochains cours arrivent ici</h3>
           <p>
-            Les miniatures, les prix et les notes apparaitront automatiquement
-            des qu&apos;un formateur publiera son cours.
+            Les miniatures, les prix et les notes apparaîtront automatiquement
+            dès qu&apos;un formateur publiera son cours.
           </p>
         </article>
       )}
@@ -344,6 +363,15 @@ export default function Home() {
           </Link>
 
           <nav className={styles.nav} aria-label="Navigation principale">
+            <a href="#catalogue" className={styles.navLink}>
+              Cours
+            </a>
+            <Link href="/pricing" className={styles.navLink}>
+              Tarifs
+            </Link>
+            <Link href="/about" className={styles.navLink}>
+              À propos
+            </Link>
             <Link href="/login" className={styles.navLink}>
               Connexion
             </Link>
@@ -508,16 +536,38 @@ export default function Home() {
         </div>
       </section>
 
-      <section className={styles.catalogShowcase}>
+      <section className={styles.marketSection}>
+        <div className={styles.marketPanel}>
+          <span className={styles.marketEyebrow}>Objectif marché</span>
+          <h2>Kalatty doit donner confiance avant même l'inscription.</h2>
+          <p>
+            Un produit lançable doit être clair pour l'apprenant, crédible pour
+            le formateur et rassurant pour l'administration d'un établissement.
+            Cette base permet ensuite d'ajouter paiement, IA, application mobile
+            et analytics sans casser l'expérience.
+          </p>
+        </div>
+        <div className={styles.marketGrid}>
+          {marketCapabilities.map((capability) => (
+            <article key={capability.title} className={styles.marketCard}>
+              <span />
+              <h3>{capability.title}</h3>
+              <p>{capability.text}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section id="catalogue" className={styles.catalogShowcase}>
         <CourseRail
-          eyebrow="Selection Kalatty"
+          eyebrow="Sélection Kalatty"
           title="Cours tendance"
-          description="Les formations publiees qui attirent actuellement le plus l'attention."
+          description="Les formations publiées qui attirent actuellement le plus l'attention."
           courses={featuredCourses}
         />
         <CourseRail
           eyebrow="Recommandes par les apprenants"
-          title="Les cours les mieux notes"
+          title="Les cours les mieux notés"
           description="Compare les avis, les formateurs et les programmes avant de choisir."
           courses={topRatedCourses}
         />
@@ -545,8 +595,8 @@ export default function Home() {
           <span>Pourquoi Kalatty</span>
           <h2>Une expérience complète, pas juste un dépôt de cours</h2>
           <p>
-            La plateforme evolue autour de trois besoins: apprendre facilement,
-            publier proprement et administrer des groupes avec precision.
+            La plateforme évolue autour de trois besoins : apprendre facilement,
+            publier proprement et administrer des groupes avec précision.
           </p>
         </div>
 

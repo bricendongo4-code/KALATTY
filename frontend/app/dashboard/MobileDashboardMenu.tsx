@@ -175,7 +175,7 @@ export default function MobileDashboardMenu({
 
                 <div className={styles.mobileMenuFooter}>
                   <button type="button" onClick={onLogout}>
-                    Se deconnecter
+                    Se déconnecter
                   </button>
                   <small>Kalatty, apprendre et piloter autrement.</small>
                 </div>
