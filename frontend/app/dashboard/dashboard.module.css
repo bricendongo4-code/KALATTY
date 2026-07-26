@@ -863,6 +863,103 @@
   font-size: 1.05rem;
 }
 
+.campusOperatingMap {
+  display: grid;
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr);
+  gap: 1rem;
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid rgba(0, 158, 154, 0.14);
+  border-radius: var(--radius);
+  background:
+    radial-gradient(
+      circle at 100% 0%,
+      rgba(255, 106, 31, 0.12),
+      transparent 14rem
+    ),
+    rgba(255, 255, 255, 0.72);
+}
+
+.campusOperatingIntro {
+  display: grid;
+  align-content: center;
+  gap: 0.55rem;
+  min-height: 13rem;
+  padding: 1rem;
+  border-radius: 22px;
+  color: #ffffff;
+  background:
+    radial-gradient(
+      circle at 92% 8%,
+      rgba(255, 106, 31, 0.38),
+      transparent 9rem
+    ),
+    linear-gradient(145deg, #071421, #073a49 68%, #008f95);
+}
+
+.campusOperatingIntro span,
+.campusOperatingStep span {
+  color: var(--secondary);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.campusOperatingIntro span {
+  color: #8df8ef;
+}
+
+.campusOperatingIntro strong {
+  color: #ffffff;
+  font-size: clamp(1.35rem, 2.4vw, 2rem);
+  line-height: 1.05;
+}
+
+.campusOperatingIntro p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.76);
+  line-height: 1.65;
+}
+
+.campusOperatingSteps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.campusOperatingStep {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 0.55rem;
+  padding: 0.95rem;
+  border: 1px solid rgba(0, 158, 154, 0.14);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.86);
+  text-align: left;
+  box-shadow: 0 10px 24px rgba(5, 42, 55, 0.07);
+}
+
+.campusOperatingStep strong {
+  color: var(--primary-dark);
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.campusOperatingStep small {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.campusOperatingStep:hover,
+.campusOperatingStep:focus-visible {
+  transform: translateY(-3px);
+  border-color: rgba(255, 106, 31, 0.4);
+  box-shadow: var(--shadow);
+  outline: none;
+}
+
 .institutionHero h2 {
   margin: 0;
   font-family: var(--font-serif), serif;
@@ -3354,6 +3451,18 @@
   .commandCenterIntro {
     min-height: auto;
   }
+
+  .campusOperatingMap {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .campusOperatingIntro {
+    min-height: auto;
+  }
+
+  .campusOperatingSteps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 760px) {
@@ -3363,5 +3472,9 @@
 
   .commandCard {
     min-height: auto;
+  }
+
+  .campusOperatingSteps {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

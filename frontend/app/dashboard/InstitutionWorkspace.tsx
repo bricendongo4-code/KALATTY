@@ -229,16 +229,16 @@ type Props = {
 export type InstitutionView = "overview" | "accounts" | "classes" | "courses" | "billing" | "settings";
 
 const formatRoleLabel = (role: string) => {
-  if (role === "student") return "Etudiant";
+  if (role === "student") return "Étudiant";
   if (role === "teacher") return "Professeur";
   if (role === "assistant") return "Assistant";
-  if (role === "owner") return "Proprietaire";
+  if (role === "owner") return "Propriétaire";
   if (role === "admin") return "Administrateur";
   return role;
 };
 
 const formatDate = (value?: string | null) => {
-  if (!value) return "Date non definie";
+  if (!value) return "Date non définie";
 
   return new Intl.DateTimeFormat("fr-FR", {
     day: "2-digit",
@@ -403,7 +403,7 @@ export default function InstitutionWorkspace({
     {
       label: "Classes",
       value: detail?.stats?.roomsCount ?? detail?.rooms.length ?? 0,
-      note: `Capacite plan: ${detail?.max_rooms ?? 0}`,
+      note: `Capacité plan : ${detail?.max_rooms ?? 0}`,
     },
     {
       label: "Professeurs",
@@ -411,14 +411,14 @@ export default function InstitutionWorkspace({
       note: `${institutionCounts.admins + institutionCounts.owners} admin / owner`,
     },
     {
-      label: "Etudiants",
+      label: "Étudiants",
       value: detail?.stats?.studentsCount ?? institutionCounts.students,
-      note: `Capacite plan: ${detail?.max_students ?? 0}`,
+      note: `Capacité plan : ${detail?.max_students ?? 0}`,
     },
     {
       label: "Comptes geres",
       value: detail?.stats?.managedAccountsCount ?? managedUsers.length,
-      note: "Acces crees par l'etablissement",
+      note: "Accès créés par l'établissement",
     },
     {
       label: "Devoirs",
@@ -451,7 +451,7 @@ export default function InstitutionWorkspace({
       amountFcfa: 120000,
       studentCap: 2000,
       roomCap: 120,
-      target: "Pour un grand etablissement ou un reseau de formation.",
+      target: "Pour un grand établissement ou un réseau de formation.",
       highlight: "2 000 apprenants et 120 classes.",
     },
   ];
@@ -469,18 +469,18 @@ export default function InstitutionWorkspace({
     ) ?? institutionPlanCards[institutionPlanCards.length - 1];
   const billingHighlights = [
     `Plan actif: ${formatPlanLabel(currentPlanCode)}`,
-    `${detail?.stats?.roomsCount ?? 0} classe(s) utilisee(s) sur ${detail?.max_rooms ?? 0}`,
-    `${detail?.stats?.studentsCount ?? 0} etudiant(s) rattache(s) sur ${detail?.max_students ?? 0}`,
-    `${detail?.stats?.pendingSubmissions ?? 0} copie(s) a corriger`,
+    `${detail?.stats?.roomsCount ?? 0} classe(s) utilisée(s) sur ${detail?.max_rooms ?? 0}`,
+    `${detail?.stats?.studentsCount ?? 0} étudiant(s) rattaché(s) sur ${detail?.max_students ?? 0}`,
+    `${detail?.stats?.pendingSubmissions ?? 0} copie(s) à corriger`,
   ];
   const campusActionCards = [
     {
       title: "Structurer les classes",
-      text: "Creer les salles par niveau, filiere ou groupe de formation.",
+      text: "Créer les salles par niveau, filière ou groupe de formation.",
     },
     {
-      title: "Inviter par role",
-      text: "Generer des liens distincts pour professeurs, etudiants et assistants.",
+      title: "Inviter par rôle",
+      text: "Générer des liens distincts pour professeurs, étudiants et assistants.",
     },
     {
       title: "Affecter les cours",
@@ -532,7 +532,7 @@ export default function InstitutionWorkspace({
       text: "Enseignants qui pilotent les contenus de cette classe.",
     },
     {
-      label: "Etudiants",
+      label: "Étudiants",
       value: roomCounts.students,
       text:
         roomCounts.blockedStudents > 0
@@ -575,7 +575,33 @@ export default function InstitutionWorkspace({
       text:
         recommendedPlan.code === currentPlanCode
           ? `${recommendedPlan.label} couvre deja la taille actuelle du campus.`
-          : `${recommendedPlan.label} serait plus adapte au volume actuel des classes et etudiants.`,
+        : `${recommendedPlan.label} serait plus adapté au volume actuel des classes et étudiants.`,
+    },
+  ];
+  const campusOperatingSteps = [
+    {
+      step: "01",
+      title: "Créer les accès",
+      text: "L'administration ajoute les élèves, professeurs et admins sans leur demander de créer eux-mêmes un compte.",
+      view: "accounts" as InstitutionView,
+    },
+    {
+      step: "02",
+      title: "Organiser les classes",
+      text: "Chaque salle regroupe ses étudiants, ses professeurs, son planning, ses présences et ses devoirs.",
+      view: "classes" as InstitutionView,
+    },
+    {
+      step: "03",
+      title: "Affecter les cours",
+      text: "Les cours liés à une classe deviennent accessibles aux élèves de cette classe sans paiement individuel.",
+      view: "courses" as InstitutionView,
+    },
+    {
+      step: "04",
+      title: "Piloter le suivi",
+      text: "Le responsable garde une vue globale sur devoirs, copies, blocages, invitations et utilisation du plan.",
+      view: "overview" as InstitutionView,
     },
   ];
 
@@ -599,7 +625,7 @@ export default function InstitutionWorkspace({
 
       const data = (await res.json()) as InstitutionSummary[];
       if (!res.ok) {
-        setMessage("Impossible de charger les etablissements.");
+        setMessage("Impossible de charger les établissements.");
         return;
       }
 
@@ -608,7 +634,7 @@ export default function InstitutionWorkspace({
         setSelectedInstitutionId((current) => current || data[0].id);
       }
     } catch {
-      setMessage("Le chargement des etablissements a echoue.");
+      setMessage("Le chargement des établissements a échoué.");
     } finally {
       setLoading(false);
     }
@@ -626,7 +652,7 @@ export default function InstitutionWorkspace({
       const data = (await res.json()) as InstitutionDetail;
 
       if (!res.ok) {
-        setMessage("Impossible de charger le detail de l'etablissement.");
+        setMessage("Impossible de charger le détail de l'établissement.");
         return;
       }
 
@@ -636,7 +662,7 @@ export default function InstitutionWorkspace({
       setManagedUserRoomId((current) => current || defaultRoomId);
       setSelectedRoomId((current) => current || defaultRoomId);
     } catch {
-      setMessage("Le detail de l'etablissement n'a pas pu etre charge.");
+      setMessage("Le détail de l'établissement n'a pas pu être chargé.");
     }
   };
 
@@ -655,13 +681,13 @@ export default function InstitutionWorkspace({
       const data = (await res.json()) as RoomDetail;
 
       if (!res.ok) {
-        setMessage("Impossible de charger le detail de la classe.");
+        setMessage("Impossible de charger le détail de la classe.");
         return;
       }
 
       setRoomDetail(data);
     } catch {
-      setMessage("Le detail de la classe n'a pas pu etre charge.");
+      setMessage("Le détail de la classe n'a pas pu être chargé.");
     }
   };
 
@@ -733,7 +759,7 @@ export default function InstitutionWorkspace({
       setInstitutionType("");
       setMessage("Etablissement cree.");
     } catch {
-      setMessage("La creation de l'etablissement a echoue.");
+      setMessage("La création de l'établissement a échoué.");
     }
   };
 
@@ -766,7 +792,7 @@ export default function InstitutionWorkspace({
       await loadInstitutionDetails(selectedInstitutionId);
       setSelectedRoomId(String(data.id));
     } catch {
-      setMessage("La creation de la classe a echoue.");
+      setMessage("La création de la classe a échoué.");
     }
   };
 
@@ -796,7 +822,7 @@ export default function InstitutionWorkspace({
       setMessage("Cours affecte a la classe.");
       await loadRoomDetails(selectedRoomId);
     } catch {
-      setMessage("L'affectation du cours a echoue.");
+      setMessage("L'affectation du cours a échoué.");
     }
   };
 
@@ -832,8 +858,8 @@ export default function InstitutionWorkspace({
       setMemberStatusReason("");
       setMessage(
         status === "blocked"
-          ? "Etudiant bloque dans cette classe."
-          : "Etudiant reactive dans cette classe.",
+          ? "Étudiant bloqué dans cette classe."
+          : "Étudiant réactivé dans cette classe.",
       );
       await loadRoomDetails(selectedRoomId);
     } catch {
@@ -878,14 +904,14 @@ export default function InstitutionWorkspace({
         await loadRoomDetails(selectedRoomId);
       }
     } catch {
-      setMessage("La creation du lien a echoue.");
+      setMessage("La création du lien a échoué.");
     }
   };
 
   const handleProvisionManagedUser = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!token || !selectedInstitutionId) {
-      setMessage("Choisis d'abord un etablissement actif.");
+        setMessage("Choisis d'abord un établissement actif.");
       return;
     }
 
@@ -917,7 +943,7 @@ export default function InstitutionWorkspace({
         setMessage(
           typeof data.message === "string"
             ? data.message
-            : "La creation du compte gere a echoue.",
+            : "La création du compte géré a échoué.",
         );
         return;
       }
@@ -937,7 +963,7 @@ export default function InstitutionWorkspace({
         await loadRoomDetails(managedUserRoomId);
       }
     } catch {
-      setMessage("La creation du compte gere a echoue.");
+      setMessage("La création du compte géré a échoué.");
     } finally {
       setProvisioningUser(false);
     }
@@ -945,7 +971,7 @@ export default function InstitutionWorkspace({
 
   const handleResetManagedPassword = async (managedUserId: string) => {
     if (!token || !selectedInstitutionId) {
-      setMessage("Choisis d'abord un etablissement actif.");
+      setMessage("Choisis d'abord un établissement actif.");
       return;
     }
 
@@ -968,7 +994,7 @@ export default function InstitutionWorkspace({
         setMessage(
           typeof data.message === "string"
             ? data.message
-            : "La regeneration du mot de passe a echoue.",
+            : "La régénération du mot de passe a échoué.",
         );
         return;
       }
@@ -982,7 +1008,7 @@ export default function InstitutionWorkspace({
       setMessage("Mot de passe provisoire regenere.");
       await loadInstitutionDetails(selectedInstitutionId);
     } catch {
-      setMessage("La regeneration du mot de passe a echoue.");
+      setMessage("La régénération du mot de passe a échoué.");
     } finally {
       setResettingManagedUserId("");
     }
@@ -1037,7 +1063,7 @@ export default function InstitutionWorkspace({
       await loadInstitutions();
       await loadInstitutionDetails(selectedInstitutionId);
     } catch {
-      setMessage("L'activation de l'abonnement a echoue.");
+      setMessage("L'activation de l'abonnement a échoué.");
     } finally {
       setBillingLoading(false);
     }
@@ -1047,7 +1073,7 @@ export default function InstitutionWorkspace({
     return (
       <section className={styles.grid}>
         <section className={styles.card}>
-          <h2>Chargement de l&apos;espace etablissement...</h2>
+          <h2>Chargement de l&apos;espace établissement...</h2>
         </section>
       </section>
     );
@@ -1059,11 +1085,11 @@ export default function InstitutionWorkspace({
         <section className={styles.card}>
           <div className={styles.institutionHeroV2}>
             <div className={styles.institutionHeroLead}>
-              <p className={styles.sectionLabel}>Pilotage etablissement</p>
-              <h2>{selectedInstitution?.name || "Espace etablissement"}</h2>
+              <p className={styles.sectionLabel}>Pilotage établissement</p>
+              <h2>{selectedInstitution?.name || "Espace établissement"}</h2>
               <p className={styles.paragraph}>
-                Gere les classes, les comptes internes, les cours attribues et le
-                suivi pedagogique depuis un seul espace.
+                Gère les classes, les comptes internes, les cours attribués et le
+                suivi pédagogique depuis un seul espace.
               </p>
               <div className={styles.courseMetaGrid}>
                 <span>{detail?.rooms.length ?? 0} classes actives</span>
@@ -1083,7 +1109,7 @@ export default function InstitutionWorkspace({
               </article>
               <article className={styles.institutionHeroBadge}>
                 <span>Type</span>
-                <strong>{selectedInstitution?.institution_type || "Etablissement"}</strong>
+                <strong>{selectedInstitution?.institution_type || "Établissement"}</strong>
               </article>
             </div>
           </div>
@@ -1100,7 +1126,7 @@ export default function InstitutionWorkspace({
             </label>
 
             <label className={styles.formField}>
-              <span>Etablissement actif</span>
+              <span>Établissement actif</span>
               <select
                 className={styles.selectField}
                 value={selectedInstitutionId}
@@ -1140,6 +1166,34 @@ export default function InstitutionWorkspace({
                 <small>{stat.note}</small>
               </article>
             ))}
+          </div>
+
+          <div
+            className={styles.campusOperatingMap}
+            aria-label="Parcours de gestion établissement"
+          >
+            <div className={styles.campusOperatingIntro}>
+              <span>Mode administration</span>
+              <strong>Gérer l'école en ligne, étape par étape.</strong>
+              <p>
+                L'administrateur pilote l'organisation. Les professeurs se
+                concentrent ensuite sur leurs classes, les devoirs et le suivi.
+              </p>
+            </div>
+            <div className={styles.campusOperatingSteps}>
+              {campusOperatingSteps.map((item) => (
+                <button
+                  key={item.step}
+                  type="button"
+                  className={styles.campusOperatingStep}
+                  onClick={() => setActiveView(item.view)}
+                >
+                  <span>{item.step}</span>
+                  <strong>{item.title}</strong>
+                  <small>{item.text}</small>
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className={`${styles.studentTabs} ${styles.desktopViewTabs}`}>
@@ -1183,7 +1237,7 @@ export default function InstitutionWorkspace({
               className={activeView === "settings" ? styles.activeTab : styles.studentTab}
               onClick={() => setActiveView("settings")}
             >
-              Parametres
+              Paramètres
             </button>
           </div>
         </section>
@@ -1202,7 +1256,7 @@ export default function InstitutionWorkspace({
               <h2>Choisir le bon plan pour ton campus</h2>
             </div>
             <span className={styles.sectionHint}>
-              Lis les capacites, compare l&apos;usage actuel et active le niveau adapte a ton etablissement.
+              Lis les capacités, compare l&apos;usage actuel et active le niveau adapté à ton établissement.
             </span>
           </div>
 
@@ -1213,7 +1267,7 @@ export default function InstitutionWorkspace({
               <small>{formatSubscriptionStatus(detail?.subscription_status ?? selectedInstitution?.subscription_status)}</small>
             </article>
             <article className={styles.statCard}>
-              <span>Classes utilisees</span>
+              <span>Classes utilisées</span>
               <strong>{detail?.stats?.roomUsagePercentage ?? 0}%</strong>
               <small>{detail?.stats?.roomsCount ?? 0} / {detail?.max_rooms ?? 0}</small>
             </article>
@@ -1223,9 +1277,9 @@ export default function InstitutionWorkspace({
               <small>{detail?.stats?.studentsCount ?? 0} / {detail?.max_students ?? 0}</small>
             </article>
             <article className={styles.statCard}>
-              <span>Copies a corriger</span>
+              <span>Copies à corriger</span>
               <strong>{detail?.stats?.pendingSubmissions ?? 0}</strong>
-              <small>{detail?.stats?.reviewedSubmissions ?? 0} deja traitees</small>
+              <small>{detail?.stats?.reviewedSubmissions ?? 0} déjà traitées</small>
             </article>
           </div>
 
@@ -1349,7 +1403,7 @@ export default function InstitutionWorkspace({
           <div className={styles.sectionHeader}>
             <div>
               <p className={styles.sectionLabel}>Comptes campus</p>
-              <h2>Eleves et professeurs crees par l&apos;etablissement</h2>
+              <h2>Élèves et professeurs créés par l&apos;établissement</h2>
             </div>
             <span className={styles.sectionHint}>
               Ici, l&apos;ecole cree directement les acces sans attendre une inscription externe.
@@ -1361,7 +1415,7 @@ export default function InstitutionWorkspace({
               <div className={styles.sectionHeader}>
                 <div>
                   <p className={styles.sectionLabel}>Provisionnement</p>
-                  <h3>Creer un compte gere</h3>
+                  <h3>Créer un compte géré</h3>
                 </div>
               </div>
               <form onSubmit={handleProvisionManagedUser} className={styles.teacherForm}>
@@ -1386,7 +1440,7 @@ export default function InstitutionWorkspace({
                         )
                       }
                     >
-                      <option value="student">Etudiant</option>
+                      <option value="student">Étudiant</option>
                       <option value="teacher">Professeur</option>
                       <option value="admin">Administrateur</option>
                     </select>
@@ -1433,7 +1487,7 @@ export default function InstitutionWorkspace({
                   className={styles.submitButton}
                   disabled={provisioningUser}
                 >
-                  {provisioningUser ? "Creation..." : "Creer le compte"}
+                  {provisioningUser ? "Création..." : "Créer le compte"}
                 </button>
               </form>
               {lastProvisionedAccess ? (
@@ -1448,7 +1502,7 @@ export default function InstitutionWorkspace({
               <div className={styles.sectionHeader}>
                 <div>
                   <p className={styles.sectionLabel}>Registre</p>
-                  <h3>Comptes deja crees</h3>
+                  <h3>Comptes déjà créés</h3>
                 </div>
               </div>
               <div className={styles.roadmapList}>
@@ -1464,7 +1518,7 @@ export default function InstitutionWorkspace({
                         {" | "}
                         {managedUser.must_reset_password
                           ? "Mot de passe provisoire actif"
-                          : "Acces actif"}
+                          : "Accès actif"}
                       </small>
                       <button
                         type="button"
@@ -1480,7 +1534,7 @@ export default function InstitutionWorkspace({
                   ))
                 ) : (
                   <p className={styles.paragraph}>
-                    Aucun compte gere n&apos;est encore cree pour cet etablissement.
+                    Aucun compte géré n&apos;est encore créé pour cet établissement.
                   </p>
                 )}
               </div>
@@ -1514,7 +1568,7 @@ export default function InstitutionWorkspace({
             <p className={styles.inlineMessage}>
               Vue administrateur: vous gardez la supervision, les droits et la
               securite. Les devoirs, l&apos;appel et les ajustements de planning
-              restent dans l&apos;espace des professeurs rattaches a la classe.
+              restent dans l&apos;espace des professeurs rattachés à la classe.
             </p>
 
             <div className={styles.institutionStudioGrid}>
@@ -1642,7 +1696,7 @@ export default function InstitutionWorkspace({
                 <p className={styles.paragraph}>
                   L&apos;administration supervise les creneaux. La publication et
                   les ajustements quotidiens doivent rester dans l&apos;espace du
-                  professeur rattache a la classe.
+                  professeur rattaché à la classe.
                 </p>
                 <div className={styles.roadmapList}>
                   {scheduleItems.length > 0 ? (
@@ -1713,7 +1767,7 @@ export default function InstitutionWorkspace({
                     roomDetail.assignments.map((assignment) => (
                       <article key={assignment.id} className={styles.roadmapItem}>
                         <strong>{assignment.title}</strong>
-                        <p>{assignment.instructions || "Aucune consigne detaillee."}</p>
+                        <p>{assignment.instructions || "Aucune consigne détaillée."}</p>
                         <small>
                           {assignment.status} | {formatDate(assignment.due_at)}
                         </small>
@@ -1725,7 +1779,7 @@ export default function InstitutionWorkspace({
                         ) : null}
                         <small>
                           {Number(assignment.submissionCount ?? 0)} remises |{" "}
-                          {Number(assignment.pendingCount ?? 0)} a corriger |{" "}
+                          {Number(assignment.pendingCount ?? 0)} à corriger |{" "}
                           {Number(assignment.reviewedCount ?? 0)} corrigees
                         </small>
                       </article>
@@ -1740,7 +1794,7 @@ export default function InstitutionWorkspace({
                 <div className={styles.sectionHeader}>
                   <div>
                     <p className={styles.sectionLabel}>Liens d&apos;invitation</p>
-                    <h3>Acces par role</h3>
+                    <h3>Accès par rôle</h3>
                   </div>
                 </div>
                 <div className={styles.roadmapList}>
@@ -1804,7 +1858,7 @@ export default function InstitutionWorkspace({
                     <small>Toutes copies confondues</small>
                   </article>
                   <article className={styles.institutionStatCard}>
-                    <span>A corriger</span>
+                    <span>À corriger</span>
                     <strong>{Number(roomDetail.submissionSummary?.pending ?? 0)}</strong>
                     <small>Demandent une revue enseignant</small>
                   </article>
@@ -1825,7 +1879,7 @@ export default function InstitutionWorkspace({
             <div className={styles.sectionHeader}>
               <div>
                 <p className={styles.sectionLabel}>Nouvelle classe</p>
-                <h2>Creer une classe</h2>
+                <h2>Créer une classe</h2>
               </div>
             </div>
             <form onSubmit={handleCreateRoom} className={styles.teacherForm}>
@@ -1849,7 +1903,7 @@ export default function InstitutionWorkspace({
                 />
               </label>
               <button type="submit" className={styles.submitButton}>
-                Creer la classe
+                Créer la classe
               </button>
             </form>
           </section>
@@ -1909,22 +1963,22 @@ export default function InstitutionWorkspace({
           <section className={styles.card}>
             <div className={styles.sectionHeader}>
               <div>
-                <p className={styles.sectionLabel}>Separation des roles</p>
+                <p className={styles.sectionLabel}>Séparation des rôles</p>
                 <h2>Admin, professeurs et eleves</h2>
               </div>
             </div>
             <div className={styles.roadmapList}>
               <article className={styles.roadmapItem}>
                 <strong>Administrateur</strong>
-                <p>Creer les comptes, structurer les classes, affecter les cours, bloquer ou reactiver un eleve.</p>
+                <p>Créer les comptes, structurer les classes, affecter les cours, bloquer ou réactiver un élève.</p>
               </article>
               <article className={styles.roadmapItem}>
                 <strong>Professeur</strong>
                 <p>Publier les devoirs, faire l&apos;appel, ajuster le planning et suivre les copies de ses classes.</p>
               </article>
               <article className={styles.roadmapItem}>
-                <strong>Etudiant</strong>
-                <p>Acceder uniquement aux cours, devoirs, planning et annonces de son etablissement.</p>
+                <strong>Étudiant</strong>
+                <p>Accéder uniquement aux cours, devoirs, planning et annonces de son établissement.</p>
               </article>
             </div>
           </section>
@@ -1965,7 +2019,7 @@ export default function InstitutionWorkspace({
                       )
                     }
                   >
-                    <option value="student">Etudiant</option>
+                    <option value="student">Étudiant</option>
                     <option value="teacher">Professeur</option>
                     <option value="assistant">Assistant</option>
                   </select>
@@ -1973,7 +2027,7 @@ export default function InstitutionWorkspace({
               </div>
 
               <button type="submit" className={styles.submitButton}>
-                Generer un lien d&apos;invitation
+                Générer un lien d&apos;invitation
               </button>
             </form>
 
@@ -2041,7 +2095,7 @@ export default function InstitutionWorkspace({
         {activeView === "overview" ? (
         <section className={styles.cardAccent}>
           <p className={styles.sectionLabel}>Campus</p>
-          <h2>{institutions.length > 0 ? "Pilotage administrateur" : "Creer un etablissement"}</h2>
+          <h2>{institutions.length > 0 ? "Pilotage administrateur" : "Créer un établissement"}</h2>
           {institutions.length > 0 ? (
             <div className={styles.roadmapList}>
               {campusAdminCards.map((card) => (
@@ -2054,7 +2108,7 @@ export default function InstitutionWorkspace({
           ) : (
             <form onSubmit={handleCreateInstitution} className={styles.teacherForm}>
               <label className={styles.formField}>
-                <span>Nom de l&apos;etablissement</span>
+                <span>Nom de l&apos;établissement</span>
                 <input
                   type="text"
                   value={institutionName}
@@ -2072,7 +2126,7 @@ export default function InstitutionWorkspace({
                 />
               </label>
               <button type="submit" className={styles.submitButton}>
-                Creer l&apos;etablissement
+                Créer l&apos;établissement
               </button>
             </form>
           )}
@@ -2082,7 +2136,7 @@ export default function InstitutionWorkspace({
         {(activeView === "overview" || activeView === "accounts") ? (
         <section className={styles.card}>
           <p className={styles.sectionLabel}>Annuaire campus</p>
-          <h2>Repartition des roles</h2>
+          <h2>Répartition des rôles</h2>
           <div className={styles.roadmapList}>
             <article className={styles.roadmapItem}>
               <strong>{institutionCounts.teachers} professeurs</strong>
@@ -2090,7 +2144,7 @@ export default function InstitutionWorkspace({
             </article>
             <article className={styles.roadmapItem}>
               <strong>{institutionCounts.students} etudiants</strong>
-              <p>Peuvent recevoir un acces genere directement par l&apos;etablissement.</p>
+              <p>Peuvent recevoir un accès généré directement par l&apos;établissement.</p>
             </article>
             <article className={styles.roadmapItem}>
               <strong>{institutionCounts.admins + institutionCounts.owners} administrateurs</strong>
