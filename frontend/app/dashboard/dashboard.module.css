@@ -2299,6 +2299,62 @@
   gap: 1rem;
 }
 
+.courseStudioQuickbar {
+  position: sticky;
+  top: 1rem;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(0, 158, 154, 0.16);
+  border-radius: 22px;
+  background:
+    radial-gradient(
+      circle at 100% 0%,
+      rgba(255, 106, 31, 0.14),
+      transparent 10rem
+    ),
+    rgba(255, 255, 255, 0.94);
+  box-shadow: 0 16px 38px rgba(5, 42, 55, 0.1);
+  backdrop-filter: blur(14px);
+}
+
+.courseStudioQuickbar > div:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 0.24rem;
+}
+
+.courseStudioQuickbar span {
+  color: var(--secondary);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.courseStudioQuickbar strong {
+  overflow: hidden;
+  color: var(--primary-dark);
+  font-size: 1.08rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.courseStudioQuickbar small {
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.courseStudioQuickActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
 .courseStudioPanel {
   display: grid;
   gap: 1rem;
@@ -2472,6 +2528,11 @@
   border: 1px solid rgba(190, 38, 38, 0.28);
   border-radius: var(--radius);
   background: rgba(255, 241, 241, 0.82);
+}
+
+.courseDangerZone strong {
+  color: #7f1d1d;
+  font-size: 1.05rem;
 }
 
 .courseDangerZone > div:first-child {
@@ -3050,6 +3111,15 @@
     align-items: stretch;
   }
 
+  .courseStudioQuickbar {
+    position: static;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .courseStudioQuickActions {
+    justify-content: flex-start;
+  }
+
   .studentTabs {
     width: 100%;
     flex-wrap: nowrap;
@@ -3214,6 +3284,10 @@
     width: 100%;
     min-height: 2.9rem;
     justify-content: center;
+  }
+
+  .courseStudioQuickActions > * {
+    flex: 1 1 100%;
   }
 
   .heroMeta,

@@ -717,6 +717,46 @@ export default function TeacherCourseBuilder({
             className={styles.visuallyHiddenInput}
           />
 
+          <div className={styles.courseStudioQuickbar}>
+            <div>
+              <span>{editingCourseId ? "Mode édition" : "Nouveau cours"}</span>
+              <strong>{courseTitle || "Cours sans titre"}</strong>
+              <small>
+                {Number(coursePrice || 0)} FCFA |{" "}
+                {courseStatus === "published"
+                  ? "Publié"
+                  : courseStatus === "draft"
+                    ? "Brouillon"
+                    : "Archivé"}{" "}
+                | {uploadedVideos} vidéo{uploadedVideos > 1 ? "s" : ""}
+              </small>
+            </div>
+            <div className={styles.courseStudioQuickActions}>
+              <button
+                type="button"
+                className={styles.secondaryButton}
+                onClick={() => thumbnailInputRef.current?.click()}
+                disabled={thumbnailUploading}
+              >
+                Miniature
+              </button>
+              <button
+                type="button"
+                className={styles.secondaryButton}
+                onClick={() => setStep("basics")}
+              >
+                Prix et statut
+              </button>
+              <button
+                type="button"
+                className={styles.submitButton}
+                onClick={() => setStep("publish")}
+              >
+                Publier
+              </button>
+            </div>
+          </div>
+
           {loadingCourseDraft ? (
             <section className={styles.courseStudioPanel}>
               <p className={styles.paragraph}>
