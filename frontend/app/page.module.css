@@ -854,3 +854,627 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Product launch polish */
+.page {
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.hero {
+  min-height: min(820px, calc(100vh - 2rem));
+  padding: clamp(1rem, 2.4vw, 2rem);
+  background:
+    linear-gradient(135deg, rgba(6, 34, 48, 0.96), rgba(9, 62, 72, 0.92)),
+    url("/kalatty-logo.png");
+  background-repeat: no-repeat;
+  background-position: center, right 4rem bottom 2rem;
+  background-size: cover, min(52vw, 35rem);
+  color: #ffffff;
+}
+
+.topbar {
+  padding: 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px);
+}
+
+.brandLogo {
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.92);
+  padding: 0.2rem;
+}
+
+.brandName,
+.heroCopy h1 {
+  color: #ffffff;
+}
+
+.brandTag,
+.kicker {
+  color: #ffb36d;
+}
+
+.navLink,
+.secondaryCta {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.heroGrid {
+  grid-template-columns: minmax(0, 1fr) minmax(24rem, 0.95fr);
+  gap: clamp(1rem, 4vw, 4rem);
+}
+
+.heroCopy {
+  gap: 1.15rem;
+  padding: clamp(1rem, 6vw, 5rem) 0;
+}
+
+.heroCopy h1 {
+  max-width: 15ch;
+  font-size: clamp(2.6rem, 6vw, 5.75rem);
+  line-height: 0.95;
+}
+
+.heroCopy p {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 1.05rem;
+}
+
+.heroStats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  max-width: 44rem;
+}
+
+.heroStats div {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
+}
+
+.heroStats strong {
+  color: #ffffff;
+  font-size: clamp(1.25rem, 3vw, 2rem);
+  line-height: 1;
+}
+
+.heroStats span {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.highlightList {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.highlightList span {
+  border-color: rgba(255, 255, 255, 0.13);
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.84);
+  line-height: 1.2;
+  padding: 0.65rem 0.8rem;
+}
+
+.heroPanel {
+  align-self: center;
+}
+
+.productWindow {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius);
+  background: rgba(246, 251, 249, 0.96);
+  color: var(--foreground);
+  box-shadow: 0 2rem 5rem rgba(0, 0, 0, 0.28);
+}
+
+.windowTop {
+  min-height: 3.5rem;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0 1rem;
+  border-bottom: 1px solid rgba(10, 59, 68, 0.1);
+  background: #ffffff;
+}
+
+.windowTop span {
+  width: 0.85rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 1.15rem 0 0 #ffc857, 2.3rem 0 0 #00a676;
+}
+
+.windowTop small {
+  justify-self: end;
+  padding: 0.35rem 0.55rem;
+  border-radius: 999px;
+  background: #e9f8f2;
+  color: var(--success);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.windowBody {
+  display: grid;
+  grid-template-columns: 8.5rem minmax(0, 1fr);
+  min-height: 26rem;
+}
+
+.windowNav {
+  display: grid;
+  align-content: start;
+  gap: 0.45rem;
+  padding: 1rem;
+  border-right: 1px solid rgba(10, 59, 68, 0.1);
+  background: #092b3a;
+}
+
+.windowNav span {
+  min-height: 2.4rem;
+  display: flex;
+  align-items: center;
+  padding: 0 0.7rem;
+  border-radius: var(--radius-sm);
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.windowNav .navActive {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.windowMain {
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.windowHeader {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1rem;
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, #fff7ed, #e9f8f2);
+}
+
+.windowHeader span {
+  color: var(--secondary);
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.windowHeader strong {
+  color: var(--foreground);
+  font-size: 1.5rem;
+}
+
+.progressStrip {
+  height: 0.7rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #d9e9e7;
+}
+
+.progressStrip span {
+  display: block;
+  width: var(--value);
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--primary), var(--secondary));
+}
+
+.scheduleList {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.scheduleList div {
+  display: grid;
+  grid-template-columns: 3.2rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem;
+  border: 1px solid rgba(10, 59, 68, 0.1);
+  border-radius: var(--radius);
+  background: #ffffff;
+}
+
+.scheduleList time {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.scheduleList span {
+  padding: 0.35rem 0.55rem;
+  border-radius: 999px;
+  background: var(--secondary-soft);
+  color: var(--secondary);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.windowMetrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.windowMetrics span {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.85rem;
+  border-radius: var(--radius);
+  background: #eef7f5;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.windowMetrics strong {
+  color: var(--primary-dark);
+  font-size: 1.35rem;
+}
+
+.productSection {
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.productGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.productCard {
+  display: grid;
+  gap: 0.7rem;
+  padding: 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, #ffffff, #f4fbfa);
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.productCard:hover {
+  transform: translateY(-4px);
+  border-color: var(--secondary);
+  box-shadow: var(--shadow-strong);
+}
+
+.productCard span {
+  width: fit-content;
+  padding: 0.35rem 0.6rem;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.productCard h3 {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 1.25rem;
+}
+
+.productCard p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.productCard b {
+  color: var(--secondary);
+  font-size: 0.84rem;
+}
+
+.trustBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  padding-top: 0.15rem;
+}
+
+.trustBar span {
+  padding: 0.55rem 0.75rem;
+  border: 1px solid rgba(0, 143, 149, 0.18);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--primary-dark);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+@media (max-width: 980px) {
+  .heroGrid,
+  .productGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .heroCopy h1 {
+    max-width: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: max(0.75rem, env(safe-area-inset-top))
+      max(0.75rem, env(safe-area-inset-right))
+      max(0.75rem, env(safe-area-inset-bottom))
+      max(0.75rem, env(safe-area-inset-left));
+  }
+
+  .hero,
+  .productSection {
+    padding: 1rem;
+  }
+
+  .heroCopy h1 {
+    font-size: clamp(2.25rem, 13vw, 3.25rem);
+  }
+
+  .heroStats {
+    grid-template-columns: 1fr;
+  }
+
+  .windowBody {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  .windowNav {
+    grid-auto-flow: column;
+    grid-auto-columns: max-content;
+    overflow-x: auto;
+    border-right: 0;
+    border-bottom: 1px solid rgba(10, 59, 68, 0.1);
+  }
+
+  .scheduleList div {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .windowMetrics {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Launch-grade visual pass */
+.hero,
+.productSection,
+.launchSection,
+.courseRailSection,
+.promoColumn,
+.benefitSection,
+.guidesSection {
+  border-radius: var(--radius-xl);
+}
+
+.hero {
+  position: relative;
+  isolation: isolate;
+  border: 0;
+  background:
+    radial-gradient(circle at 82% 10%, rgba(255, 106, 31, 0.5), transparent 17rem),
+    radial-gradient(circle at 62% 100%, rgba(0, 211, 194, 0.38), transparent 24rem),
+    linear-gradient(135deg, #061421 0%, #073a49 48%, #006c72 100%);
+}
+
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.28;
+  background:
+    linear-gradient(115deg, transparent 0 42%, rgba(255, 255, 255, 0.2) 42% 43%, transparent 43%),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.06) 0 1px, transparent 1px 72px);
+  mask-image: linear-gradient(90deg, rgba(0, 0, 0, 0.9), transparent 88%);
+}
+
+.topbar {
+  box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.16);
+}
+
+.brand:hover,
+.navLink:hover,
+.secondaryCta:hover {
+  transform: translateY(-2px);
+}
+
+.navButton,
+.primaryCta {
+  box-shadow: var(--shadow-orange);
+}
+
+.navButton:hover,
+.primaryCta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 22px 45px rgba(255, 106, 31, 0.32);
+}
+
+.productWindow {
+  transform: rotate(1deg);
+}
+
+.productWindow:hover {
+  transform: rotate(0deg) translateY(-4px);
+}
+
+.courseRailSection {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(0, 158, 154, 0.12), transparent 18rem),
+    #ffffff;
+}
+
+.courseRail {
+  scroll-padding-inline: 0.5rem;
+}
+
+.courseShowcaseCard {
+  border-radius: 24px;
+  background: linear-gradient(180deg, #ffffff 0%, #fbf6ef 100%);
+}
+
+.courseCardCta {
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--secondary), #ff8f2f);
+  box-shadow: var(--shadow-orange);
+}
+
+.launchSection {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  gap: 1.25rem;
+  padding: clamp(1.1rem, 3vw, 2rem);
+  border: 1px solid rgba(0, 158, 154, 0.18);
+  background:
+    radial-gradient(circle at 8% 10%, rgba(0, 211, 194, 0.16), transparent 16rem),
+    radial-gradient(circle at 96% 18%, rgba(255, 106, 31, 0.15), transparent 17rem),
+    linear-gradient(145deg, #ffffff, #f7fbf9);
+  box-shadow: var(--shadow);
+}
+
+.launchIntro {
+  display: grid;
+  gap: 0.5rem;
+  max-width: 56rem;
+}
+
+.launchIntro span,
+.launchCard span {
+  color: var(--secondary);
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.launchIntro h2 {
+  max-width: 16ch;
+  margin: 0;
+  color: var(--foreground);
+  font-size: clamp(1.8rem, 4vw, 3.3rem);
+  line-height: 1;
+}
+
+.launchIntro p,
+.launchCard p,
+.proofStrip span {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.launchGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.launchCard {
+  display: grid;
+  align-content: start;
+  gap: 0.7rem;
+  min-height: 14rem;
+  padding: 1.25rem;
+  border: 1px solid rgba(0, 158, 154, 0.18);
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(234, 248, 245, 0.72));
+  box-shadow: 0 14px 35px rgba(5, 42, 55, 0.08);
+}
+
+.launchCard:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255, 106, 31, 0.48);
+  box-shadow: var(--shadow-strong);
+}
+
+.launchCard h3 {
+  margin: 0;
+  color: var(--primary-dark);
+  font-size: 1.35rem;
+  line-height: 1.15;
+}
+
+.proofStrip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.proofStrip div {
+  display: grid;
+  gap: 0.25rem;
+  padding: 1rem;
+  border-radius: 20px;
+  background: #061421;
+  color: #ffffff;
+}
+
+.proofStrip strong {
+  color: #ffffff;
+  font-size: 1rem;
+}
+
+.proofStrip span {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.85rem;
+}
+
+@media (max-width: 980px) {
+  .launchGrid,
+  .proofStrip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .productWindow {
+    transform: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .launchGrid,
+  .proofStrip {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .launchIntro h2 {
+    max-width: none;
+  }
+}

@@ -3043,3 +3043,179 @@
     transition: none;
   }
 }
+
+/* Launch-grade dashboard polish */
+.dashboardShell {
+  position: relative;
+  isolation: isolate;
+  gap: 1.25rem;
+}
+
+.dashboardShell::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 6% 10%, rgba(0, 211, 194, 0.14), transparent 24rem),
+    radial-gradient(circle at 100% 18%, rgba(255, 106, 31, 0.13), transparent 22rem);
+}
+
+.dashboardMasthead {
+  position: sticky;
+  top: 0.8rem;
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(20px);
+}
+
+.dashboardMastheadLogo,
+.heroBrandLogo {
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  padding: 0.18rem;
+}
+
+.mobileMenuTrigger {
+  background: linear-gradient(135deg, #061421, var(--primary-dark));
+  box-shadow: 0 14px 30px rgba(6, 20, 33, 0.18);
+}
+
+.notificationBell {
+  border-color: rgba(255, 106, 31, 0.34);
+  background: #fff7ed;
+}
+
+.hero {
+  border-radius: var(--radius-xl);
+  background:
+    radial-gradient(circle at 88% 14%, rgba(255, 106, 31, 0.46), transparent 15rem),
+    radial-gradient(circle at 60% 108%, rgba(0, 211, 194, 0.36), transparent 20rem),
+    linear-gradient(135deg, #061421 0%, #073a49 45%, #008f95 100%);
+}
+
+.card,
+.cardAccent,
+.studentShowcase,
+.courseStudioHero,
+.institutionHeroV2,
+.institutionHero,
+.institutionStudioPanel,
+.teacherReviewInbox {
+  border-radius: var(--radius-xl);
+}
+
+.card,
+.institutionStudioPanel,
+.teacherReviewInbox {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(0, 158, 154, 0.16);
+}
+
+.cardAccent {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 106, 31, 0.13), transparent 12rem),
+    linear-gradient(145deg, #fff8ed, #ffffff 70%);
+}
+
+.studentTabs {
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.activeTab {
+  background: linear-gradient(135deg, #061421, var(--primary));
+}
+
+.studentShowcase,
+.courseStudioHero {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 106, 31, 0.14), transparent 14rem),
+    linear-gradient(145deg, #eefcf8 0%, #ffffff 60%);
+}
+
+.institutionHeroV2,
+.institutionHero {
+  background:
+    radial-gradient(circle at 88% 12%, rgba(255, 106, 31, 0.4), transparent 14rem),
+    linear-gradient(135deg, #061421, #073a49 55%, #005f66);
+}
+
+.institutionStatCard,
+.institutionOpsCard,
+.institutionRoomBoardCard,
+.institutionCourseCard,
+.institutionMemberCardWide,
+.courseStudioMetric,
+.publishCard,
+.revenueCard,
+.reviewInboxItem,
+.notificationItem {
+  border-radius: 20px;
+  border-color: rgba(0, 158, 154, 0.14);
+  background: linear-gradient(180deg, #ffffff, #f8fbfa);
+}
+
+.institutionStatCard:hover,
+.institutionOpsCard:hover,
+.institutionRoomBoardCard:hover,
+.institutionCourseCard:hover,
+.institutionMemberCardWide:hover,
+.courseStudioMetric:hover,
+.publishCard:hover,
+.revenueCard:hover,
+.reviewInboxItem:hover {
+  transform: translateY(-3px);
+  border-color: rgba(255, 106, 31, 0.46);
+  box-shadow: 0 16px 34px rgba(5, 42, 55, 0.12);
+}
+
+.submitButton,
+.catalogActionButton,
+.draftRecoveryCard button,
+.dangerButton {
+  box-shadow: var(--shadow-orange);
+}
+
+.searchBar input,
+.selectField,
+.formField input,
+.formTextarea {
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.dashboardCourseThumbnail {
+  border-radius: 20px 20px 0 0;
+}
+
+@media (min-width: 1180px) {
+  .dashboardShell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dashboardMasthead {
+    top: 1rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .dashboardMasthead {
+    position: relative;
+    top: auto;
+    border-radius: 22px;
+  }
+
+  .hero,
+  .card,
+  .cardAccent,
+  .studentShowcase,
+  .courseStudioHero,
+  .institutionHeroV2,
+  .institutionHero,
+  .institutionStudioPanel,
+  .teacherReviewInbox {
+    border-radius: 24px;
+  }
+}

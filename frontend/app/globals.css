@@ -1,26 +1,32 @@
 :root {
-  --font-sans: "Aptos", "Trebuchet MS", sans-serif;
-  --font-serif: "Rockwell", "Bookman Old Style", serif;
-  --background: #fff8ef;
-  --foreground: #092b3a;
+  --font-sans: "Aptos Display", "Aptos", "Trebuchet MS", sans-serif;
+  --font-serif: "Cooper Black", "Rockwell", "Bookman Old Style", serif;
+  --background: #f8f0e6;
+  --foreground: #071d2b;
   --surface: #ffffff;
-  --surface-soft: #eafaf7;
-  --surface-strong: #fff0df;
-  --primary: #008f95;
-  --primary-dark: #005b63;
-  --primary-soft: #c9f4ed;
-  --secondary: #ff6b28;
+  --surface-soft: #eaf8f5;
+  --surface-strong: #fff1df;
+  --primary: #009e9a;
+  --primary-dark: #023d4a;
+  --primary-soft: #c9f6ef;
+  --secondary: #ff6a1f;
   --secondary-soft: #ffe1d0;
-  --accent: #ef2f62;
+  --accent: #f22f68;
+  --ink: #071d2b;
+  --deep: #061421;
+  --sand: #f8f0e6;
+  --gold: #ffc857;
   --success: #087f5b;
   --danger: #c51f3f;
   --muted: #536b76;
   --border: #c8dedc;
   --border-strong: #87bdb8;
-  --shadow: 0 18px 45px rgba(5, 72, 78, 0.12);
-  --shadow-strong: 0 22px 60px rgba(5, 72, 78, 0.2);
-  --radius: 18px;
-  --radius-sm: 12px;
+  --shadow: 0 22px 55px rgba(5, 42, 55, 0.12);
+  --shadow-strong: 0 30px 80px rgba(5, 42, 55, 0.22);
+  --shadow-orange: 0 18px 38px rgba(255, 106, 31, 0.22);
+  --radius: 24px;
+  --radius-sm: 15px;
+  --radius-xl: 34px;
 }
 
 html {
@@ -40,12 +46,26 @@ body {
   min-width: 320px;
   color: var(--foreground);
   background:
-    radial-gradient(circle at 8% 2%, rgba(0, 186, 184, 0.13), transparent 26rem),
-    radial-gradient(circle at 94% 12%, rgba(255, 107, 40, 0.12), transparent 24rem),
-    var(--background);
+    radial-gradient(circle at 10% -4%, rgba(0, 186, 184, 0.18), transparent 30rem),
+    radial-gradient(circle at 95% 8%, rgba(255, 106, 31, 0.18), transparent 28rem),
+    radial-gradient(circle at 50% 100%, rgba(255, 200, 87, 0.12), transparent 26rem),
+    linear-gradient(180deg, #fffaf2 0%, var(--background) 42%, #f3eadf 100%);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(6, 20, 33, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(6, 20, 33, 0.035) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.8), transparent 72%);
 }
 
 * {
@@ -68,6 +88,16 @@ a {
 a,
 button {
   -webkit-tap-highlight-color: transparent;
+}
+
+button,
+a {
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease;
 }
 
 .globalBackButton {

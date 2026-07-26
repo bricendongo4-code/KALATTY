@@ -9,7 +9,7 @@ import SessionAwareHomeLink from "./SessionAwareHomeLink";
 export const metadata: Metadata = {
   title: "Kalatty",
   description:
-    "Kalatty, plateforme d'apprentissage pour etudiants, enseignants et etablissements.",
+    "Kalatty, plateforme d'apprentissage pour étudiants, enseignants et établissements.",
   icons: {
     icon: "/icon.png",
     shortcut: "/icon.png",
@@ -61,14 +61,14 @@ export default function RootLayout({
               </SessionAwareHomeLink>
               <p>
                 La plateforme e-learning qui connecte les apprenants, les
-                formateurs independants et les etablissements dans un espace
-                clair, suivi et evolutif.
+                formateurs indépendants et les établissements dans un espace
+                clair, suivi et évolutif.
               </p>
               <div
                 className="siteFooterBadges"
                 aria-label="Engagements Kalatty"
               >
-                <span>Cours video</span>
+                <span>Cours vidéo</span>
                 <span>Classes en ligne</span>
                 <span>Suivi progression</span>
               </div>
@@ -82,16 +82,16 @@ export default function RootLayout({
                 <summary>Plateforme</summary>
                 <div className="siteFooterDropdownPanel">
                   <Link href="/">Accueil</Link>
-                  <Link href="/about">A propos</Link>
+                  <Link href="/about">À propos</Link>
                   <Link href="/pricing">Tarifs</Link>
                   <Link href="/contact">Contact</Link>
                   <Link href="/dashboard">Tableau de bord</Link>
                 </div>
               </details>
               <details>
-                <summary>Etablissements</summary>
+                <summary>Établissements</summary>
                 <div className="siteFooterDropdownPanel">
-                  <Link href="/register/institution">Creer un campus</Link>
+                  <Link href="/register/institution">Créer un campus</Link>
                   <Link href="/dashboard">Classes et comptes</Link>
                   <Link href="/dashboard">Devoirs et corrections</Link>
                   <Link href="/pricing">Plans et abonnement</Link>
@@ -100,9 +100,9 @@ export default function RootLayout({
               <details>
                 <summary>Confiance</summary>
                 <div className="siteFooterDropdownPanel">
-                  <span>Videos hebergees sur Kalatty</span>
-                  <span>Acces par role utilisateur</span>
-                  <span>Paiement en preparation</span>
+                  <span>Vidéos hébergées sur Kalatty</span>
+                  <span>Accès par rôle utilisateur</span>
+                  <span>Paiement en préparation</span>
                   <span>Support local Cameroun</span>
                 </div>
               </details>
@@ -113,21 +113,21 @@ export default function RootLayout({
               <h2>Construire une experience mobile et IA solide.</h2>
               <p>
                 Kalatty peut devenir un vrai assistant d&apos;apprentissage avec
-                des recommandations, des resumes et un accompagnement par
+                des recommandations, des résumés et un accompagnement par
                 profil.
               </p>
               <Link
                 href="/register/institution"
                 className="siteFooterCtaButton"
               >
-                Lancer un espace etablissement
+                Lancer un espace établissement
               </Link>
             </section>
           </div>
           <div className="siteFooterBottom">
-            <span>© {currentYear} Kalatty. Tous droits reserves.</span>
+            <span>© {currentYear} Kalatty. Tous droits réservés.</span>
             <span>
-              Prototype avance pour apprentissage, cours et campus en ligne.
+              Prototype avancé pour apprentissage, cours et campus en ligne.
             </span>
           </div>
         </footer>
