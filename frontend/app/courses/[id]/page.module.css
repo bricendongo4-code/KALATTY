@@ -25,6 +25,90 @@
   background: rgba(255, 251, 245, 0.88);
 }
 
+.learningCommandPanel {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.25fr);
+  gap: 1rem;
+  align-items: stretch;
+  padding: 1.15rem;
+  border-radius: var(--radius);
+  border: 1px solid rgba(29, 111, 95, 0.12);
+  background:
+    radial-gradient(circle at top left, rgba(255, 119, 37, 0.16), transparent 30rem),
+    linear-gradient(135deg, rgba(255, 251, 245, 0.96), rgba(228, 246, 242, 0.9));
+  box-shadow: var(--shadow);
+}
+
+.learningCommandLead,
+.learningCommandCard {
+  min-width: 0;
+}
+
+.learningCommandLead {
+  display: grid;
+  gap: 0.55rem;
+  align-content: center;
+  padding: 0.65rem;
+}
+
+.learningCommandLead h2,
+.learningCommandLead p {
+  margin: 0;
+}
+
+.learningCommandLead h2 {
+  color: var(--primary-dark);
+  font-family: var(--font-serif), serif;
+  font-size: clamp(1.45rem, 3vw, 2.2rem);
+}
+
+.learningCommandLead p {
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.learningCommandGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.learningCommandCard {
+  display: grid;
+  gap: 0.45rem;
+  padding: 1rem;
+  border-radius: var(--radius);
+  border: 1px solid rgba(29, 111, 95, 0.11);
+  background: rgba(255, 255, 255, 0.82);
+  overflow-wrap: anywhere;
+}
+
+.learningCommandCard small {
+  color: var(--secondary);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.learningCommandCard strong {
+  color: var(--primary-dark);
+  font-size: 1.12rem;
+  line-height: 1.35;
+}
+
+.learningCommandCard span {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.learningQuickActions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
 .heroTop {
   display: flex;
   justify-content: space-between;
@@ -223,6 +307,9 @@
 
 .primaryAction {
   min-height: 3.2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: none;
   border-radius: var(--radius);
   padding: 0 1.15rem;
@@ -631,6 +718,10 @@
     grid-template-columns: 1fr;
   }
 
+  .learningCommandPanel {
+    grid-template-columns: 1fr;
+  }
+
   .paymentGrid {
     grid-template-columns: 1fr;
   }
@@ -654,6 +745,18 @@
     flex-direction: column;
   }
 
+  .learningCommandPanel {
+    padding: 0.9rem;
+  }
+
+  .learningCommandGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .learningQuickActions {
+    flex-direction: column;
+  }
+
   .heroTopLinks,
   .formRow {
     flex-direction: column;
@@ -662,7 +765,8 @@
   .primaryAction,
   .secondaryAction,
   .secondaryActionButton,
-  .backLink {
+  .backLink,
+  .learningQuickActions a {
     width: 100%;
   }
 

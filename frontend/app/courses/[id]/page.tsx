@@ -875,6 +875,24 @@ export default function CourseDetailPage({
     );
   }
 
+  const totalVideoLessons = allLessons.filter(
+    (lesson) => lesson.videoPath,
+  ).length;
+  const lockedLessons = allLessons.filter(
+    (lesson) => lesson.videoPath && !lesson.isPreview && !canAccessFullCourse,
+  ).length;
+  const completedRatio =
+    course.lessonsCount > 0
+      ? `${course.completedLessons}/${course.lessonsCount}`
+      : "0/0";
+  const learningStatus = canAccessFullCourse
+    ? activeLesson
+      ? `Reprendre: ${activeLesson.title}`
+      : "Pret a demarrer"
+    : lockedLessons > 0
+      ? `${lockedLessons} lecon(s) a debloquer`
+      : "Apercus disponibles";
+
   return (
     <main className={styles.page}>
       <section className={styles.hero}>
@@ -1060,6 +1078,55 @@ export default function CourseDetailPage({
         </div>
       </section>
 
+      <section className={styles.learningCommandPanel}>
+        <div className={styles.learningCommandLead}>
+          <span className={styles.sectionLabel}>Espace apprenant</span>
+          <h2>Ton parcours, sans te perdre dans la page</h2>
+          <p>
+            Kalatty garde ta derniere lecon, tes notes personnelles et ta
+            progression pour que tu puisses reprendre le cours rapidement.
+          </p>
+        </div>
+
+        <div className={styles.learningCommandGrid}>
+          <article className={styles.learningCommandCard}>
+            <small>Statut</small>
+            <strong>{learningStatus}</strong>
+            <span>
+              {course.institutionAccess
+                ? "Acces offert par votre etablissement"
+                : canAccessFullCourse
+                  ? "Acces individuel actif"
+                  : "Inscription requise pour le parcours complet"}
+            </span>
+          </article>
+          <article className={styles.learningCommandCard}>
+            <small>Progression</small>
+            <strong>{completedRatio}</strong>
+            <span>{course.progressPercentage}% du parcours engage</span>
+          </article>
+          <article className={styles.learningCommandCard}>
+            <small>Videos</small>
+            <strong>{totalVideoLessons}</strong>
+            <span>
+              {accessibleLessons.length} lecon(s) lisible(s) maintenant
+            </span>
+          </article>
+        </div>
+
+        <div className={styles.learningQuickActions}>
+          <a href="#lecteur" className={styles.primaryAction}>
+            Reprendre la video
+          </a>
+          <a href="#programme" className={styles.secondaryAction}>
+            Voir le programme
+          </a>
+          <a href="#avis" className={styles.secondaryAction}>
+            Noter le cours
+          </a>
+        </div>
+      </section>
+
       <section className={styles.contentGrid}>
         <section className={styles.panel}>
           <div className={styles.sectionHeader}>
@@ -1069,7 +1136,7 @@ export default function CourseDetailPage({
             </div>
           </div>
 
-          <div className={styles.playerShell}>
+          <div id="lecteur" className={styles.playerShell}>
             {canPlayActiveLesson && activeLesson ? (
               <>
                 <div className={styles.videoWrapper}>
@@ -1281,7 +1348,7 @@ export default function CourseDetailPage({
             )}
           </div>
 
-          <div className={styles.sectionHeader}>
+          <div id="programme" className={styles.sectionHeader}>
             <div>
               <span className={styles.sectionLabel}>Programme</span>
               <h2>Contenu du cours</h2>
@@ -1425,7 +1492,7 @@ export default function CourseDetailPage({
         </aside>
       </section>
 
-      <section className={styles.reviewGrid}>
+      <section id="avis" className={styles.reviewGrid}>
         <section className={styles.panel}>
           <div className={styles.sectionHeader}>
             <div>
