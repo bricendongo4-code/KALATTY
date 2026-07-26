@@ -1035,6 +1035,98 @@
   outline: none;
 }
 
+.classControlDeck {
+  display: grid;
+  grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr);
+  gap: 1rem;
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid rgba(0, 158, 154, 0.14);
+  border-radius: var(--radius);
+  background:
+    radial-gradient(
+      circle at 100% 0%,
+      rgba(255, 106, 31, 0.12),
+      transparent 14rem
+    ),
+    rgba(255, 255, 255, 0.76);
+}
+
+.classControlLead {
+  display: grid;
+  align-content: center;
+  gap: 0.55rem;
+  min-height: 12rem;
+  padding: 1rem;
+  border-radius: 22px;
+  color: #ffffff;
+  background:
+    radial-gradient(
+      circle at 90% 10%,
+      rgba(255, 106, 31, 0.4),
+      transparent 9rem
+    ),
+    linear-gradient(145deg, #071421, #073a49 68%, #008f95);
+}
+
+.classControlLead span,
+.classControlCard span {
+  color: var(--secondary);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.classControlLead span {
+  color: #8df8ef;
+}
+
+.classControlLead strong {
+  color: #ffffff;
+  font-size: clamp(1.35rem, 2.4vw, 2rem);
+  line-height: 1.05;
+}
+
+.classControlLead p,
+.classControlCard p {
+  margin: 0;
+  line-height: 1.58;
+}
+
+.classControlLead p {
+  color: rgba(255, 255, 255, 0.76);
+}
+
+.classControlCards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.classControlCard {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 0.55rem;
+  padding: 1rem;
+  border: 1px solid rgba(0, 158, 154, 0.14);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 10px 24px rgba(5, 42, 55, 0.07);
+}
+
+.classControlCard strong {
+  color: var(--primary-dark);
+  font-size: clamp(1.2rem, 2vw, 1.55rem);
+  line-height: 1.08;
+  overflow-wrap: anywhere;
+}
+
+.classControlCard p {
+  color: var(--muted);
+}
+
 .institutionHero h2 {
   margin: 0;
   font-family: var(--font-serif), serif;
@@ -3543,6 +3635,18 @@
   .classManagementStrip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .classControlDeck {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .classControlLead {
+    min-height: auto;
+  }
+
+  .classControlCards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 760px) {
@@ -3560,6 +3664,10 @@
 
   .accountRoleMatrix,
   .classManagementStrip {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .classControlCards {
     grid-template-columns: minmax(0, 1fr);
   }
 }

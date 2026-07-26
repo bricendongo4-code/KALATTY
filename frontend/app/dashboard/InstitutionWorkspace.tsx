@@ -644,6 +644,30 @@ export default function InstitutionWorkspace({
       text: "Voir seulement les contenus de sa classe, son emploi du temps, ses devoirs et ses corrections.",
     },
   ];
+  const classControlCards = [
+    {
+      label: "Effectif",
+      value: `${roomCounts.students} élèves`,
+      text:
+        roomCounts.blockedStudents > 0
+          ? `${roomCounts.blockedStudents} compte(s) bloqué(s) à traiter.`
+          : `${roomCounts.teachers} professeur(s) et ${roomCounts.assistants} assistant(s) rattaché(s).`,
+    },
+    {
+      label: "Pédagogie",
+      value: `${roomDetail?.courses.length ?? 0} cours`,
+      text: `${roomDetail?.assignments.length ?? 0} devoir(s) publiés et ${
+        Number(roomDetail?.submissionSummary?.pending ?? 0)
+      } copie(s) en attente.`,
+    },
+    {
+      label: "Présence",
+      value: latestAttendanceRecords.length > 0 ? `${attendanceRate}%` : "Non suivie",
+      text: latestAttendance
+        ? `Dernier appel le ${formatDate(latestAttendance.session_date)}.`
+        : "Aucun registre d'appel encore enregistré.",
+    },
+  ];
 
   const unassignedCatalogCourses = useMemo(() => {
     const assignedIds = new Set(
@@ -1619,6 +1643,27 @@ export default function InstitutionWorkspace({
               <span className={styles.sectionHint}>
                 {roomDetail.slug ? `#${roomDetail.slug}` : "Classe sans slug"}
               </span>
+            </div>
+
+            <div className={styles.classControlDeck}>
+              <article className={styles.classControlLead}>
+                <span>Supervision admin</span>
+                <strong>Une vue complète sans remplacer le professeur.</strong>
+                <p>
+                  L'administration garde le contrôle des accès, de la sécurité,
+                  des affectations et du suivi global. Les actions pédagogiques
+                  quotidiennes restent côté professeur.
+                </p>
+              </article>
+              <div className={styles.classControlCards}>
+                {classControlCards.map((card) => (
+                  <article key={card.label} className={styles.classControlCard}>
+                    <span>{card.label}</span>
+                    <strong>{card.value}</strong>
+                    <p>{card.text}</p>
+                  </article>
+                ))}
+              </div>
             </div>
 
             <div className={styles.institutionOpsGrid}>
