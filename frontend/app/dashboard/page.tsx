@@ -788,6 +788,88 @@ export default function DashboardPage() {
       note: "Remises a corriger en priorite",
     },
   ];
+  const commandCenterCards =
+    role === "student"
+      ? [
+          {
+            label: isInstitutionStudent ? "Campus actif" : "Parcours actif",
+            value: isInstitutionStudent
+              ? workspaceInstitutionName || "Campus non relié"
+              : `${enrolledCoursesCount} cours`,
+            note: isInstitutionStudent
+              ? "Cours et devoirs filtrés par ton établissement."
+              : "Reprends tes apprentissages personnels.",
+            action: "Voir mon suivi",
+            onClick: () => changeStudentView("progress"),
+          },
+          {
+            label: "Priorité",
+            value: String(studentTasks[0] ?? "Continuer"),
+            note: "Action recommandée pour avancer aujourd'hui.",
+            action: isInstitutionStudent ? "Voir le campus" : "Voir le profil",
+            onClick: () =>
+              changeStudentView(isInstitutionStudent ? "institutions" : "profile"),
+          },
+          {
+            label: "Progression",
+            value: `${progressAverage}%`,
+            note: "Avancement moyen des cours suivis.",
+            action: "Détails",
+            onClick: () => changeStudentView("progress"),
+          },
+        ]
+      : role === "teacher"
+        ? [
+            {
+              label: isInstitutionTeacher ? "Classes campus" : "Catalogue",
+              value: isInstitutionTeacher
+                ? `${activeClassesCount} classes`
+                : `${publishedCoursesCount} cours`,
+              note: isInstitutionTeacher
+                ? "Cours et devoirs diffusés à tes classes."
+                : "Cours publiés ou en préparation.",
+              action: isInstitutionTeacher ? "Voir mes classes" : "Voir mes cours",
+              onClick: () =>
+                changeTeacherView(isInstitutionTeacher ? "classes" : "courses"),
+            },
+            {
+              label: "Priorité",
+              value: String(teacherTasks[0] ?? "Publier un cours"),
+              note: "Point d'attention formateur.",
+              action: "Ouvrir le studio",
+              onClick: () => changeTeacherView("studio"),
+            },
+            {
+              label: "Apprenants",
+              value: totalLearnersCount,
+              note: "Audience totale suivie depuis Kalatty.",
+              action: "Analyser",
+              onClick: () => changeTeacherView("overview"),
+            },
+          ]
+        : [
+            {
+              label: "Campus",
+              value: workspaceInstitutionName || displayName,
+              note: "Vue administrateur, séparée du rôle enseignant.",
+              action: "Vue d'ensemble",
+              onClick: () => changeInstitutionView("overview"),
+            },
+            {
+              label: "Gestion",
+              value: "Comptes et classes",
+              note: "Créer les accès, organiser les salles et suivre les rôles.",
+              action: "Gérer",
+              onClick: () => changeInstitutionView("accounts"),
+            },
+            {
+              label: "Abonnement",
+              value: String(dashboardData?.stats?.activePlan ?? "Plan campus"),
+              note: "Capacités, limites et paiement de l'établissement.",
+              action: "Voir le plan",
+              onClick: () => changeInstitutionView("billing"),
+            },
+          ];
 
   useEffect(() => {
     setProfileForm({
@@ -1510,6 +1592,37 @@ export default function DashboardPage() {
                     "Type d'etablissement a completer"}
             </span>
           </div>
+        </div>
+      </section>
+
+      <section
+        className={styles.commandCenter}
+        aria-label="Centre de contrôle Kalatty"
+      >
+        <div className={styles.commandCenterIntro}>
+          <span>Vue opérationnelle</span>
+          <h2>
+            {role === "institution"
+              ? "Piloter le campus sans mélanger les rôles."
+              : role === "teacher"
+                ? "Prioriser les cours, classes et retours apprenants."
+                : "Savoir quoi faire maintenant, sans chercher."}
+          </h2>
+        </div>
+        <div className={styles.commandCenterGrid}>
+          {commandCenterCards.map((card) => (
+            <button
+              key={card.label}
+              type="button"
+              className={styles.commandCard}
+              onClick={card.onClick}
+            >
+              <span>{card.label}</span>
+              <strong>{card.value}</strong>
+              <small>{card.note}</small>
+              <b>{card.action}</b>
+            </button>
+          ))}
         </div>
       </section>
 
