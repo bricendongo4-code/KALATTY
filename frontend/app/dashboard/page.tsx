@@ -788,6 +788,36 @@ export default function DashboardPage() {
       note: "Remises a corriger en priorite",
     },
   ];
+  const teacherOperatingCards = [
+    {
+      label: "Marketplace",
+      title: "Vendre mes cours",
+      text: "Surveiller les cours publiés, les prix, les apprenants et les avis reçus.",
+      action: "Mes cours",
+      view: "courses" as TeacherView,
+    },
+    {
+      label: "Studio",
+      title: "Créer ou modifier",
+      text: "Reprendre un brouillon, ajouter des vidéos, changer le prix ou republier un cours.",
+      action: "Ouvrir le studio",
+      view: "studio" as TeacherView,
+    },
+    {
+      label: "Classes",
+      title: "Enseigner au campus",
+      text: "Publier des devoirs, suivre les remises et corriger les étudiants d'une classe.",
+      action: "Mes classes",
+      view: "classes" as TeacherView,
+    },
+    {
+      label: "Profil",
+      title: "Rassurer les apprenants",
+      text: "Compléter la bio, l'expertise et les informations qui crédibilisent le formateur.",
+      action: "Mon profil",
+      view: "profile" as TeacherView,
+    },
+  ];
   const commandCenterCards =
     role === "student"
       ? [
@@ -2422,6 +2452,35 @@ export default function DashboardPage() {
                   </section>
                 ) : null}
 
+                {teacherView === "overview" ? (
+                  <section className={styles.teacherOperatingPanel}>
+                    <div className={styles.sectionHeader}>
+                      <div>
+                        <p className={styles.sectionLabel}>Plan de travail</p>
+                        <h2>Un espace formateur découpé par objectif</h2>
+                      </div>
+                      <span className={styles.sectionHint}>
+                        Choisis l'action à traiter maintenant
+                      </span>
+                    </div>
+                    <div className={styles.teacherOperatingGrid}>
+                      {teacherOperatingCards.map((card) => (
+                        <button
+                          key={card.label}
+                          type="button"
+                          className={styles.teacherOperatingCard}
+                          onClick={() => changeTeacherView(card.view)}
+                        >
+                          <span>{card.label}</span>
+                          <strong>{card.title}</strong>
+                          <small>{card.text}</small>
+                          <b>{card.action}</b>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
+
                 {teacherView === "courses" ? (
                   <section className={styles.card}>
                     <div className={styles.sectionHeader}>
@@ -2452,6 +2511,36 @@ export default function DashboardPage() {
                           <small>{stat.note}</small>
                         </article>
                       ))}
+                    </div>
+                    <div className={styles.teacherCourseActionPanel}>
+                      <article>
+                        <span>Gestion du catalogue</span>
+                        <strong>Créer, modifier, republier</strong>
+                        <p>
+                          Chaque cours peut être repris dans le studio pour
+                          corriger le prix, la miniature, les modules, les
+                          leçons ou le statut de publication.
+                        </p>
+                      </article>
+                      <div>
+                        <button
+                          type="button"
+                          className={styles.submitButton}
+                          onClick={() => {
+                            setEditingTeacherCourseId("");
+                            changeTeacherView("studio");
+                          }}
+                        >
+                          Créer un nouveau cours
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.secondaryButton}
+                          onClick={() => changeTeacherView("studio")}
+                        >
+                          Reprendre le studio
+                        </button>
+                      </div>
                     </div>
                     <section className={styles.teacherReviewInbox}>
                       <div className={styles.sectionHeader}>

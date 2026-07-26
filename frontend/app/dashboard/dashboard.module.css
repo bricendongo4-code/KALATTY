@@ -1127,6 +1127,130 @@
   color: var(--muted);
 }
 
+.teacherOperatingPanel {
+  display: grid;
+  gap: 1rem;
+  padding: clamp(1rem, 2.4vw, 1.25rem);
+  border: 1px solid rgba(0, 158, 154, 0.16);
+  border-radius: var(--radius-xl);
+  background:
+    radial-gradient(
+      circle at 100% 0%,
+      rgba(255, 106, 31, 0.14),
+      transparent 16rem
+    ),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(231, 250, 246, 0.88));
+  box-shadow: var(--shadow);
+}
+
+.teacherOperatingGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.teacherOperatingCard {
+  min-width: 0;
+  min-height: 12.5rem;
+  display: grid;
+  align-content: start;
+  gap: 0.58rem;
+  padding: 1rem;
+  border: 1px solid rgba(0, 158, 154, 0.16);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--foreground);
+  text-align: left;
+  box-shadow: 0 10px 24px rgba(5, 42, 55, 0.07);
+}
+
+.teacherOperatingCard span {
+  color: var(--secondary);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.teacherOperatingCard strong {
+  color: var(--primary-dark);
+  font-size: 1.08rem;
+  line-height: 1.18;
+}
+
+.teacherOperatingCard small {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.teacherOperatingCard b {
+  width: fit-content;
+  margin-top: auto;
+  padding: 0.55rem 0.7rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--secondary), #ff8f2f);
+  color: #ffffff;
+  font-size: 0.78rem;
+  box-shadow: var(--shadow-orange);
+}
+
+.teacherOperatingCard:hover,
+.teacherOperatingCard:focus-visible {
+  transform: translateY(-3px);
+  border-color: rgba(255, 106, 31, 0.42);
+  box-shadow: var(--shadow);
+  outline: none;
+}
+
+.teacherCourseActionPanel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
+  padding: 1rem;
+  border: 1px solid rgba(255, 106, 31, 0.18);
+  border-radius: 22px;
+  background:
+    radial-gradient(
+      circle at 100% 0%,
+      rgba(255, 106, 31, 0.16),
+      transparent 10rem
+    ),
+    rgba(255, 255, 255, 0.88);
+}
+
+.teacherCourseActionPanel article {
+  min-width: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.teacherCourseActionPanel span {
+  color: var(--secondary);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.teacherCourseActionPanel strong {
+  color: var(--primary-dark);
+  font-size: 1.25rem;
+}
+
+.teacherCourseActionPanel p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.teacherCourseActionPanel > div {
+  display: flex;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .institutionHero h2 {
   margin: 0;
   font-family: var(--font-serif), serif;
@@ -3647,6 +3771,18 @@
   .classControlCards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .teacherOperatingGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .teacherCourseActionPanel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .teacherCourseActionPanel > div {
+    justify-content: flex-start;
+  }
 }
 
 @media (max-width: 760px) {
@@ -3669,5 +3805,13 @@
 
   .classControlCards {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .teacherOperatingGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .teacherOperatingCard {
+    min-height: auto;
   }
 }
