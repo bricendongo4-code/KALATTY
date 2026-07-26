@@ -604,6 +604,46 @@ export default function InstitutionWorkspace({
       view: "overview" as InstitutionView,
     },
   ];
+  const campusRoleCards = [
+    {
+      role: "Administrateur",
+      count: institutionCounts.admins + institutionCounts.owners,
+      title: "Pilotage et droits",
+      text: "Configure le campus, crée les accès, suit les classes et contrôle l'abonnement.",
+      view: "accounts" as InstitutionView,
+    },
+    {
+      role: "Professeur",
+      count: institutionCounts.teachers,
+      title: "Pédagogie de classe",
+      text: "Anime les cours, publie les devoirs, fait l'appel et corrige les copies.",
+      view: "classes" as InstitutionView,
+    },
+    {
+      role: "Élève",
+      count: institutionCounts.students,
+      title: "Apprentissage encadré",
+      text: "Accède uniquement aux cours, devoirs, planning et annonces de son établissement.",
+      view: "classes" as InstitutionView,
+    },
+  ];
+  const classManagementCards = [
+    {
+      label: "Admin",
+      title: "Superviser",
+      text: "Voir les membres, les cours affectés, les devoirs, présences et blocages sans remplacer le professeur.",
+    },
+    {
+      label: "Professeur",
+      title: "Animer",
+      text: "Publier le planning, donner les exercices, faire l'appel et corriger les remises depuis son espace.",
+    },
+    {
+      label: "Élève",
+      title: "Suivre",
+      text: "Voir seulement les contenus de sa classe, son emploi du temps, ses devoirs et ses corrections.",
+    },
+  ];
 
   const unassignedCatalogCourses = useMemo(() => {
     const assignedIds = new Set(
@@ -1370,6 +1410,16 @@ export default function InstitutionWorkspace({
             </span>
           </div>
 
+          <div className={styles.classManagementStrip}>
+            {classManagementCards.map((card) => (
+              <article key={card.label} className={styles.classManagementCard}>
+                <span>{card.label}</span>
+                <strong>{card.title}</strong>
+                <p>{card.text}</p>
+              </article>
+            ))}
+          </div>
+
           <div className={styles.institutionRoomBoard}>
             {filteredRooms.length > 0 ? (
               filteredRooms.map((room) => (
@@ -1408,6 +1458,22 @@ export default function InstitutionWorkspace({
             <span className={styles.sectionHint}>
               Ici, l&apos;ecole cree directement les acces sans attendre une inscription externe.
             </span>
+          </div>
+
+          <div className={styles.accountRoleMatrix}>
+            {campusRoleCards.map((card) => (
+              <button
+                key={card.role}
+                type="button"
+                className={styles.accountRoleCard}
+                onClick={() => setActiveView(card.view)}
+              >
+                <span>{card.role}</span>
+                <strong>{card.count}</strong>
+                <b>{card.title}</b>
+                <small>{card.text}</small>
+              </button>
+            ))}
           </div>
 
           <div className={styles.institutionActionGrid}>
