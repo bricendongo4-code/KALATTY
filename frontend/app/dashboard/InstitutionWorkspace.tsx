@@ -525,6 +525,72 @@ export default function InstitutionWorkspace({
       view: "accounts" as InstitutionView,
     },
   ];
+  const executivePulseCards: Array<{
+    label: string;
+    value: string | number;
+    text: string;
+    view: InstitutionView;
+  }> = [
+    {
+      label: "Santé du campus",
+      value:
+        Number(detail?.stats?.roomUsagePercentage ?? 0) > 85 ||
+        Number(detail?.stats?.studentUsagePercentage ?? 0) > 85
+          ? "À surveiller"
+          : "Stable",
+      text:
+        Number(detail?.stats?.roomUsagePercentage ?? 0) > 85 ||
+        Number(detail?.stats?.studentUsagePercentage ?? 0) > 85
+          ? "Le campus approche des limites du plan. Vérifie l'abonnement."
+          : "Les capacités actuelles couvrent encore l'organisation du campus.",
+      view: "billing" as InstitutionView,
+    },
+    {
+      label: "Priorité pédagogique",
+      value:
+        Number(detail?.stats?.pendingSubmissions ?? 0) > 0
+          ? "Corrections"
+          : "Suivi classe",
+      text:
+        Number(detail?.stats?.pendingSubmissions ?? 0) > 0
+          ? `${detail?.stats?.pendingSubmissions ?? 0} copie(s) demandent une revue.`
+          : "Aucune correction urgente signalée sur les classes.",
+      view: "classes" as InstitutionView,
+    },
+    {
+      label: "Organisation",
+      value:
+        (detail?.rooms.length ?? 0) === 0
+          ? "Créer classes"
+          : activeInvitesCount === 0
+            ? "Inviter équipe"
+            : "Opérationnel",
+      text:
+        (detail?.rooms.length ?? 0) === 0
+          ? "Commence par créer les classes avant d'ajouter les comptes."
+          : activeInvitesCount === 0
+            ? "Prépare les liens ou les comptes internes pour rattacher les utilisateurs."
+            : "Les classes et accès de base sont prêts à être exploités.",
+      view:
+        (detail?.rooms.length ?? 0) === 0
+          ? ("classes" as InstitutionView)
+          : ("accounts" as InstitutionView),
+    },
+  ];
+  const executiveActions = [
+    {
+      label: "Créer un compte",
+      view: "accounts" as InstitutionView,
+    },
+    {
+      label: "Structurer une classe",
+      view: "classes" as InstitutionView,
+    },
+    {
+      label: "Affecter un cours",
+      view: "courses" as InstitutionView,
+    },
+  ];
 
   const roomCounts = useMemo(() => {
     const members = roomDetail?.members ?? [];
@@ -1213,6 +1279,46 @@ export default function InstitutionWorkspace({
                 <span>Type</span>
                 <strong>{selectedInstitution?.institution_type || "Établissement"}</strong>
               </article>
+            </div>
+          </div>
+
+          <div className={styles.executiveCampusDesk}>
+            <div className={styles.executiveCampusHeader}>
+              <div>
+                <span>Vue direction</span>
+                <strong>Décisions rapides du campus</strong>
+              </div>
+              <small>
+                Sépare l&apos;administration des actions professeur, tout en
+                gardant une vue complète sur l&apos;établissement.
+              </small>
+            </div>
+
+            <div className={styles.executivePulseGrid}>
+              {executivePulseCards.map((card) => (
+                <button
+                  key={card.label}
+                  type="button"
+                  className={styles.executivePulseCard}
+                  onClick={() => setActiveView(card.view)}
+                >
+                  <span>{card.label}</span>
+                  <strong>{card.value}</strong>
+                  <small>{card.text}</small>
+                </button>
+              ))}
+            </div>
+
+            <div className={styles.executiveActionRail}>
+              {executiveActions.map((action) => (
+                <button
+                  key={action.label}
+                  type="button"
+                  onClick={() => setActiveView(action.view)}
+                >
+                  {action.label}
+                </button>
+              ))}
             </div>
           </div>
 
