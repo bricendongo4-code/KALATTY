@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 
 type ProfileUpdatePayload = {
@@ -7,6 +11,14 @@ type ProfileUpdatePayload = {
   school_name?: string | null;
   expertise?: string | null;
   bio?: string | null;
+  avatar_url?: string | null;
+};
+
+type UploadedAvatar = {
+  buffer: Buffer;
+  mimetype: string;
+  size: number;
+  originalname: string;
 };
 
 type DashboardRole = 'student' | 'teacher' | 'institution';
@@ -56,7 +68,7 @@ export class DashboardService {
     const { data, error } = await this.supabaseService.client
       .from('profiles')
       .select(
-        'id, email, fullname, role, country, level, school_name, expertise, bio',
+        'id, email, fullname, role, country, level, school_name, expertise, bio, avatar_url',
       )
       .eq('id', userId)
       .single();
@@ -75,6 +87,7 @@ export class DashboardService {
       school_name: payload.school_name?.trim() || null,
       expertise: payload.expertise?.trim() || null,
       bio: payload.bio?.trim() || null,
+      avatar_url: payload.avatar_url?.trim() || null,
       updated_at: new Date().toISOString(),
     };
 
@@ -88,13 +101,76 @@ export class DashboardService {
       .update(updates)
       .eq('id', userId)
       .select(
-        'id, email, fullname, role, country, level, school_name, expertise, bio',
+        'id, email, fullname, role, country, level, school_name, expertise, bio, avatar_url',
       )
       .single();
 
     if (error || !data) {
       throw new NotFoundException(
         error?.message ?? 'Impossible de mettre a jour le profil.',
+      );
+    }
+
+    return data;
+  }
+
+  async uploadProfileAvatar(userId: string, file: UploadedAvatar) {
+    if (!file.buffer?.length) {
+      throw new BadRequestException('La photo envoyee est vide.');
+    }
+
+    if (!file.mimetype.startsWith('image/')) {
+      throw new BadRequestException('La photo de profil doit etre une image.');
+    }
+
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      throw new BadRequestException(
+        'La photo de profil ne doit pas depasser 5 Mo.',
+      );
+    }
+
+    const bucket = 'profile-avatars';
+    await this.ensureProfileAvatarBucket(bucket);
+
+    const safeName = this.sanitizeFilename(file.originalname || 'avatar.png');
+    const filePath = `${userId}/${Date.now()}-${safeName || 'avatar.png'}`;
+
+    const { error } = await this.supabaseService.client.storage
+      .from(bucket)
+      .upload(filePath, file.buffer, {
+        contentType: file.mimetype,
+        upsert: false,
+      });
+
+    if (error) {
+      throw new BadRequestException(
+        error.message ?? "L'upload de la photo de profil a echoue.",
+      );
+    }
+
+    const { data: publicUrlData } = this.supabaseService.client.storage
+      .from(bucket)
+      .getPublicUrl(filePath);
+
+    const avatarUrl = publicUrlData?.publicUrl ?? filePath;
+
+    const { data, error: updateError } = await this.supabaseService.client
+      .from('profiles')
+      .update({
+        avatar_url: avatarUrl,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId)
+      .select(
+        'id, email, fullname, role, country, level, school_name, expertise, bio, avatar_url',
+      )
+      .single();
+
+    if (updateError || !data) {
+      throw new BadRequestException(
+        updateError?.message ??
+          "La photo a ete envoyee, mais le profil n'a pas pu etre mis a jour.",
       );
     }
 
@@ -709,6 +785,43 @@ export class DashboardService {
     );
 
     return new Map(entries);
+  }
+
+  private async ensureProfileAvatarBucket(bucket: string) {
+    const { data } =
+      await this.supabaseService.client.storage.getBucket(bucket);
+
+    if (data?.id) {
+      return;
+    }
+
+    const { error } = await this.supabaseService.client.storage.createBucket(
+      bucket,
+      {
+        public: true,
+        fileSizeLimit: 5 * 1024 * 1024,
+        allowedMimeTypes: ['image/png', 'image/jpeg', 'image/webp'],
+      },
+    );
+
+    if (error && !String(error.message ?? '').includes('already exists')) {
+      throw new BadRequestException(
+        error.message ??
+          'Impossible de preparer le stockage des photos de profil.',
+      );
+    }
+  }
+
+  private sanitizeFilename(value: string) {
+    return value
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9._-]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 120);
   }
 
   private async resolveDashboardContext(

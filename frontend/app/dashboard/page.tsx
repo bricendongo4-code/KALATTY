@@ -28,6 +28,7 @@ type StoredUser = {
   school_name?: string | null;
   expertise?: string | null;
   bio?: string | null;
+  avatar_url?: string | null;
 };
 type DashboardResponse = {
   role: DashboardRole;
@@ -277,6 +278,7 @@ export default function DashboardPage() {
   const [enrollingCourseId, setEnrollingCourseId] = useState("");
   const [profileMessage, setProfileMessage] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [selectedTeacherRoomId, setSelectedTeacherRoomId] = useState("");
   const [teacherRoomDetail, setTeacherRoomDetail] =
     useState<TeacherRoomDetail | null>(null);
@@ -297,6 +299,7 @@ export default function DashboardPage() {
     school_name: "",
     expertise: "",
     bio: "",
+    avatar_url: "",
   });
   const [smartLandingApplied, setSmartLandingApplied] = useState(false);
   const [notifications, setNotifications] = useState<Array<NotificationItem>>(
@@ -509,6 +512,15 @@ export default function DashboardPage() {
       : role === "institution"
         ? "Etablissement"
         : "Apprenant");
+  const profileAvatarUrl = String(
+    profileForm.avatar_url || profile?.avatar_url || "",
+  ).trim();
+  const profileInitials = displayName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
   const workspaceTitle =
     role === "institution"
       ? "Espace administrateur etablissement"
@@ -918,7 +930,9 @@ export default function DashboardPage() {
             note: "Action recommandée pour avancer aujourd'hui.",
             action: isInstitutionStudent ? "Voir le campus" : "Voir le profil",
             onClick: () =>
-              changeStudentView(isInstitutionStudent ? "institutions" : "profile"),
+              changeStudentView(
+                isInstitutionStudent ? "institutions" : "profile",
+              ),
           },
           {
             label: "Progression",
@@ -938,7 +952,9 @@ export default function DashboardPage() {
               note: isInstitutionTeacher
                 ? "Cours et devoirs diffusés à tes classes."
                 : "Cours publiés ou en préparation.",
-              action: isInstitutionTeacher ? "Voir mes classes" : "Voir mes cours",
+              action: isInstitutionTeacher
+                ? "Voir mes classes"
+                : "Voir mes cours",
               onClick: () =>
                 changeTeacherView(isInstitutionTeacher ? "classes" : "courses"),
             },
@@ -981,11 +997,17 @@ export default function DashboardPage() {
             },
           ];
   useEffect(() => {
-    if (!dashboardData || smartLandingApplied || typeof window === "undefined") {
+    if (
+      !dashboardData ||
+      smartLandingApplied ||
+      typeof window === "undefined"
+    ) {
       return;
     }
 
-    const requestedView = new URLSearchParams(window.location.search).get("view");
+    const requestedView = new URLSearchParams(window.location.search).get(
+      "view",
+    );
     const roleStorageKey = `${DASHBOARD_VIEW_KEY_PREFIX}:${role}`;
     const storedView = localStorage.getItem(roleStorageKey);
 
@@ -1010,7 +1032,10 @@ export default function DashboardPage() {
     } else {
       const nextView: InstitutionView = "accounts";
       setInstitutionView(nextView);
-      localStorage.setItem(`${DASHBOARD_VIEW_KEY_PREFIX}:institution`, nextView);
+      localStorage.setItem(
+        `${DASHBOARD_VIEW_KEY_PREFIX}:institution`,
+        nextView,
+      );
     }
 
     setSmartLandingApplied(true);
@@ -1031,8 +1056,10 @@ export default function DashboardPage() {
       school_name: profile?.school_name ?? "",
       expertise: profile?.expertise ?? "",
       bio: profile?.bio ?? "",
+      avatar_url: profile?.avatar_url ?? "",
     });
   }, [
+    profile?.avatar_url,
     profile?.bio,
     profile?.expertise,
     profile?.fullname,
@@ -1160,13 +1187,85 @@ export default function DashboardPage() {
   };
 
   const handleProfileFieldChange = (
-    field: "fullname" | "level" | "school_name" | "expertise" | "bio",
+    field:
+      "fullname" | "level" | "school_name" | "expertise" | "bio" | "avatar_url",
     value: string,
   ) => {
     setProfileForm((current) => ({
       ...current,
       [field]: value,
     }));
+  };
+
+  const handleAvatarUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    const token = localStorage.getItem("kalatty_token");
+    if (!token) {
+      setProfileMessage("Session introuvable. Reconnecte-toi.");
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setProfileMessage("La photo de profil doit etre une image.");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setProfileMessage("La photo de profil ne doit pas depasser 5 Mo.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+    setUploadingAvatar(true);
+    setProfileMessage("");
+
+    try {
+      const res = await fetch(`${apiBaseUrl}/dashboard/profile/avatar`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setProfileMessage(
+          typeof data.message === "string"
+            ? data.message
+            : "Impossible d'envoyer la photo de profil.",
+        );
+        return;
+      }
+
+      setProfileForm((current) => ({
+        ...current,
+        avatar_url: data.avatar_url ?? "",
+      }));
+      setDashboardData((current) =>
+        current
+          ? {
+              ...current,
+              profile: data,
+            }
+          : current,
+      );
+      localStorage.setItem("kalatty_user", JSON.stringify(data));
+      setProfileMessage("Photo de profil mise a jour.");
+    } catch {
+      setProfileMessage("L'envoi de la photo de profil a echoue.");
+    } finally {
+      setUploadingAvatar(false);
+    }
   };
 
   const handleProfileSave = async (event: React.FormEvent) => {
@@ -1355,6 +1454,36 @@ export default function DashboardPage() {
             className={styles.profileEditor}
             onSubmit={(event) => void handleProfileSave(event)}
           >
+            <div className={styles.avatarEditor}>
+              {profileAvatarUrl ? (
+                <img
+                  src={profileAvatarUrl}
+                  alt={`Photo de profil de ${displayName}`}
+                  className={styles.avatarEditorImage}
+                />
+              ) : (
+                <span className={styles.avatarEditorFallback}>
+                  {profileInitials || "K"}
+                </span>
+              )}
+              <div className={styles.avatarEditorCopy}>
+                <strong>Photo de profil</strong>
+                <span>
+                  Ajoute une image claire pour rendre ton compte plus
+                  professionnel.
+                </span>
+              </div>
+              <label className={styles.avatarUploadButton}>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={(event) => void handleAvatarUpload(event)}
+                  disabled={uploadingAvatar}
+                />
+                {uploadingAvatar ? "Envoi..." : "Choisir une photo"}
+              </label>
+            </div>
+
             <div className={styles.metaFields}>
               <label className={styles.formField}>
                 <span>Nom complet</span>
@@ -1459,6 +1588,17 @@ export default function DashboardPage() {
           <p className={styles.sectionLabel}>Apercu</p>
           <h2>Profil public Kalatty</h2>
           <div className={styles.profilePreview}>
+            {profileAvatarUrl ? (
+              <img
+                src={profileAvatarUrl}
+                alt={`Photo de profil de ${displayName}`}
+                className={styles.profilePreviewAvatar}
+              />
+            ) : (
+              <span className={styles.profilePreviewAvatarFallback}>
+                {profileInitials || "K"}
+              </span>
+            )}
             <strong>{profileForm.fullname || displayName}</strong>
             <span>
               {role === "teacher"
@@ -1718,9 +1858,24 @@ export default function DashboardPage() {
 
         <div className={styles.heroMeta}>
           <div className={styles.profileCard}>
-            <span className={styles.profileLabel}>Compte connecte</span>
-            <strong>{displayName}</strong>
-            <span>{profile?.email ?? "email non disponible"}</span>
+            <div className={styles.profileIdentity}>
+              {profileAvatarUrl ? (
+                <img
+                  src={profileAvatarUrl}
+                  alt={`Photo de profil de ${displayName}`}
+                  className={styles.profileAvatar}
+                />
+              ) : (
+                <span className={styles.profileAvatarFallback}>
+                  {profileInitials || "K"}
+                </span>
+              )}
+              <div>
+                <span className={styles.profileLabel}>Compte connecte</span>
+                <strong>{displayName}</strong>
+                <span>{profile?.email ?? "email non disponible"}</span>
+              </div>
+            </div>
           </div>
           <div className={styles.profileCard}>
             <span className={styles.profileLabel}>Profil Kalatty</span>
@@ -1951,7 +2106,9 @@ export default function DashboardPage() {
                       type="button"
                       onClick={() =>
                         changeStudentView(
-                          signal.label === "Campus" ? "institutions" : "progress",
+                          signal.label === "Campus"
+                            ? "institutions"
+                            : "progress",
                         )
                       }
                     >
@@ -2094,7 +2251,9 @@ export default function DashboardPage() {
                   ) : null}
                   {filteredDiscovery.length === 0 ? (
                     <article className={styles.helpfulEmptyState}>
-                      <span>{isInstitutionStudent ? "Campus" : "Catalogue"}</span>
+                      <span>
+                        {isInstitutionStudent ? "Campus" : "Catalogue"}
+                      </span>
                       <h3>
                         {isInstitutionStudent
                           ? "Aucun cours campus disponible"
@@ -2114,7 +2273,9 @@ export default function DashboardPage() {
                           )
                         }
                       >
-                        {isInstitutionStudent ? "Voir mon campus" : "Voir mon suivi"}
+                        {isInstitutionStudent
+                          ? "Voir mon campus"
+                          : "Voir mon suivi"}
                       </button>
                     </article>
                   ) : null}
