@@ -8,10 +8,12 @@ import {
   buildStudentRegisterUrl,
   sanitizeNextPath,
 } from "../authRedirect";
+import { useAuthEntryHistoryGuard } from "../sessionSecurity";
 import styles from "../auth.module.css";
 
 export default function LoginPage() {
   const router = useRouter();
+  useAuthEntryHistoryGuard();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -23,9 +25,11 @@ export default function LoginPage() {
     process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
 
   useEffect(() => {
-    const requestedPath = new URLSearchParams(window.location.search).get(
-      "next",
-    );
+    const searchParams = new URLSearchParams(window.location.search);
+    const requestedPath = searchParams.get("next");
+    if (searchParams.get("reason") === "session-expired") {
+      setMessage("Session fermee par securite. Reconnecte-toi pour continuer.");
+    }
     setNextPath(sanitizeNextPath(requestedPath));
   }, []);
 

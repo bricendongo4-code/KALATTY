@@ -5,10 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { startTransition, useEffect, useState } from "react";
 import { buildLoginUrl, sanitizeNextPath } from "../../authRedirect";
+import { useAuthEntryHistoryGuard } from "../../sessionSecurity";
 import styles from "../../auth.module.css";
 
 export default function StudentRegisterPage() {
   const router = useRouter();
+  useAuthEntryHistoryGuard();
   const [fullname, setFullname] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

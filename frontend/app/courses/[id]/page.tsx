@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { startTransition, useEffect, useRef, useState } from "react";
 import { buildLoginUrl } from "../../authRedirect";
 import SessionAwareHomeLink from "../../SessionAwareHomeLink";
+import { useProtectedHistoryGuard } from "../../sessionSecurity";
 import styles from "./page.module.css";
 
 type CourseDetail = {
@@ -79,6 +80,7 @@ export default function CourseDetailPage({
   params: { id: string } | Promise<{ id: string }>;
 }) {
   const router = useRouter();
+  useProtectedHistoryGuard();
   const apiBaseUrl =
     process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
   const storageBaseUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://njoucnnjlrwbbhnktaho.supabase.co"}/storage/v1/object/public`;

@@ -4,10 +4,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { startTransition, useState } from "react";
+import { useAuthEntryHistoryGuard } from "../../sessionSecurity";
 import styles from "../../auth.module.css";
 
 export default function InstitutionRegisterPage() {
   const router = useRouter();
+  useAuthEntryHistoryGuard();
   const [institutionName, setInstitutionName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

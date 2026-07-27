@@ -8,6 +8,7 @@ import InstitutionWorkspace, { InstitutionView } from "./InstitutionWorkspace";
 import MobileDashboardMenu, { MobileMenuItem } from "./MobileDashboardMenu";
 import PasswordSettings from "./PasswordSettings";
 import TeacherCourseBuilder from "./TeacherCourseBuilder";
+import { useProtectedHistoryGuard } from "../sessionSecurity";
 import styles from "./dashboard.module.css";
 
 type DashboardRole = "student" | "teacher" | "institution";
@@ -232,6 +233,7 @@ const persistReadNotifications = (storageKey: string, ids: Set<string>) => {
 
 export default function DashboardPage() {
   const router = useRouter();
+  useProtectedHistoryGuard();
   const apiBaseUrl =
     process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
   const storageBaseUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://njoucnnjlrwbbhnktaho.supabase.co"}/storage/v1/object/public`;
