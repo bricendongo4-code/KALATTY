@@ -102,6 +102,29 @@ const trustSignals = [
   "Catalogue dynamique",
 ];
 
+const competitiveSignals = [
+  {
+    label: "Catalogue",
+    title: "Cours comparables en un regard",
+    text: "Miniature, note, prix, avis, nombre de leçons et accès sécurisé sont visibles avant de choisir.",
+  },
+  {
+    label: "Progression",
+    title: "Reprise et suivi de parcours",
+    text: "L'apprenant retrouve ses cours, sa progression, ses devoirs et ses notes personnelles depuis son espace.",
+  },
+  {
+    label: "Campus",
+    title: "Un LMS pour les établissements",
+    text: "Classes, comptes internes, planning, présences, devoirs PDF et cours affectés sans paiement individuel.",
+  },
+  {
+    label: "Mobile",
+    title: "Pensé pour le téléphone",
+    text: "Les cours coulissent en rails, les actions restent accessibles et les cartes gardent une structure stable.",
+  },
+];
+
 const launchPillars = [
   {
     title: "Learning marketplace",
@@ -178,6 +201,8 @@ function CourseShowcaseCard({ course }: { course: DiscoveryCourse }) {
     course.shortDescription ||
     course.description ||
     "Découvre le programme complet de ce cours Kalatty.";
+  const isBestRated = Number(course.courseRatingAverage ?? 0) >= 4.5;
+  const hasSocialProof = Number(course.totalReviews ?? 0) >= 10;
 
   return (
     <Link
@@ -221,6 +246,10 @@ function CourseShowcaseCard({ course }: { course: DiscoveryCourse }) {
             {course.totalReviews} avis
           </small>
         </div>
+        <div className={styles.courseSignalRow}>
+          <span>{isBestRated ? "Très bien noté" : "Cours publié"}</span>
+          <span>{hasSocialProof ? "Populaire" : "Nouveau"}</span>
+        </div>
         <strong className={styles.coursePrice}>{formatPrice(course.priceFcfa)}</strong>
         <span className={styles.courseCardCta}>{actionLabel}</span>
       </div>
@@ -236,6 +265,7 @@ function CourseShowcaseCard({ course }: { course: DiscoveryCourse }) {
             {course.teacherExpertise ? `, ${course.teacherExpertise}` : ""}
           </li>
           <li>Note des apprenants : {course.courseRatingAverage.toFixed(1)}/5</li>
+          <li>Accès après connexion, paiement ou affectation campus</li>
         </ul>
         <strong>{formatPrice(course.priceFcfa)}</strong>
         <span className={styles.courseHoverAction}>{actionLabel}</span>
@@ -501,6 +531,28 @@ export default function Home() {
         <div className={styles.trustBar} aria-label="Socle technique et produit">
           {trustSignals.map((signal) => (
             <span key={signal}>{signal}</span>
+          ))}
+        </div>
+      </section>
+
+      <section className={styles.competitiveSection}>
+        <div className={styles.sectionIntro}>
+          <span>Standard marché</span>
+          <h2>Les codes d'une vraie plateforme e-learning moderne.</h2>
+          <p>
+            Les références du marché rassurent vite : recherche claire, cartes
+            comparables, avis visibles, progression, certificats potentiels et
+            outils d'administration. Kalatty reprend ces repères en les adaptant
+            au contexte des apprenants et établissements camerounais.
+          </p>
+        </div>
+        <div className={styles.competitiveGrid}>
+          {competitiveSignals.map((signal) => (
+            <article key={signal.title} className={styles.competitiveCard}>
+              <span>{signal.label}</span>
+              <h3>{signal.title}</h3>
+              <p>{signal.text}</p>
+            </article>
           ))}
         </div>
       </section>

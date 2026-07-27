@@ -195,9 +195,9 @@
 
 .courseCardBody {
   min-width: 0;
-  display: grid;
-  grid-template-rows: auto auto auto 1fr auto;
-  align-content: stretch;
+  min-height: 14rem;
+  display: flex;
+  flex-direction: column;
   gap: 0.45rem;
   padding: 0.9rem;
 }
@@ -211,6 +211,7 @@
 }
 
 .courseCardBody h3 {
+  min-height: 2.7rem;
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
@@ -240,9 +241,28 @@
   color: var(--muted);
 }
 
+.courseSignalRow {
+  min-height: 2rem;
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  align-items: start;
+}
+
+.courseSignalRow span {
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.32rem 0.55rem;
+  border-radius: 999px;
+  background: #eef7a5;
+  color: #3f4a04;
+  font-size: 0.68rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
 .coursePrice {
-  align-self: end;
-  margin-top: 0.1rem;
+  margin-top: auto;
   color: var(--foreground);
   font-size: 1rem;
 }
@@ -250,7 +270,6 @@
 .courseCardCta,
 .courseHoverAction {
   width: 100%;
-  margin-top: auto;
   padding: 0.48rem 0.7rem;
   border-radius: 999px;
   background: var(--secondary-soft);
@@ -344,6 +363,69 @@
 
 .promoSection {
   display: grid;
+}
+
+.competitiveSection {
+  display: grid;
+  gap: 1.25rem;
+  padding: clamp(1.1rem, 3vw, 2rem);
+  border: 1px solid rgba(0, 158, 154, 0.18);
+  border-radius: var(--radius-xl);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(0, 211, 194, 0.15), transparent 18rem),
+    radial-gradient(circle at 98% 18%, rgba(255, 106, 31, 0.16), transparent 16rem),
+    linear-gradient(145deg, #071421, #073a49 58%, #005f66);
+  color: #ffffff;
+  box-shadow: var(--shadow);
+}
+
+.competitiveSection .sectionIntro h2,
+.competitiveSection .sectionIntro p {
+  color: #ffffff;
+}
+
+.competitiveSection .sectionIntro p {
+  color: rgba(255, 248, 239, 0.78);
+}
+
+.competitiveGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.competitiveCard {
+  min-width: 0;
+  display: grid;
+  gap: 0.55rem;
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+}
+
+.competitiveCard span {
+  color: #8df8ef;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.competitiveCard h3,
+.competitiveCard p {
+  margin: 0;
+}
+
+.competitiveCard h3 {
+  color: #ffffff;
+  font-size: 1.1rem;
+}
+
+.competitiveCard p {
+  color: rgba(255, 248, 239, 0.74);
+  line-height: 1.6;
 }
 
 .promoColumn {
@@ -1616,7 +1698,8 @@
   .launchGrid,
   .proofStrip,
   .marketSection,
-  .marketGrid {
+  .marketGrid,
+  .competitiveGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1629,7 +1712,8 @@
   .launchGrid,
   .proofStrip,
   .marketSection,
-  .marketGrid {
+  .marketGrid,
+  .competitiveGrid {
     grid-template-columns: minmax(0, 1fr);
   }
 
