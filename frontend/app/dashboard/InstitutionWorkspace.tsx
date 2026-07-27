@@ -487,6 +487,44 @@ export default function InstitutionWorkspace({
       text: "Relier les contenus aux classes avant de diffuser devoirs et consignes.",
     },
   ];
+  const adminControlCards = [
+    {
+      label: "Capacité classes",
+      value: `${detail?.stats?.roomUsagePercentage ?? 0}%`,
+      text: `${detail?.stats?.roomsCount ?? 0} classe(s) utilisées sur ${detail?.max_rooms ?? 0}.`,
+      view: "classes" as InstitutionView,
+    },
+    {
+      label: "Capacité élèves",
+      value: `${detail?.stats?.studentUsagePercentage ?? 0}%`,
+      text: `${detail?.stats?.studentsCount ?? 0} élève(s) rattaché(s) sur ${detail?.max_students ?? 0}.`,
+      view: "accounts" as InstitutionView,
+    },
+    {
+      label: "Comptes internes",
+      value: detail?.stats?.managedAccountsCount ?? managedUsers.length,
+      text: "Accès créés par l'établissement, sans inscription libre côté élève.",
+      view: "accounts" as InstitutionView,
+    },
+    {
+      label: "Cours affectés",
+      value: detail?.stats?.assignedCoursesCount ?? 0,
+      text: "Cours disponibles gratuitement pour les élèves des classes concernées.",
+      view: "courses" as InstitutionView,
+    },
+    {
+      label: "Copies à suivre",
+      value: detail?.stats?.pendingSubmissions ?? 0,
+      text: `${detail?.stats?.reviewedSubmissions ?? 0} copie(s) déjà corrigée(s).`,
+      view: "classes" as InstitutionView,
+    },
+    {
+      label: "Invitations",
+      value: activeInvitesCount,
+      text: "Liens actifs pour rattacher professeurs, élèves ou assistants.",
+      view: "accounts" as InstitutionView,
+    },
+  ];
 
   const roomCounts = useMemo(() => {
     const members = roomDetail?.members ?? [];
@@ -1305,6 +1343,37 @@ export default function InstitutionWorkspace({
             </button>
           </div>
         </section>
+
+        {activeView === "overview" ? (
+          <section
+            className={styles.adminControlTower}
+            aria-label="Tableau de pilotage administrateur"
+          >
+            <div className={styles.adminControlIntro}>
+              <span>Console administrateur</span>
+              <h2>Diriger le campus sans mélanger les rôles.</h2>
+              <p>
+                L&apos;admin organise, contrôle et supervise. Les professeurs
+                gardent les actions pédagogiques quotidiennes dans leurs classes.
+              </p>
+            </div>
+
+            <div className={styles.adminControlGrid}>
+              {adminControlCards.map((card) => (
+                <button
+                  key={card.label}
+                  type="button"
+                  className={styles.adminControlCard}
+                  onClick={() => setActiveView(card.view)}
+                >
+                  <span>{card.label}</span>
+                  <strong>{card.value}</strong>
+                  <small>{card.text}</small>
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         {activeView === "settings" ? (
           <section className={`${styles.grid} ${styles.singleColumn}`}>
