@@ -3889,3 +3889,143 @@
     min-height: auto;
   }
 }
+
+/* Final responsive pass for connected dashboards. */
+.dashboardMasthead,
+.hero,
+.commandCenter,
+.studentShowcase,
+.card,
+.cardAccent,
+.studentSwitch {
+  min-width: 0;
+}
+
+.studentSwitch {
+  overflow: hidden;
+}
+
+.commandCenterGrid,
+.showcaseStats,
+.heroMeta,
+.teacherOperatingGrid,
+.institutionStatsGrid,
+.institutionOpsGrid {
+  align-items: stretch;
+}
+
+.studentTab,
+.activeTab,
+.mobileMenuTrigger,
+.notificationBell {
+  white-space: nowrap;
+}
+
+@media (max-width: 860px) {
+  .dashboardMastheadActions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    width: 100%;
+  }
+
+  .mobileMenuRoot,
+  .notificationDropdown,
+  .notificationBell {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .commandCenter {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .commandCenterGrid {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(13.75rem, 68vw);
+    grid-template-columns: none;
+    overflow-x: auto;
+    padding-bottom: 0.45rem;
+    scroll-snap-type: inline mandatory;
+    scrollbar-width: thin;
+  }
+
+  .commandCenterGrid > * {
+    scroll-snap-align: start;
+  }
+}
+
+@media (max-width: 640px) {
+  .dashboardShell {
+    gap: 0.85rem;
+  }
+
+  .dashboardMasthead {
+    gap: 0.75rem;
+  }
+
+  .dashboardMastheadActions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dashboardMastheadMeta {
+    display: none;
+  }
+
+  .studentTabs {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 0.35rem;
+    scroll-snap-type: inline proximity;
+    scrollbar-width: none;
+  }
+
+  .studentTabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .studentTab,
+  .activeTab {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: max-content;
+    white-space: nowrap;
+    scroll-snap-align: start;
+  }
+
+  .commandCenter {
+    padding: 1rem;
+  }
+
+  .commandCenterIntro h2 {
+    font-size: clamp(1.45rem, 7vw, 1.9rem);
+  }
+
+  .commandCenterGrid {
+    grid-auto-columns: minmax(12.75rem, 78vw);
+  }
+
+  .showcaseStats,
+  .heroMeta,
+  .teacherOperatingGrid {
+    display: flex;
+    gap: 0.75rem;
+    overflow-x: auto;
+    padding-bottom: 0.4rem;
+    scroll-snap-type: inline mandatory;
+    scrollbar-width: none;
+  }
+
+  .showcaseStats::-webkit-scrollbar,
+  .heroMeta::-webkit-scrollbar,
+  .teacherOperatingGrid::-webkit-scrollbar {
+    display: none;
+  }
+
+  .showcaseStats > *,
+  .heroMeta > *,
+  .teacherOperatingGrid > * {
+    flex: 0 0 min(14rem, 78vw);
+    scroll-snap-align: start;
+  }
+}
