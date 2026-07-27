@@ -937,6 +937,92 @@ export default function DashboardPage() {
               onClick: () => changeInstitutionView("billing"),
             },
           ];
+  const roleGuide =
+    role === "student"
+      ? {
+          label: isInstitutionStudent
+            ? "Mode d'emploi campus"
+            : "Mode d'emploi etudiant",
+          title: isInstitutionStudent
+            ? "Ton espace est filtre par ton etablissement."
+            : "Ton espace sert a apprendre sans te perdre.",
+          text: isInstitutionStudent
+            ? "Tu n'as pas besoin de chercher dans tout le catalogue public. Commence par les cours affectes a tes classes, puis verifie les devoirs et le planning de la semaine."
+            : "Commence par reprendre un cours, puis utilise le catalogue seulement quand tu veux choisir un nouveau parcours. Le suivi garde ta progression au meme endroit.",
+          primaryLabel: "Voir mes cours",
+          secondaryLabel: isInstitutionStudent ? "Voir mon campus" : "Voir mon profil",
+          primaryAction: () => changeStudentView("progress"),
+          secondaryAction: () =>
+            changeStudentView(isInstitutionStudent ? "institutions" : "profile"),
+          steps: [
+            {
+              title: "1. Reprendre",
+              text: "Ouvre d'abord le cours en cours ou la prochaine lecon recommandee.",
+            },
+            {
+              title: "2. Suivre",
+              text: "Controle ta progression, tes cours actifs et tes classes rattachees.",
+            },
+            {
+              title: "3. Agir",
+              text: "Fais les devoirs, consulte le planning et complete ton profil pour de meilleures recommandations.",
+            },
+          ],
+        }
+      : role === "teacher"
+        ? {
+            label: isInstitutionTeacher
+              ? "Mode d'emploi professeur campus"
+              : "Mode d'emploi formateur",
+            title: isInstitutionTeacher
+              ? "Tu enseignes dans tes classes, sans gerer l'administration."
+              : "Ton espace sert a creer, vendre et ameliorer tes cours.",
+            text: isInstitutionTeacher
+              ? "Commence par choisir une classe, publie ou corrige les devoirs, puis suis les remises. La gestion des comptes reste reservee a l'administrateur de l'etablissement."
+              : "Commence par le studio si tu crees un cours, ou par Mes cours si tu veux modifier un contenu, son prix, ses modules ou ses lecons.",
+            primaryLabel: isInstitutionTeacher ? "Voir mes classes" : "Ouvrir le studio",
+            secondaryLabel: "Voir mes cours",
+            primaryAction: () =>
+              changeTeacherView(isInstitutionTeacher ? "classes" : "studio"),
+            secondaryAction: () => changeTeacherView("courses"),
+            steps: [
+              {
+                title: "1. Produire",
+                text: "Structure ton cours avec une miniature, des modules, des videos et un prix clair.",
+              },
+              {
+                title: "2. Diffuser",
+                text: "Publie le cours dans le catalogue ou affecte-le a une classe d'etablissement.",
+              },
+              {
+                title: "3. Ameliorer",
+                text: "Lis les avis, corrige les devoirs et ajuste le contenu selon les retours.",
+              },
+            ],
+          }
+        : {
+            label: "Mode d'emploi administrateur",
+            title: "L'etablissement pilote le campus, pas les cours comme un professeur.",
+            text: "L'administrateur cree les comptes, organise les classes, rattache les professeurs, affecte les cours et suit l'activite. Les professeurs enseignent ensuite dans leurs classes.",
+            primaryLabel: "Gerer les comptes",
+            secondaryLabel: "Voir les classes",
+            primaryAction: () => changeInstitutionView("accounts"),
+            secondaryAction: () => changeInstitutionView("classes"),
+            steps: [
+              {
+                title: "1. Structurer",
+                text: "Cree les comptes internes et separe les roles admin, professeur et etudiant.",
+              },
+              {
+                title: "2. Organiser",
+                text: "Cree les classes, rattache les eleves et donne acces aux professeurs concernes.",
+              },
+              {
+                title: "3. Piloter",
+                text: "Affecte les cours, suis devoirs, presences, planning et progression du campus.",
+              },
+            ],
+          };
 
   useEffect(() => {
     setProfileForm({
@@ -1693,6 +1779,38 @@ export default function DashboardPage() {
         </div>
       </section>
 
+      <section className={styles.guidedJourney} aria-label="Guide d'utilisation Kalatty">
+        <div className={styles.guidedJourneyLead}>
+          <span>{roleGuide.label}</span>
+          <h2>{roleGuide.title}</h2>
+          <p>{roleGuide.text}</p>
+          <div className={styles.guidedJourneyActions}>
+            <button
+              type="button"
+              className={styles.submitButton}
+              onClick={roleGuide.primaryAction}
+            >
+              {roleGuide.primaryLabel}
+            </button>
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              onClick={roleGuide.secondaryAction}
+            >
+              {roleGuide.secondaryLabel}
+            </button>
+          </div>
+        </div>
+        <div className={styles.guidedSteps}>
+          {roleGuide.steps.map((step) => (
+            <article key={step.title}>
+              <strong>{step.title}</strong>
+              <p>{step.text}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
       {role === "student" ? (
         <>
           <section className={styles.studentSwitch}>
@@ -1999,11 +2117,30 @@ export default function DashboardPage() {
                     <p className={styles.inlineMessage}>{catalogMessage}</p>
                   ) : null}
                   {filteredDiscovery.length === 0 ? (
-                    <p className={styles.paragraph}>
-                      {isInstitutionStudent
-                        ? "Aucun cours n'est encore attribue a tes classes. Ton etablissement pourra les ajouter depuis l'espace administrateur."
-                        : "Aucun parcours ne correspond a cette recherche."}
-                    </p>
+                    <article className={styles.helpfulEmptyState}>
+                      <span>{isInstitutionStudent ? "Campus" : "Catalogue"}</span>
+                      <h3>
+                        {isInstitutionStudent
+                          ? "Aucun cours campus disponible"
+                          : "Aucun cours trouve"}
+                      </h3>
+                      <p>
+                        {isInstitutionStudent
+                          ? "Ton etablissement doit affecter un cours a ta classe. En attendant, verifie le planning ou les devoirs publies."
+                          : "Essaie une recherche plus simple ou ouvre ton suivi pour reprendre un cours deja commence."}
+                      </p>
+                      <button
+                        type="button"
+                        className={styles.secondaryButton}
+                        onClick={() =>
+                          changeStudentView(
+                            isInstitutionStudent ? "institutions" : "progress",
+                          )
+                        }
+                      >
+                        {isInstitutionStudent ? "Voir mon campus" : "Voir mon suivi"}
+                      </button>
+                    </article>
                   ) : null}
                 </section>
               </div>
@@ -2755,11 +2892,26 @@ export default function DashboardPage() {
                           </article>
                         ))
                       ) : (
-                        <p className={styles.paragraph}>
-                          {teacherCourses.length > 0
-                            ? "Aucun cours ne correspond a cette recherche."
-                            : "Aucun cours n'est encore rattache a cet enseignant."}
-                        </p>
+                        <article className={styles.helpfulEmptyState}>
+                          <span>Catalogue formateur</span>
+                          <h3>
+                            {teacherCourses.length > 0
+                              ? "Aucun cours trouve"
+                              : "Aucun cours publie"}
+                          </h3>
+                          <p>
+                            {teacherCourses.length > 0
+                              ? "Essaie un mot-cle plus court ou ouvre le studio pour verifier tes contenus."
+                              : "Commence par creer un brouillon avec une miniature, un prix, des modules et au moins une lecon video."}
+                          </p>
+                          <button
+                            type="button"
+                            className={styles.submitButton}
+                            onClick={() => changeTeacherView("studio")}
+                          >
+                            Ouvrir le studio
+                          </button>
+                        </article>
                       )}
                     </div>
                   </section>
@@ -2850,10 +3002,23 @@ export default function DashboardPage() {
                             </button>
                           ))
                         ) : (
-                          <p className={styles.paragraph}>
-                            Aucune classe d&apos;etablissement n&apos;est encore
-                            rattachee a ce professeur.
-                          </p>
+                          <article className={styles.helpfulEmptyState}>
+                            <span>Classes campus</span>
+                            <h3>Aucune classe rattachee</h3>
+                            <p>
+                              Un administrateur d&apos;etablissement doit te
+                              donner acces a une classe. Ensuite tu pourras
+                              publier des devoirs, suivre les remises et
+                              corriger les etudiants.
+                            </p>
+                            <button
+                              type="button"
+                              className={styles.secondaryButton}
+                              onClick={() => changeTeacherView("profile")}
+                            >
+                              Verifier mon profil
+                            </button>
+                          </article>
                         )}
                       </div>
                     </section>

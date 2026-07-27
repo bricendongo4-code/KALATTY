@@ -4367,6 +4367,130 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
+/* UX guidance layer: explain what each connected workspace is for. */
+.guidedJourney {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 1rem;
+  padding: clamp(1rem, 2.4vw, 1.5rem);
+  border: 1px solid rgba(0, 158, 154, 0.18);
+  border-radius: 30px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 106, 31, 0.15), transparent 15rem),
+    linear-gradient(135deg, #ffffff, #effbf8);
+  box-shadow: 0 18px 44px rgba(5, 72, 78, 0.1);
+}
+
+.guidedJourneyLead,
+.guidedSteps article {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 0.65rem;
+}
+
+.guidedJourneyLead span {
+  width: fit-content;
+  padding: 0.42rem 0.65rem;
+  border-radius: 999px;
+  background: var(--secondary-soft);
+  color: var(--secondary);
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.guidedJourneyLead h2 {
+  max-width: 17ch;
+  margin: 0;
+  color: var(--primary-dark);
+  font-size: clamp(1.6rem, 3vw, 2.55rem);
+  line-height: 1.04;
+  letter-spacing: -0.04em;
+}
+
+.guidedJourneyLead p,
+.guidedSteps p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.guidedJourneyActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  margin-top: 0.25rem;
+}
+
+.guidedJourneyActions > * {
+  flex: 1 1 11rem;
+}
+
+.guidedSteps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.guidedSteps article {
+  min-height: 11rem;
+  padding: 1rem;
+  border: 1px solid rgba(0, 158, 154, 0.13);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 10px 24px rgba(5, 72, 78, 0.06);
+}
+
+.guidedSteps strong {
+  color: var(--primary-dark);
+  font-size: 1.02rem;
+  line-height: 1.25;
+}
+
+.helpfulEmptyState {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1.15rem;
+  border: 1px dashed rgba(0, 158, 154, 0.32);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 106, 31, 0.13), transparent 10rem),
+    #ffffff;
+}
+
+.helpfulEmptyState span {
+  width: fit-content;
+  padding: 0.35rem 0.58rem;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.helpfulEmptyState h3 {
+  margin: 0;
+  color: var(--primary-dark);
+  font-size: 1.25rem;
+}
+
+.helpfulEmptyState p {
+  max-width: 62ch;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.helpfulEmptyState > button,
+.helpfulEmptyState > a {
+  width: fit-content;
+  min-width: min(100%, 13rem);
+}
+
 /* Competitive dashboard pass: learner and instructor spaces should feel launch-ready. */
 .studentShowcase {
   position: relative;
@@ -4638,6 +4762,11 @@
 }
 
 @media (max-width: 1200px) {
+  .guidedJourney,
+  .guidedSteps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .showcaseStats,
   .teacherOperatingGrid,
   .experienceSignalStrip {
@@ -4649,9 +4778,19 @@
   .studentShowcase,
   .card,
   .cardAccent,
+  .guidedJourney,
   .teacherOperatingPanel,
   .teacherReviewInbox {
     border-radius: 24px;
+  }
+
+  .guidedJourneyLead h2 {
+    max-width: none;
+  }
+
+  .guidedJourneyActions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .showcaseCopy h2 {
