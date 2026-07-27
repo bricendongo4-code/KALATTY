@@ -41,11 +41,11 @@ export default function RootLayout({
           <div className="siteFooterInner">
             <section
               className="siteFooterBrand"
-              aria-label="Presentation Kalatty"
+              aria-label="Présentation Kalatty"
             >
               <SessionAwareHomeLink
                 className="siteFooterLogoLink"
-                ariaLabel="Retour a l'accueil Kalatty"
+                ariaLabel="Retour à l'accueil Kalatty"
               >
                 <Image
                   src="/kalatty-logo.png"
@@ -109,8 +109,8 @@ export default function RootLayout({
             </nav>
 
             <section className="siteFooterCta" aria-label="Invitation Kalatty">
-              <span className="siteFooterCtaLabel">Prochaine etape</span>
-              <h2>Construire une experience mobile et IA solide.</h2>
+              <span className="siteFooterCtaLabel">Prochaine étape</span>
+              <h2>Construire une expérience mobile et IA solide.</h2>
               <p>
                 Kalatty peut devenir un vrai assistant d&apos;apprentissage avec
                 des recommandations, des résumés et un accompagnement par

@@ -166,10 +166,10 @@ main :where(p, span, strong, small, h1, h2, h3, h4, a) {
 
 .siteFooterGlow {
   position: absolute;
-  inset: auto -12rem -18rem auto;
+  inset: auto 0 -18rem auto;
   z-index: -1;
-  width: 34rem;
-  height: 34rem;
+  width: min(34rem, 86vw);
+  height: min(34rem, 86vw);
   border-radius: 999px;
   background: rgba(255, 107, 40, 0.24);
   filter: blur(30px);
