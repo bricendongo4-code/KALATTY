@@ -29,11 +29,13 @@ type HomeDiscovery = {
     id: string;
     title: string;
     description: string;
+    href?: string;
   }>;
   promos: Array<{
     id: string;
     title: string;
     description: string;
+    href?: string;
   }>;
 };
 
@@ -119,20 +121,24 @@ const competitiveSignals = [
   {
     label: "Catalogue",
     title: "Cours comparables en un regard",
+    href: "#catalogue",
     text: "Miniature, note, prix, avis, nombre de leçons et accès sécurisé sont visibles avant de choisir.",
   },
   {
     label: "Progression",
     title: "Reprise et suivi de parcours",
+    href: "/login",
     text: "L'apprenant retrouve ses cours, sa progression, ses devoirs et ses notes personnelles depuis son espace.",
   },
   {
     label: "Campus",
+    href: "/register/institution",
     title: "Un LMS pour les établissements",
     text: "Classes, comptes internes, planning, présences, devoirs PDF et cours affectés sans paiement individuel.",
   },
   {
     label: "Mobile",
+    href: "/about",
     title: "Pensé pour le téléphone",
     text: "Les cours coulissent en rails, les actions restent accessibles et les cartes gardent une structure stable.",
   },
@@ -142,16 +148,19 @@ const launchPillars = [
   {
     title: "Learning marketplace",
     metric: "Cours publics",
+    href: "#catalogue",
     text: "Une vitrine claire avec miniatures, prix, notes, avis et accès contrôlé avant paiement.",
   },
   {
     title: "Studio formateur",
     metric: "Creation guidee",
+    href: "/register/teacher",
     text: "Un parcours de publication qui garde les brouillons, les vidéos, les modules et les revenus au même endroit.",
   },
   {
     title: "Campus établissement",
     metric: "Gestion complete",
+    href: "/register/institution",
     text: "Classes, comptes internes, professeurs, devoirs, planning et suivi reunis dans une console d'administration.",
   },
 ];
@@ -170,6 +179,7 @@ const marketCapabilities = [
   },
   {
     title: "Campus autonome",
+    href: "/register/institution",
     text: "Un établissement peut gérer ses propres comptes, classes, enseignants, emplois du temps, devoirs et présences.",
   },
   {
@@ -186,16 +196,19 @@ const fallbackGuides = [
   {
     id: "guide-1",
     title: "Trouver un cours",
+    href: "#catalogue",
     description: "Parcours l'accueil, ouvre la fiche cours puis inscris-toi pour démarrer les vidéos et les avis.",
   },
   {
     id: "guide-2",
     title: "Suivre sa progression",
+    href: "/login",
     description: "Le menu étudiant permet de reprendre tes cours, vérifier ta progression et rejoindre un établissement.",
   },
   {
     id: "guide-3",
     title: "Publier comme formateur",
+    href: "/register/teacher",
     description: "Le studio enseignant permet d'ajouter miniature, modules, leçons vidéo et exercices sans lien externe.",
   },
 ];
@@ -204,6 +217,30 @@ const formatPrice = (priceFcfa: number) =>
   priceFcfa > 0
     ? `${new Intl.NumberFormat("fr-FR").format(priceFcfa)} FCFA`
     : "Gratuit";
+
+const resolveMarketHref = (title: string, fallbackHref?: string) => {
+  if (fallbackHref) return fallbackHref;
+  const normalizedTitle = title.toLowerCase();
+  if (normalizedTitle.includes("catalogue")) return "#catalogue";
+  if (normalizedTitle.includes("campus")) return "/register/institution";
+  if (normalizedTitle.includes("paiement") || normalizedTitle.includes("tarif")) {
+    return "/pricing";
+  }
+  if (normalizedTitle.includes("mobile")) return "/about";
+  return "/register";
+};
+
+const resolvePromoHref = (title: string, fallbackHref?: string) => {
+  if (fallbackHref) return fallbackHref;
+  const normalizedTitle = title.toLowerCase();
+  if (normalizedTitle.includes("campus") || normalizedTitle.includes("etablissement")) {
+    return "/register/institution";
+  }
+  if (normalizedTitle.includes("formateur") || normalizedTitle.includes("cours")) {
+    return "/register/teacher";
+  }
+  return "/pricing";
+};
 
 function CourseShowcaseCard({ course }: { course: DiscoveryCourse }) {
   const actionLabel =
@@ -593,11 +630,12 @@ export default function Home() {
         </div>
         <div className={styles.competitiveGrid}>
           {competitiveSignals.map((signal) => (
-            <article key={signal.title} className={styles.competitiveCard}>
+            <Link key={signal.title} href={signal.href} className={styles.competitiveCard}>
               <span>{signal.label}</span>
               <h3>{signal.title}</h3>
               <p>{signal.text}</p>
-            </article>
+              <b>Ouvrir</b>
+            </Link>
           ))}
         </div>
       </section>
@@ -615,11 +653,12 @@ export default function Home() {
 
         <div className={styles.launchGrid}>
           {launchPillars.map((pillar) => (
-            <article key={pillar.title} className={styles.launchCard}>
+            <Link key={pillar.title} href={pillar.href} className={styles.launchCard}>
               <span>{pillar.metric}</span>
               <h3>{pillar.title}</h3>
               <p>{pillar.text}</p>
-            </article>
+              <b>Continuer</b>
+            </Link>
           ))}
         </div>
 
@@ -646,11 +685,16 @@ export default function Home() {
         </div>
         <div className={styles.marketGrid}>
           {marketCapabilities.map((capability) => (
-            <article key={capability.title} className={styles.marketCard}>
+            <Link
+              key={capability.title}
+              href={resolveMarketHref(capability.title, capability.href)}
+              className={styles.marketCard}
+            >
               <span />
               <h3>{capability.title}</h3>
               <p>{capability.text}</p>
-            </article>
+              <b>Explorer</b>
+            </Link>
           ))}
         </div>
       </section>
@@ -678,10 +722,15 @@ export default function Home() {
           </div>
           <div className={styles.promoList}>
             {(promos.length > 0 ? promos : [{ id: "promo-default", title: "Campagnes Kalatty", description: "Cet espace peut mettre en avant une offre établissement, un nouveau cours ou une campagne de rentrée." }]).map((promo) => (
-              <article key={promo.id} className={styles.promoCard}>
+              <Link
+                key={promo.id}
+                href={resolvePromoHref(promo.title, promo.href)}
+                className={styles.promoCard}
+              >
                 <h3>{promo.title}</h3>
                 <p>{promo.description}</p>
-              </article>
+                <b>Voir l'action</b>
+              </Link>
             ))}
           </div>
         </div>
@@ -716,10 +765,11 @@ export default function Home() {
         </div>
         <div className={styles.guidesGrid}>
           {guides.map((guide) => (
-            <article key={guide.id} className={styles.guideCard}>
+            <Link key={guide.id} href={guide.href ?? "/login"} className={styles.guideCard}>
               <h3>{guide.title}</h3>
               <p>{guide.description}</p>
-            </article>
+              <b>Y aller</b>
+            </Link>
           ))}
         </div>
       </section>

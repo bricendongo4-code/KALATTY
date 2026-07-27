@@ -81,6 +81,20 @@
   border: 1px solid rgba(29, 111, 95, 0.11);
   background: rgba(255, 255, 255, 0.82);
   overflow-wrap: anywhere;
+  color: inherit;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.learningCommandCard:hover,
+.learningCommandCard:focus-visible {
+  transform: translateY(-3px);
+  border-color: rgba(255, 106, 31, 0.45);
+  box-shadow: 0 16px 32px rgba(5, 72, 78, 0.12);
+  outline: none;
 }
 
 .learningCommandCard small {

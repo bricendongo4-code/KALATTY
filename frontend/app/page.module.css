@@ -461,6 +461,38 @@
   line-height: 1.6;
 }
 
+.competitiveCard b,
+.launchCard b,
+.marketCard b,
+.promoCard b,
+.guideCard b {
+  width: fit-content;
+  margin-top: auto;
+  padding: 0.45rem 0.68rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: currentColor;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.competitiveCard,
+.launchCard,
+.marketCard,
+.promoCard,
+.guideCard {
+  cursor: pointer;
+}
+
+.competitiveCard:focus-visible,
+.launchCard:focus-visible,
+.marketCard:focus-visible,
+.promoCard:focus-visible,
+.guideCard:focus-visible {
+  outline: 3px solid rgba(255, 106, 31, 0.42);
+  outline-offset: 4px;
+}
+
 .promoColumn {
   display: grid;
   gap: 1rem;

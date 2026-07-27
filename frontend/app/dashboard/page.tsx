@@ -1944,11 +1944,19 @@ export default function DashboardPage() {
 
                 <section className={styles.experienceSignalStrip}>
                   {learnerExperienceSignals.map((signal) => (
-                    <article key={signal.title}>
+                    <button
+                      key={signal.title}
+                      type="button"
+                      onClick={() =>
+                        changeStudentView(
+                          signal.label === "Campus" ? "institutions" : "progress",
+                        )
+                      }
+                    >
                       <span>{signal.label}</span>
                       <strong>{signal.title}</strong>
                       <p>{signal.text}</p>
-                    </article>
+                    </button>
                   ))}
                 </section>
 
@@ -2634,11 +2642,23 @@ export default function DashboardPage() {
                 {teacherView === "overview" ? (
                   <section className={styles.experienceSignalStrip}>
                     {teacherExperienceSignals.map((signal) => (
-                      <article key={signal.title}>
+                      <button
+                        key={signal.title}
+                        type="button"
+                        onClick={() =>
+                          changeTeacherView(
+                            signal.label === "Studio"
+                              ? "studio"
+                              : signal.label === "Campus"
+                                ? "classes"
+                                : "courses",
+                          )
+                        }
+                      >
                         <span>{signal.label}</span>
                         <strong>{signal.title}</strong>
                         <p>{signal.text}</p>
-                      </article>
+                      </button>
                     ))}
                   </section>
                 ) : null}

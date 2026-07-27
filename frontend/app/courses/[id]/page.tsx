@@ -1014,7 +1014,7 @@ export default function CourseDetailPage({
             ) : null}
             {message ? <p className={styles.inlineMessage}>{message}</p> : null}
             {course.priceFcfa > 0 && !course.enrolled ? (
-              <section className={styles.paymentPanel}>
+              <section id="paiement" className={styles.paymentPanel}>
                 <div className={styles.paymentPanelTop}>
                   <strong>
                     {paymentPreview?.providerLabel ??
@@ -1089,7 +1089,10 @@ export default function CourseDetailPage({
         </div>
 
         <div className={styles.learningCommandGrid}>
-          <article className={styles.learningCommandCard}>
+          <a
+            href={canAccessFullCourse ? "#programme" : "#paiement"}
+            className={styles.learningCommandCard}
+          >
             <small>Statut</small>
             <strong>{learningStatus}</strong>
             <span>
@@ -1099,19 +1102,19 @@ export default function CourseDetailPage({
                   ? "Acces individuel actif"
                   : "Inscription requise pour le parcours complet"}
             </span>
-          </article>
-          <article className={styles.learningCommandCard}>
+          </a>
+          <a href="#programme" className={styles.learningCommandCard}>
             <small>Progression</small>
             <strong>{completedRatio}</strong>
             <span>{course.progressPercentage}% du parcours engage</span>
-          </article>
-          <article className={styles.learningCommandCard}>
+          </a>
+          <a href="#lecteur" className={styles.learningCommandCard}>
             <small>Videos</small>
             <strong>{totalVideoLessons}</strong>
             <span>
               {accessibleLessons.length} lecon(s) lisible(s) maintenant
             </span>
-          </article>
+          </a>
         </div>
 
         <div className={styles.learningQuickActions}>

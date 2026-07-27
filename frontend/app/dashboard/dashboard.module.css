@@ -4563,7 +4563,7 @@
   gap: 1rem;
 }
 
-.experienceSignalStrip article {
+.experienceSignalStrip button {
   min-width: 0;
   display: grid;
   gap: 0.55rem;
@@ -4575,6 +4575,8 @@
     radial-gradient(circle at 100% 0%, rgba(0, 211, 194, 0.13), transparent 10rem),
     #ffffff;
   box-shadow: 0 12px 28px rgba(5, 72, 78, 0.07);
+  text-align: left;
+  cursor: pointer;
 }
 
 .experienceSignalStrip span {
@@ -4599,6 +4601,14 @@
   margin: 0;
   color: var(--muted);
   line-height: 1.6;
+}
+
+.experienceSignalStrip button:hover,
+.experienceSignalStrip button:focus-visible {
+  transform: translateY(-3px);
+  border-color: rgba(255, 106, 31, 0.5);
+  box-shadow: 0 18px 34px rgba(5, 72, 78, 0.13);
+  outline: none;
 }
 
 .studentQuickNav strong,
