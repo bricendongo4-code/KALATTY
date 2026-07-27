@@ -4,7 +4,12 @@ on:
   push:
     branches:
       - master
+    paths:
+      - backend/**
+      - .github/workflows/deploy-kalatty.yml
   workflow_dispatch:
+  schedule:
+    - cron: "30 2 * * *"
 
 jobs:
   deploy-backend:
@@ -25,8 +30,18 @@ jobs:
       - name: Deploy Backend
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: >-
-          npx -y @railway/cli up ./backend --path-as-root --detach --yes
-          --service a21168e9-8d0e-44cf-9485-d8b7aaf99968
-          --project 8ecbd6e0-cd28-4dcd-9f0f-2908387a80b6
-          --environment c3787ecc-dfe7-4f24-b980-a725d6becabe
+        run: |
+          set +e
+          output=$(npx -y @railway/cli up ./backend --path-as-root --detach --yes \
+            --service a21168e9-8d0e-44cf-9485-d8b7aaf99968 \
+            --project 8ecbd6e0-cd28-4dcd-9f0f-2908387a80b6 \
+            --environment c3787ecc-dfe7-4f24-b980-a725d6becabe 2>&1)
+          status=$?
+          echo "$output"
+          if [ "$status" -ne 0 ]; then
+            if echo "$output" | grep -qi "Free-tier deploys"; then
+              echo "::warning::Railway free-tier deployment is blocked during peak hours. The scheduled workflow will retry outside the Railway free-tier peak window."
+              exit 0
+            fi
+            exit "$status"
+          fi
