@@ -74,6 +74,25 @@
   flex: 0 0 auto;
 }
 
+.courseRailAside {
+  display: flex;
+  align-items: center;
+  justify-content: end;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.courseRailCount {
+  padding: 0.5rem 0.7rem;
+  border: 1px solid rgba(0, 143, 149, 0.18);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--primary-dark);
+  font-size: 0.78rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
 .courseRailControls button {
   width: 2.85rem;
   height: 2.85rem;
@@ -191,6 +210,20 @@
   font-size: 0.72rem;
   font-weight: 900;
   backdrop-filter: blur(8px);
+}
+
+.coursePreviewBadge {
+  position: absolute;
+  left: 0.65rem;
+  top: 0.65rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--primary-dark);
+  font-size: 0.7rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  box-shadow: 0 10px 22px rgba(4, 44, 54, 0.14);
 }
 
 .courseCardBody {
@@ -1067,6 +1100,22 @@
   flex-wrap: wrap;
 }
 
+.benchmarkBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.benchmarkBadges span {
+  padding: 0.5rem 0.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.84);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
 .highlightList span {
   border-color: rgba(255, 255, 255, 0.13);
   background: rgba(255, 255, 255, 0.1);
@@ -1255,6 +1304,68 @@
   box-shadow: var(--shadow);
 }
 
+.marketCommandBar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(0, 143, 149, 0.22);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(232, 250, 247, 0.96)),
+    radial-gradient(circle at 100% 0%, rgba(255, 107, 40, 0.2), transparent 14rem);
+  box-shadow: var(--shadow);
+}
+
+.marketCommandBar > div {
+  min-width: 0;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.marketCommandBar span {
+  color: var(--secondary);
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.marketCommandBar strong {
+  color: var(--foreground);
+  font-size: clamp(1rem, 2vw, 1.3rem);
+}
+
+.marketCommandBar nav {
+  display: flex;
+  align-items: center;
+  justify-content: end;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.marketCommandBar a {
+  min-height: 2.65rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.85rem;
+  border: 1px solid rgba(0, 143, 149, 0.16);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--primary-dark);
+  font-size: 0.85rem;
+  font-weight: 900;
+  box-shadow: 0 8px 18px rgba(5, 72, 78, 0.07);
+}
+
+.marketCommandBar a:hover {
+  border-color: var(--secondary);
+  color: var(--secondary);
+  transform: translateY(-2px);
+}
+
 .productGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1328,12 +1439,17 @@
 
 @media (max-width: 980px) {
   .heroGrid,
-  .productGrid {
+  .productGrid,
+  .marketCommandBar {
     grid-template-columns: 1fr;
   }
 
   .heroCopy h1 {
     max-width: none;
+  }
+
+  .marketCommandBar nav {
+    justify-content: start;
   }
 }
 
@@ -1346,7 +1462,8 @@
   }
 
   .hero,
-  .productSection {
+  .productSection,
+  .marketCommandBar {
     padding: 1rem;
   }
 
@@ -1378,6 +1495,16 @@
 
   .windowMetrics {
     grid-template-columns: 1fr;
+  }
+
+  .marketCommandBar nav,
+  .marketCommandBar a {
+    width: 100%;
+  }
+
+  .courseRailAside {
+    width: 100%;
+    justify-content: start;
   }
 }
 

@@ -102,6 +102,19 @@ const trustSignals = [
   "Catalogue dynamique",
 ];
 
+const marketplaceActions = [
+  { label: "Comparer les cours", href: "#catalogue" },
+  { label: "Creer un compte", href: "/register" },
+  { label: "Voir les tarifs", href: "/pricing" },
+];
+
+const benchmarkBadges = [
+  "Recherche et categories",
+  "Avis visibles",
+  "Parcours campus",
+  "Mobile-first",
+];
+
 const competitiveSignals = [
   {
     label: "Catalogue",
@@ -232,6 +245,7 @@ function CourseShowcaseCard({ course }: { course: DiscoveryCourse }) {
         <span className={styles.courseImageBadge}>
           {course.lessonsCount} leçon{course.lessonsCount > 1 ? "s" : ""}
         </span>
+        <span className={styles.coursePreviewBadge}>Apercu</span>
       </div>
 
       <div className={styles.courseCardBody}>
@@ -303,6 +317,10 @@ function CourseRail({
           <h2>{title}</h2>
           <p>{description}</p>
         </div>
+        <div className={styles.courseRailAside}>
+          {courses.length > 0 ? (
+            <span className={styles.courseRailCount}>{courses.length} cours</span>
+          ) : null}
         {courses.length > 1 ? (
           <div className={styles.courseRailControls} aria-label={`Navigation ${title}`}>
             <button
@@ -321,6 +339,7 @@ function CourseRail({
             </button>
           </div>
         ) : null}
+        </div>
       </div>
 
       {courses.length > 0 ? (
@@ -433,6 +452,12 @@ export default function Home() {
               </Link>
             </div>
 
+            <div className={styles.benchmarkBadges} aria-label="Standards e-learning couverts">
+              {benchmarkBadges.map((badge) => (
+                <span key={badge}>{badge}</span>
+              ))}
+            </div>
+
             <div className={styles.heroStats} aria-label="Indicateurs Kalatty">
               {heroStats.map((stat) => (
                 <div key={stat.label}>
@@ -505,6 +530,26 @@ export default function Home() {
             </div>
           </div>
         </div>
+      </section>
+
+      <section className={styles.marketCommandBar} aria-label="Actions principales Kalatty">
+        <div>
+          <span>Choisir rapidement</span>
+          <strong>Apprendre, enseigner ou administrer un campus</strong>
+        </div>
+        <nav aria-label="Actions rapides de la page d'accueil">
+          {marketplaceActions.map((action) =>
+            action.href.startsWith("#") ? (
+              <a key={action.label} href={action.href}>
+                {action.label}
+              </a>
+            ) : (
+              <Link key={action.label} href={action.href}>
+                {action.label}
+              </Link>
+            ),
+          )}
+        </nav>
       </section>
 
       <section className={styles.productSection}>
