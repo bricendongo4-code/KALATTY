@@ -134,6 +134,34 @@ export default function TeacherCourseBuilder({
   );
 
   const completedChecklist = checklist.filter((item) => item.done).length;
+  const basicsReady =
+    courseTitle.trim().length > 0 &&
+    courseShortDescription.trim().length > 0 &&
+    courseDescription.trim().length > 0;
+  const curriculumReady = totalLessons > 0 && uploadedVideos > 0;
+  const publishReady = basicsReady && curriculumReady;
+  const recommendedStep: BuilderStep = !basicsReady
+    ? "basics"
+    : !curriculumReady
+      ? "curriculum"
+      : "publish";
+  const recommendedActionLabel =
+    recommendedStep === "basics"
+      ? "Completer les infos"
+      : recommendedStep === "curriculum"
+        ? "Ajouter les lecons"
+        : "Verifier et publier";
+  const nextMissingAction = !courseTitle.trim()
+    ? "Ajoute d'abord un titre clair."
+    : !courseShortDescription.trim()
+      ? "Ajoute une promesse courte pour la carte du cours."
+      : !courseDescription.trim()
+        ? "Complete la description detaillee du cours."
+        : totalLessons === 0
+          ? "Ajoute au moins une lecon avec un titre."
+          : uploadedVideos === 0
+            ? "Charge au moins une video dans une lecon."
+            : "Le cours est pret pour la verification finale.";
 
   const hasMeaningfulDraft = useMemo(
     () =>
@@ -496,6 +524,12 @@ export default function TeacherCourseBuilder({
       return;
     }
 
+    if (!publishReady && courseStatus === "published") {
+      setCourseMessage(nextMissingAction);
+      setStep(recommendedStep);
+      return;
+    }
+
     setCourseLoading(true);
     setCourseMessage("");
 
@@ -706,6 +740,16 @@ export default function TeacherCourseBuilder({
               {thumbnailPath ? "Miniature prete" : "Miniature manquante"}
             </span>
           </div>
+
+          <button
+            type="button"
+            className={styles.courseStudioContinue}
+            onClick={() => setStep(recommendedStep)}
+          >
+            <span>Prochaine action</span>
+            <strong>{recommendedActionLabel}</strong>
+            <small>{nextMissingAction}</small>
+          </button>
         </aside>
 
         <form onSubmit={handleCreateCourse} className={styles.courseStudioMain}>
@@ -750,9 +794,9 @@ export default function TeacherCourseBuilder({
               <button
                 type="button"
                 className={styles.submitButton}
-                onClick={() => setStep("publish")}
+                onClick={() => setStep(recommendedStep)}
               >
-                Publier
+                {recommendedActionLabel}
               </button>
             </div>
           </div>
@@ -1280,9 +1324,11 @@ export default function TeacherCourseBuilder({
                     <button
                       type="button"
                       className={styles.submitButton}
-                      onClick={() => setStep("publish")}
+                      onClick={() => setStep(recommendedStep)}
                     >
-                      Passer a la publication
+                      {recommendedStep === "publish"
+                        ? "Passer a la publication"
+                        : recommendedActionLabel}
                     </button>
                   </div>
                 </section>
@@ -1344,6 +1390,20 @@ export default function TeacherCourseBuilder({
                     ))}
                   </div>
 
+                  {!publishReady ? (
+                    <div className={styles.courseStudioBlocker}>
+                      <strong>Publication bloquee pour eviter un cours incomplet</strong>
+                      <p>{nextMissingAction}</p>
+                      <button
+                        type="button"
+                        className={styles.secondaryButton}
+                        onClick={() => setStep(recommendedStep)}
+                      >
+                        Corriger maintenant
+                      </button>
+                    </div>
+                  ) : null}
+
                   <div className={styles.courseStudioActions}>
                     <button
                       type="button"
@@ -1355,7 +1415,7 @@ export default function TeacherCourseBuilder({
                     <button
                       type="submit"
                       className={styles.submitButton}
-                      disabled={courseLoading}
+                      disabled={courseLoading || !publishReady}
                     >
                       {courseLoading
                         ? editingCourseId

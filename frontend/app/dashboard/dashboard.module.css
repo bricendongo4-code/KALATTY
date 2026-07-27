@@ -2279,6 +2279,44 @@
   color: var(--muted);
 }
 
+.courseStudioContinue {
+  width: 100%;
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.9rem;
+  border: 1px solid rgba(255, 106, 31, 0.26);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 106, 31, 0.18), transparent 8rem),
+    #ffffff;
+  color: var(--foreground);
+  text-align: left;
+  box-shadow: 0 12px 24px rgba(5, 72, 78, 0.08);
+}
+
+.courseStudioContinue span {
+  color: var(--secondary);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.courseStudioContinue strong {
+  color: var(--primary-dark);
+  font-size: 1rem;
+}
+
+.courseStudioContinue small {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.courseStudioContinue:hover {
+  transform: translateY(-2px);
+  border-color: var(--secondary);
+}
+
 .courseStudioSnapshot {
   display: grid;
   gap: 0.25rem;
@@ -2694,6 +2732,31 @@
   margin-top: 0.25rem;
   color: var(--muted);
   line-height: 1.5;
+}
+
+.courseStudioBlocker {
+  display: grid;
+  gap: 0.7rem;
+  padding: 1rem;
+  border: 1px solid rgba(255, 106, 31, 0.28);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 106, 31, 0.16), transparent 10rem),
+    #fff8ef;
+}
+
+.courseStudioBlocker strong {
+  color: var(--primary-dark);
+}
+
+.courseStudioBlocker p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.courseStudioBlocker button {
+  width: fit-content;
 }
 
 .courseMetaGrid {
