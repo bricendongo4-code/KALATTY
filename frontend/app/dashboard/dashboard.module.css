@@ -1910,6 +1910,8 @@
 .discoveryCard {
   display: grid;
   gap: 0.9rem;
+  grid-template-rows: auto auto auto minmax(4.8rem, 1fr) auto auto auto;
+  align-content: stretch;
   background: var(--surface);
   min-width: 0;
   overflow: hidden;
@@ -1962,6 +1964,7 @@
   align-items: center;
   justify-content: center;
   min-height: 2.9rem;
+  width: 100%;
   max-width: 100%;
   min-width: 0;
   padding: 0.75rem 1rem;
@@ -1986,6 +1989,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
   max-width: 100%;
   min-width: 0;
   padding: 0.75rem 1rem;
@@ -4299,4 +4303,66 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* Course card alignment: keep actions visually locked to the bottom. */
+.discoveryCard,
+.courseCard,
+.teacherCourseCard {
+  height: 100%;
+  display: grid;
+  align-content: stretch;
+}
+
+.courseCard {
+  grid-template-rows: auto auto auto minmax(3.8rem, 1fr) auto;
+}
+
+.teacherCourseCard {
+  grid-template-rows: auto auto auto minmax(4.8rem, 1fr) auto auto;
+}
+
+.discoveryCard h3,
+.courseCard h3,
+.teacherCourseCard h3 {
+  display: -webkit-box;
+  min-height: 2.9rem;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.discoveryCard > p,
+.courseCard > small,
+.teacherCourseCard > p {
+  display: -webkit-box;
+  min-height: 4.7rem;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.discoveryFooter,
+.discoveryMetaRow,
+.courseMetaGrid {
+  min-height: 2.9rem;
+}
+
+.discoveryCard > .catalogDetailLink {
+  margin-top: auto;
+}
+
+.courseActionRow {
+  align-self: end;
+  margin-top: auto;
+}
+
+.courseActionRow > *,
+.teacherCourseCard .secondaryButton {
+  flex: 1 1 100%;
+}
+
+.teacherCourseCard .courseActionRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
 }
