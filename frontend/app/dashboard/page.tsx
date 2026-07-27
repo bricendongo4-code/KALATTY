@@ -211,6 +211,7 @@ const teacherViews: TeacherView[] = [
 ];
 const emptyRecords: Array<Record<string, unknown>> = [];
 const READ_NOTIFICATIONS_KEY_PREFIX = "kalatty_read_notifications";
+const DASHBOARD_VIEW_KEY_PREFIX = "kalatty_dashboard_view";
 
 const getStoredReadNotifications = (storageKey: string) => {
   if (typeof window === "undefined") return new Set<string>();
@@ -295,6 +296,7 @@ export default function DashboardPage() {
     expertise: "",
     bio: "",
   });
+  const [smartLandingApplied, setSmartLandingApplied] = useState(false);
   const [notifications, setNotifications] = useState<Array<NotificationItem>>(
     [],
   );
@@ -310,16 +312,25 @@ export default function DashboardPage() {
 
   const changeStudentView = (view: StudentView) => {
     setStudentView(view);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(`${DASHBOARD_VIEW_KEY_PREFIX}:student`, view);
+    }
     updateDashboardUrl(view);
   };
 
   const changeTeacherView = (view: TeacherView) => {
     setTeacherView(view);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(`${DASHBOARD_VIEW_KEY_PREFIX}:teacher`, view);
+    }
     updateDashboardUrl(view);
   };
 
   const changeInstitutionView = (view: InstitutionView) => {
     setInstitutionView(view);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(`${DASHBOARD_VIEW_KEY_PREFIX}:institution`, view);
+    }
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -330,9 +341,39 @@ export default function DashboardPage() {
       );
       if (studentViews.includes(requestedView as StudentView)) {
         setStudentView(requestedView as StudentView);
+        localStorage.setItem(
+          `${DASHBOARD_VIEW_KEY_PREFIX}:student`,
+          requestedView as StudentView,
+        );
+        return;
       }
       if (teacherViews.includes(requestedView as TeacherView)) {
         setTeacherView(requestedView as TeacherView);
+        localStorage.setItem(
+          `${DASHBOARD_VIEW_KEY_PREFIX}:teacher`,
+          requestedView as TeacherView,
+        );
+        return;
+      }
+
+      const storedStudentView = localStorage.getItem(
+        `${DASHBOARD_VIEW_KEY_PREFIX}:student`,
+      );
+      const storedTeacherView = localStorage.getItem(
+        `${DASHBOARD_VIEW_KEY_PREFIX}:teacher`,
+      );
+      const storedInstitutionView = localStorage.getItem(
+        `${DASHBOARD_VIEW_KEY_PREFIX}:institution`,
+      );
+
+      if (studentViews.includes(storedStudentView as StudentView)) {
+        setStudentView(storedStudentView as StudentView);
+      }
+      if (teacherViews.includes(storedTeacherView as TeacherView)) {
+        setTeacherView(storedTeacherView as TeacherView);
+      }
+      if (storedInstitutionView) {
+        setInstitutionView(storedInstitutionView as InstitutionView);
       }
     };
 
@@ -937,92 +978,49 @@ export default function DashboardPage() {
               onClick: () => changeInstitutionView("billing"),
             },
           ];
-  const roleGuide =
-    role === "student"
-      ? {
-          label: isInstitutionStudent
-            ? "Mode d'emploi campus"
-            : "Mode d'emploi etudiant",
-          title: isInstitutionStudent
-            ? "Ton espace est filtre par ton etablissement."
-            : "Ton espace sert a apprendre sans te perdre.",
-          text: isInstitutionStudent
-            ? "Tu n'as pas besoin de chercher dans tout le catalogue public. Commence par les cours affectes a tes classes, puis verifie les devoirs et le planning de la semaine."
-            : "Commence par reprendre un cours, puis utilise le catalogue seulement quand tu veux choisir un nouveau parcours. Le suivi garde ta progression au meme endroit.",
-          primaryLabel: "Voir mes cours",
-          secondaryLabel: isInstitutionStudent ? "Voir mon campus" : "Voir mon profil",
-          primaryAction: () => changeStudentView("progress"),
-          secondaryAction: () =>
-            changeStudentView(isInstitutionStudent ? "institutions" : "profile"),
-          steps: [
-            {
-              title: "1. Reprendre",
-              text: "Ouvre d'abord le cours en cours ou la prochaine lecon recommandee.",
-            },
-            {
-              title: "2. Suivre",
-              text: "Controle ta progression, tes cours actifs et tes classes rattachees.",
-            },
-            {
-              title: "3. Agir",
-              text: "Fais les devoirs, consulte le planning et complete ton profil pour de meilleures recommandations.",
-            },
-          ],
-        }
-      : role === "teacher"
-        ? {
-            label: isInstitutionTeacher
-              ? "Mode d'emploi professeur campus"
-              : "Mode d'emploi formateur",
-            title: isInstitutionTeacher
-              ? "Tu enseignes dans tes classes, sans gerer l'administration."
-              : "Ton espace sert a creer, vendre et ameliorer tes cours.",
-            text: isInstitutionTeacher
-              ? "Commence par choisir une classe, publie ou corrige les devoirs, puis suis les remises. La gestion des comptes reste reservee a l'administrateur de l'etablissement."
-              : "Commence par le studio si tu crees un cours, ou par Mes cours si tu veux modifier un contenu, son prix, ses modules ou ses lecons.",
-            primaryLabel: isInstitutionTeacher ? "Voir mes classes" : "Ouvrir le studio",
-            secondaryLabel: "Voir mes cours",
-            primaryAction: () =>
-              changeTeacherView(isInstitutionTeacher ? "classes" : "studio"),
-            secondaryAction: () => changeTeacherView("courses"),
-            steps: [
-              {
-                title: "1. Produire",
-                text: "Structure ton cours avec une miniature, des modules, des videos et un prix clair.",
-              },
-              {
-                title: "2. Diffuser",
-                text: "Publie le cours dans le catalogue ou affecte-le a une classe d'etablissement.",
-              },
-              {
-                title: "3. Ameliorer",
-                text: "Lis les avis, corrige les devoirs et ajuste le contenu selon les retours.",
-              },
-            ],
-          }
-        : {
-            label: "Mode d'emploi administrateur",
-            title: "L'etablissement pilote le campus, pas les cours comme un professeur.",
-            text: "L'administrateur cree les comptes, organise les classes, rattache les professeurs, affecte les cours et suit l'activite. Les professeurs enseignent ensuite dans leurs classes.",
-            primaryLabel: "Gerer les comptes",
-            secondaryLabel: "Voir les classes",
-            primaryAction: () => changeInstitutionView("accounts"),
-            secondaryAction: () => changeInstitutionView("classes"),
-            steps: [
-              {
-                title: "1. Structurer",
-                text: "Cree les comptes internes et separe les roles admin, professeur et etudiant.",
-              },
-              {
-                title: "2. Organiser",
-                text: "Cree les classes, rattache les eleves et donne acces aux professeurs concernes.",
-              },
-              {
-                title: "3. Piloter",
-                text: "Affecte les cours, suis devoirs, presences, planning et progression du campus.",
-              },
-            ],
-          };
+  useEffect(() => {
+    if (!dashboardData || smartLandingApplied || typeof window === "undefined") {
+      return;
+    }
+
+    const requestedView = new URLSearchParams(window.location.search).get("view");
+    const roleStorageKey = `${DASHBOARD_VIEW_KEY_PREFIX}:${role}`;
+    const storedView = localStorage.getItem(roleStorageKey);
+
+    if (requestedView || storedView) {
+      setSmartLandingApplied(true);
+      return;
+    }
+
+    if (role === "student") {
+      const nextView: StudentView =
+        isInstitutionStudent || studentCourses.length > 0 ? "progress" : "home";
+      setStudentView(nextView);
+      localStorage.setItem(`${DASHBOARD_VIEW_KEY_PREFIX}:student`, nextView);
+    } else if (role === "teacher") {
+      const nextView: TeacherView = isInstitutionTeacher
+        ? "classes"
+        : teacherCourses.length > 0
+          ? "courses"
+          : "studio";
+      setTeacherView(nextView);
+      localStorage.setItem(`${DASHBOARD_VIEW_KEY_PREFIX}:teacher`, nextView);
+    } else {
+      const nextView: InstitutionView = "accounts";
+      setInstitutionView(nextView);
+      localStorage.setItem(`${DASHBOARD_VIEW_KEY_PREFIX}:institution`, nextView);
+    }
+
+    setSmartLandingApplied(true);
+  }, [
+    dashboardData,
+    isInstitutionStudent,
+    isInstitutionTeacher,
+    role,
+    smartLandingApplied,
+    studentCourses.length,
+    teacherCourses.length,
+  ]);
 
   useEffect(() => {
     setProfileForm({
@@ -1775,38 +1773,6 @@ export default function DashboardPage() {
               <small>{card.note}</small>
               <b>{card.action}</b>
             </button>
-          ))}
-        </div>
-      </section>
-
-      <section className={styles.guidedJourney} aria-label="Guide d'utilisation Kalatty">
-        <div className={styles.guidedJourneyLead}>
-          <span>{roleGuide.label}</span>
-          <h2>{roleGuide.title}</h2>
-          <p>{roleGuide.text}</p>
-          <div className={styles.guidedJourneyActions}>
-            <button
-              type="button"
-              className={styles.submitButton}
-              onClick={roleGuide.primaryAction}
-            >
-              {roleGuide.primaryLabel}
-            </button>
-            <button
-              type="button"
-              className={styles.secondaryButton}
-              onClick={roleGuide.secondaryAction}
-            >
-              {roleGuide.secondaryLabel}
-            </button>
-          </div>
-        </div>
-        <div className={styles.guidedSteps}>
-          {roleGuide.steps.map((step) => (
-            <article key={step.title}>
-              <strong>{step.title}</strong>
-              <p>{step.text}</p>
-            </article>
           ))}
         </div>
       </section>
