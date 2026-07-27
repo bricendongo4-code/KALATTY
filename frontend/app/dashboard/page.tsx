@@ -2206,42 +2206,46 @@ export default function DashboardPage() {
                           </div>
                         ) : null}
                         {"priceFcfa" in course ? (
-                          <Link
-                            href={`/courses/${course.id}`}
-                            className={styles.catalogDetailLink}
-                          >
-                            Voir le cours
-                          </Link>
-                        ) : null}
-                        {!isInstitutionStudent && "priceFcfa" in course ? (
-                          Number(course.priceFcfa ?? 0) > 0 ? (
+                          <div className={styles.catalogActions}>
                             <Link
                               href={`/courses/${course.id}`}
-                              className={styles.catalogActionButton}
+                              className={styles.catalogDetailLink}
                             >
-                              {"enrolled" in course && course.enrolled
-                                ? "Voir le cours"
-                                : "Voir et payer"}
+                              Voir le cours
                             </Link>
-                          ) : (
-                            <button
-                              type="button"
-                              className={styles.catalogActionButton}
-                              disabled={
-                                enrollingCourseId === String(course.id) ||
-                                Boolean("enrolled" in course && course.enrolled)
-                              }
-                              onClick={() =>
-                                void handleEnroll(String(course.id))
-                              }
-                            >
-                              {"enrolled" in course && course.enrolled
-                                ? "Deja inscrit"
-                                : enrollingCourseId === String(course.id)
-                                  ? "Inscription..."
-                                  : "S'inscrire"}
-                            </button>
-                          )
+                            {!isInstitutionStudent ? (
+                              Number(course.priceFcfa ?? 0) > 0 ? (
+                                <Link
+                                  href={`/courses/${course.id}`}
+                                  className={styles.catalogActionButton}
+                                >
+                                  {"enrolled" in course && course.enrolled
+                                    ? "Voir le cours"
+                                    : "Voir et payer"}
+                                </Link>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className={styles.catalogActionButton}
+                                  disabled={
+                                    enrollingCourseId === String(course.id) ||
+                                    Boolean(
+                                      "enrolled" in course && course.enrolled,
+                                    )
+                                  }
+                                  onClick={() =>
+                                    void handleEnroll(String(course.id))
+                                  }
+                                >
+                                  {"enrolled" in course && course.enrolled
+                                    ? "Deja inscrit"
+                                    : enrollingCourseId === String(course.id)
+                                      ? "Inscription..."
+                                      : "S'inscrire"}
+                                </button>
+                              )
+                            ) : null}
+                          </div>
                         ) : null}
                       </article>
                     ))}
