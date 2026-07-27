@@ -127,6 +127,43 @@ const teacherInsights = [
     note: "Les capsules de 8 a 12 min retiennent mieux l'attention.",
   },
 ];
+
+const learnerExperienceSignals = [
+  {
+    label: "Reprise",
+    title: "Continuer exactement au bon endroit",
+    text: "Le prochain cours et la progression restent visibles pour eviter de chercher.",
+  },
+  {
+    label: "Campus",
+    title: "Cours d'etablissement separes",
+    text: "Un etudiant rattache ne voit que ses cours campus, devoirs et planning.",
+  },
+  {
+    label: "Planning",
+    title: "Semaine lisible",
+    text: "Les activites importantes sont regroupees autour du rythme d'apprentissage.",
+  },
+];
+
+const teacherExperienceSignals = [
+  {
+    label: "Studio",
+    title: "Creation guidee",
+    text: "Brouillon, miniature, video, modules, prix et publication restent centralises.",
+  },
+  {
+    label: "Qualite",
+    title: "Avis et commentaires",
+    text: "Les retours apprenants aident le formateur a ameliorer ses cours.",
+  },
+  {
+    label: "Campus",
+    title: "Classes et devoirs",
+    text: "Le professeur d'etablissement suit ses classes sans devenir administrateur.",
+  },
+];
+
 const fallbackDiscovery = [
   {
     id: "1",
@@ -1821,6 +1858,16 @@ export default function DashboardPage() {
                   </button>
                 </nav>
 
+                <section className={styles.experienceSignalStrip}>
+                  {learnerExperienceSignals.map((signal) => (
+                    <article key={signal.title}>
+                      <span>{signal.label}</span>
+                      <strong>{signal.title}</strong>
+                      <p>{signal.text}</p>
+                    </article>
+                  ))}
+                </section>
+
                 <section className={styles.card}>
                   <div className={styles.sectionHeader}>
                     <div>
@@ -2478,6 +2525,18 @@ export default function DashboardPage() {
                         </button>
                       ))}
                     </div>
+                  </section>
+                ) : null}
+
+                {teacherView === "overview" ? (
+                  <section className={styles.experienceSignalStrip}>
+                    {teacherExperienceSignals.map((signal) => (
+                      <article key={signal.title}>
+                        <span>{signal.label}</span>
+                        <strong>{signal.title}</strong>
+                        <p>{signal.text}</p>
+                      </article>
+                    ))}
                   </section>
                 ) : null}
 

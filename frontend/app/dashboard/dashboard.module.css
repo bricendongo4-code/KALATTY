@@ -4366,3 +4366,319 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
 }
+
+/* Competitive dashboard pass: learner and instructor spaces should feel launch-ready. */
+.studentShowcase {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(0, 158, 154, 0.2);
+  border-radius: 32px;
+  background:
+    radial-gradient(circle at 90% 8%, rgba(255, 106, 31, 0.26), transparent 17rem),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(229, 249, 245, 0.96));
+  box-shadow: 0 24px 70px rgba(5, 42, 55, 0.13);
+}
+
+.studentShowcase::before {
+  content: "";
+  position: absolute;
+  inset: 1rem auto auto 1rem;
+  width: 7rem;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background: rgba(0, 211, 194, 0.12);
+  filter: blur(1px);
+  pointer-events: none;
+}
+
+.studentShowcase > * {
+  position: relative;
+  z-index: 1;
+}
+
+.showcaseCopy h2 {
+  max-width: 13ch;
+  font-size: clamp(2.2rem, 4vw, 3.5rem);
+  letter-spacing: -0.04em;
+}
+
+.showcaseStats {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.showcaseStat {
+  min-height: 9.5rem;
+  align-content: start;
+  border-color: rgba(0, 158, 154, 0.15);
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 12px 28px rgba(5, 72, 78, 0.07);
+}
+
+.showcaseStat strong {
+  font-size: clamp(1.65rem, 3vw, 2.35rem);
+}
+
+.showcaseCourse {
+  min-height: 100%;
+  align-content: end;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 92% 8%, rgba(255, 106, 31, 0.48), transparent 10rem),
+    radial-gradient(circle at 8% 100%, rgba(0, 211, 194, 0.38), transparent 13rem),
+    linear-gradient(145deg, #061923, #063f4b 58%, #008f95);
+}
+
+.showcaseCourse .catalogDetailLink,
+.showcaseCourse button.catalogDetailLink {
+  width: 100%;
+  justify-content: center;
+  border-color: rgba(255, 255, 255, 0.2);
+  background: #ffffff;
+  color: var(--primary-dark);
+}
+
+.studentQuickNav button,
+.teacherOperatingCard,
+.commandCard {
+  border-radius: 26px;
+}
+
+.studentQuickNav button {
+  min-height: 9.5rem;
+  background:
+    linear-gradient(180deg, #ffffff, #f5fbfa),
+    radial-gradient(circle at 100% 0%, rgba(255, 106, 31, 0.18), transparent 9rem);
+}
+
+.experienceSignalStrip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.experienceSignalStrip article {
+  min-width: 0;
+  display: grid;
+  gap: 0.55rem;
+  padding: 1rem;
+  overflow: hidden;
+  border: 1px solid rgba(0, 158, 154, 0.15);
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(0, 211, 194, 0.13), transparent 10rem),
+    #ffffff;
+  box-shadow: 0 12px 28px rgba(5, 72, 78, 0.07);
+}
+
+.experienceSignalStrip span {
+  width: fit-content;
+  padding: 0.35rem 0.58rem;
+  border-radius: 999px;
+  background: var(--secondary-soft);
+  color: var(--secondary);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.experienceSignalStrip strong {
+  color: var(--primary-dark);
+  font-size: 1.06rem;
+  line-height: 1.2;
+}
+
+.experienceSignalStrip p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.studentQuickNav strong,
+.teacherOperatingCard strong,
+.commandCard strong {
+  letter-spacing: -0.02em;
+}
+
+.card,
+.cardAccent,
+.teacherOperatingPanel,
+.teacherReviewInbox {
+  border-radius: 30px;
+}
+
+.card {
+  border-color: rgba(0, 158, 154, 0.14);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 253, 252, 0.98)),
+    radial-gradient(circle at 100% 0%, rgba(0, 211, 194, 0.1), transparent 14rem);
+}
+
+.sectionHeader h2 {
+  letter-spacing: -0.03em;
+}
+
+.discoveryGrid,
+.teacherCourseGrid {
+  align-items: stretch;
+}
+
+.discoveryCard,
+.courseCard,
+.teacherCourseCard {
+  border-radius: 26px;
+  background: #ffffff;
+  box-shadow: 0 12px 30px rgba(5, 72, 78, 0.08);
+}
+
+.dashboardCourseThumbnail {
+  border-radius: 22px;
+}
+
+.discoveryTop {
+  min-height: 2.2rem;
+}
+
+.discoveryFooter strong {
+  color: var(--secondary);
+  font-size: 1.05rem;
+}
+
+.catalogDetailLink,
+.catalogActionButton,
+.secondaryButton,
+.submitButton {
+  min-height: 2.85rem;
+  border-radius: 999px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.catalogActionButton,
+.submitButton {
+  background: linear-gradient(135deg, #ff6a1f, #ff8f2f);
+  box-shadow: 0 14px 28px rgba(255, 106, 31, 0.22);
+}
+
+.catalogDetailLink {
+  color: var(--primary-dark);
+}
+
+.teacherOperatingPanel {
+  padding: clamp(1rem, 2vw, 1.35rem);
+  border: 1px solid rgba(0, 158, 154, 0.15);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(0, 211, 194, 0.13), transparent 15rem),
+    linear-gradient(135deg, #ffffff, #f3fbfa);
+  box-shadow: var(--shadow);
+}
+
+.teacherOperatingGrid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.teacherOperatingCard {
+  min-height: 15rem;
+  padding: 1.15rem;
+  border-color: rgba(0, 158, 154, 0.16);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 106, 31, 0.16), transparent 9rem),
+    #ffffff;
+}
+
+.teacherOperatingCard b {
+  width: 100%;
+  justify-content: center;
+  text-align: center;
+}
+
+.teacherCourseActionPanel {
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 106, 31, 0.16), transparent 13rem),
+    linear-gradient(135deg, #072737, #005b63);
+  color: #ffffff;
+}
+
+.teacherCourseActionPanel span,
+.teacherCourseActionPanel strong,
+.teacherCourseActionPanel p {
+  color: #ffffff;
+}
+
+.teacherCourseActionPanel p {
+  color: rgba(255, 255, 255, 0.76);
+}
+
+.teacherCourseActionPanel .secondaryButton {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.teacherReviewInbox {
+  border: 1px solid rgba(0, 158, 154, 0.14);
+  background: linear-gradient(180deg, #ffffff, #f6fbfa);
+}
+
+.reviewInboxSummary article,
+.reviewInboxItem,
+.insightCard,
+.statCard {
+  border-radius: 24px;
+}
+
+.courseMetaGrid span,
+.discoveryMetaRow span {
+  min-width: 0;
+  justify-content: center;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1200px) {
+  .showcaseStats,
+  .teacherOperatingGrid,
+  .experienceSignalStrip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .studentShowcase,
+  .card,
+  .cardAccent,
+  .teacherOperatingPanel,
+  .teacherReviewInbox {
+    border-radius: 24px;
+  }
+
+  .showcaseCopy h2 {
+    max-width: none;
+  }
+
+  .showcaseStats,
+  .teacherOperatingGrid,
+  .experienceSignalStrip {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .studentQuickNav {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .discoveryCard,
+  .courseCard,
+  .teacherCourseCard {
+    border-radius: 22px;
+  }
+
+  .catalogDetailLink,
+  .catalogActionButton,
+  .secondaryButton,
+  .submitButton {
+    width: 100%;
+    justify-content: center;
+  }
+}
