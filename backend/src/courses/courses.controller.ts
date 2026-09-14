@@ -15,6 +15,10 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CoursesService } from './courses.service';
+import { CreateCourseDto } from './dto/create-course.dto';
+import { EnrollDto } from './dto/enroll.dto';
+import { ReviewDto } from './dto/review.dto';
+import { UpdateLessonProgressDto } from './dto/update-lesson-progress.dto';
 
 type RequestUser = {
   user: {
@@ -65,15 +69,8 @@ export class CoursesController {
 
   @UseGuards(AuthGuard('jwt'))
   @Post()
-  create(
-    @Req() req: RequestUser,
-    @Body()
-    body: Record<string, unknown>,
-  ) {
-    return this.coursesService.createCourse(
-      req.user,
-      body as Parameters<CoursesService['createCourse']>[1],
-    );
+  create(@Req() req: RequestUser, @Body() body: CreateCourseDto) {
+    return this.coursesService.createCourse(req.user, body);
   }
 
   @UseGuards(AuthGuard('jwt'))
@@ -81,13 +78,9 @@ export class CoursesController {
   update(
     @Req() req: RequestUser,
     @Param('courseId') courseId: string,
-    @Body() body: Record<string, unknown>,
+    @Body() body: CreateCourseDto,
   ) {
-    return this.coursesService.updateCourse(
-      req.user,
-      courseId,
-      body as Parameters<CoursesService['updateCourse']>[2],
-    );
+    return this.coursesService.updateCourse(req.user, courseId, body);
   }
 
   @UseGuards(AuthGuard('jwt'))
@@ -98,7 +91,7 @@ export class CoursesController {
 
   @UseGuards(AuthGuard('jwt'))
   @Post(':courseId/enroll')
-  enroll(@Req() req: RequestUser, @Body() body: { courseId?: string }) {
+  enroll(@Req() req: RequestUser, @Body() body: EnrollDto) {
     const courseId = body.courseId?.trim();
     return this.coursesService.enrollInCourse(req.user, courseId);
   }
@@ -108,7 +101,7 @@ export class CoursesController {
   addCourseReview(
     @Req() req: RequestUser,
     @Param('courseId') courseId: string,
-    @Body() body: { rating?: number; comment?: string },
+    @Body() body: ReviewDto,
   ) {
     return this.coursesService.addCourseReview(req.user, courseId, body);
   }
@@ -118,7 +111,7 @@ export class CoursesController {
   addTeacherReview(
     @Req() req: RequestUser,
     @Param('courseId') courseId: string,
-    @Body() body: { rating?: number; comment?: string },
+    @Body() body: ReviewDto,
   ) {
     return this.coursesService.addTeacherReview(req.user, courseId, body);
   }
@@ -129,7 +122,7 @@ export class CoursesController {
     @Req() req: RequestUser,
     @Param('courseId') courseId: string,
     @Param('lessonId') lessonId: string,
-    @Body() body: { status?: 'started' | 'completed' },
+    @Body() body: UpdateLessonProgressDto,
   ) {
     return this.coursesService.updateLessonProgress(
       req.user,

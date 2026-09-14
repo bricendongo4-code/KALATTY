@@ -13,6 +13,21 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { InstitutionsService } from './institutions.service';
+import { CreateInstitutionDto } from './dto/create-institution.dto';
+import { AddMemberDto } from './dto/add-member.dto';
+import { ProvisionManagedUserDto } from './dto/provision-managed-user.dto';
+import { CreateRoomDto } from './dto/create-room.dto';
+import { AddRoomMemberDto } from './dto/add-room-member.dto';
+import { AssignCourseDto } from './dto/assign-course.dto';
+import { CreateAssignmentDto } from './dto/create-assignment.dto';
+import {
+  CreateScheduleItemDto,
+  UpdateScheduleItemDto,
+} from './dto/schedule-item.dto';
+import { CreateAttendanceSessionDto } from './dto/create-attendance-session.dto';
+import { SetRoomMemberStatusDto } from './dto/set-room-member-status.dto';
+import { CreateRoomInviteDto } from './dto/create-room-invite.dto';
+import { ReviewSubmissionDto } from './dto/review-submission.dto';
 
 type RequestUser = {
   user: {
@@ -39,21 +54,7 @@ export class InstitutionsController {
   }
 
   @Post()
-  create(
-    @Req() req: RequestUser,
-    @Body()
-    body: {
-      name: string;
-      slug?: string;
-      contact_email?: string;
-      institution_type?: string;
-      description?: string;
-      country?: string;
-      plan_name?: string;
-      max_students?: number;
-      max_rooms?: number;
-    },
-  ) {
+  create(@Req() req: RequestUser, @Body() body: CreateInstitutionDto) {
     return this.institutionsService.createInstitution(req.user, body);
   }
 
@@ -72,11 +73,7 @@ export class InstitutionsController {
   addMember(
     @Req() req: RequestUser,
     @Param('institutionId') institutionId: string,
-    @Body()
-    body: {
-      user_id: string;
-      role: 'admin' | 'teacher' | 'student';
-    },
+    @Body() body: AddMemberDto,
   ) {
     return this.institutionsService.addInstitutionMember(
       req.user,
@@ -89,16 +86,7 @@ export class InstitutionsController {
   provisionManagedUser(
     @Req() req: RequestUser,
     @Param('institutionId') institutionId: string,
-    @Body()
-    body: {
-      fullname: string;
-      role: 'admin' | 'teacher' | 'student';
-      email?: string;
-      level?: string;
-      expertise?: string;
-      bio?: string;
-      room_ids?: string[];
-    },
+    @Body() body: ProvisionManagedUserDto,
   ) {
     return this.institutionsService.provisionManagedUser(
       req.user,
@@ -124,12 +112,7 @@ export class InstitutionsController {
   createRoom(
     @Req() req: RequestUser,
     @Param('institutionId') institutionId: string,
-    @Body()
-    body: {
-      name: string;
-      slug?: string;
-      description?: string;
-    },
+    @Body() body: CreateRoomDto,
   ) {
     return this.institutionsService.createRoom(req.user, institutionId, body);
   }
@@ -143,11 +126,7 @@ export class InstitutionsController {
   addRoomMember(
     @Req() req: RequestUser,
     @Param('roomId') roomId: string,
-    @Body()
-    body: {
-      user_id: string;
-      role: 'teacher' | 'student' | 'assistant';
-    },
+    @Body() body: AddRoomMemberDto,
   ) {
     return this.institutionsService.addRoomMember(req.user, roomId, body);
   }
@@ -156,10 +135,7 @@ export class InstitutionsController {
   assignCourseToRoom(
     @Req() req: RequestUser,
     @Param('roomId') roomId: string,
-    @Body()
-    body: {
-      course_id: string;
-    },
+    @Body() body: AssignCourseDto,
   ) {
     return this.institutionsService.assignCourseToRoom(req.user, roomId, body);
   }
@@ -168,15 +144,7 @@ export class InstitutionsController {
   createAssignment(
     @Req() req: RequestUser,
     @Param('roomId') roomId: string,
-    @Body()
-    body: {
-      course_id?: string;
-      lesson_id?: string;
-      title: string;
-      instructions?: string;
-      due_at?: string;
-      max_score?: number;
-    },
+    @Body() body: CreateAssignmentDto,
   ) {
     return this.institutionsService.createAssignment(req.user, roomId, body);
   }
@@ -199,15 +167,7 @@ export class InstitutionsController {
   createScheduleItem(
     @Req() req: RequestUser,
     @Param('roomId') roomId: string,
-    @Body()
-    body: {
-      title: string;
-      weekday: number;
-      starts_at: string;
-      ends_at?: string;
-      location?: string;
-      notes?: string;
-    },
+    @Body() body: CreateScheduleItemDto,
   ) {
     return this.institutionsService.createScheduleItem(req.user, roomId, body);
   }
@@ -216,15 +176,7 @@ export class InstitutionsController {
   updateScheduleItem(
     @Req() req: RequestUser,
     @Param('scheduleItemId') scheduleItemId: string,
-    @Body()
-    body: {
-      title?: string;
-      weekday?: number;
-      starts_at?: string;
-      ends_at?: string | null;
-      location?: string | null;
-      notes?: string | null;
-    },
+    @Body() body: UpdateScheduleItemDto,
   ) {
     return this.institutionsService.updateScheduleItem(
       req.user,
@@ -237,16 +189,7 @@ export class InstitutionsController {
   createAttendanceSession(
     @Req() req: RequestUser,
     @Param('roomId') roomId: string,
-    @Body()
-    body: {
-      title?: string;
-      session_date?: string;
-      records?: Array<{
-        student_id: string;
-        status: 'present' | 'absent' | 'late' | 'excused';
-        note?: string;
-      }>;
-    },
+    @Body() body: CreateAttendanceSessionDto,
   ) {
     return this.institutionsService.createAttendanceSession(
       req.user,
@@ -260,11 +203,7 @@ export class InstitutionsController {
     @Req() req: RequestUser,
     @Param('roomId') roomId: string,
     @Param('memberUserId') memberUserId: string,
-    @Body()
-    body: {
-      status: 'active' | 'blocked';
-      reason?: string;
-    },
+    @Body() body: SetRoomMemberStatusDto,
   ) {
     return this.institutionsService.setRoomMemberStatus(
       req.user,
@@ -278,12 +217,7 @@ export class InstitutionsController {
   createRoomInvite(
     @Req() req: RequestUser,
     @Param('roomId') roomId: string,
-    @Body()
-    body: {
-      invite_role: 'teacher' | 'student' | 'assistant';
-      expires_at?: string;
-      max_uses?: number;
-    },
+    @Body() body: CreateRoomInviteDto,
   ) {
     return this.institutionsService.createRoomInvite(req.user, roomId, body);
   }
@@ -297,12 +231,7 @@ export class InstitutionsController {
   reviewSubmission(
     @Req() req: RequestUser,
     @Param('submissionId') submissionId: string,
-    @Body()
-    body: {
-      score?: number;
-      feedback?: string;
-      status?: 'reviewed' | 'returned';
-    },
+    @Body() body: ReviewSubmissionDto,
   ) {
     return this.institutionsService.reviewAssignmentSubmission(
       req.user,

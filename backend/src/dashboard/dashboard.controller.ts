@@ -13,6 +13,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { DashboardService } from './dashboard.service';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 
 type UploadedAvatar = {
   buffer: Buffer;
@@ -35,15 +36,7 @@ export class DashboardController {
   @Patch('profile')
   updateProfile(
     @Req() req: { user: { id: string } },
-    @Body()
-    body: {
-      fullname?: string;
-      level?: string | null;
-      school_name?: string | null;
-      expertise?: string | null;
-      bio?: string | null;
-      avatar_url?: string | null;
-    },
+    @Body() body: UpdateProfileDto,
   ) {
     return this.dashboardService.updateProfile(req.user.id, body);
   }

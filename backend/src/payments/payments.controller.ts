@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { PaymentsService } from './payments.service';
+import { CourseCheckoutDto, InstitutionCheckoutDto } from './dto/checkout.dto';
 
 type RequestUser = {
   user: {
@@ -30,7 +31,7 @@ export class PaymentsController {
   @Post('course-checkout')
   createCourseCheckout(
     @Req() req: RequestUser,
-    @Body() body: { courseId?: string },
+    @Body() body: CourseCheckoutDto,
   ) {
     return this.paymentsService.createCourseCheckout(
       req.user,
@@ -50,7 +51,7 @@ export class PaymentsController {
   createInstitutionCheckout(
     @Req() req: RequestUser,
     @Param('institutionId') institutionId: string,
-    @Body() body: { planName?: string },
+    @Body() body: InstitutionCheckoutDto,
   ) {
     return this.paymentsService.createInstitutionCheckout(
       req.user,
@@ -63,7 +64,7 @@ export class PaymentsController {
   activateInstitutionDemo(
     @Req() req: RequestUser,
     @Param('institutionId') institutionId: string,
-    @Body() body: { planName?: string },
+    @Body() body: InstitutionCheckoutDto,
   ) {
     return this.paymentsService.activateInstitutionSubscription(
       req.user,
