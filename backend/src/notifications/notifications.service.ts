@@ -181,7 +181,7 @@ export class NotificationsService {
       .slice(0, 5)
       .map((course: any) => ({
         id: `teacher-course-${course.id}`,
-        type: 'course',
+        type: 'course' as const,
         title:
           course.status === 'published' ? 'Cours publie' : 'Cours en brouillon',
         message: `${course.title ?? 'Ton cours'} est actuellement ${course.status ?? 'en cours'}.`,

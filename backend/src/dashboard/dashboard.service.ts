@@ -4,6 +4,21 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
+import { ProfilesRow } from '../types/supabase';
+
+type ProfileSummary = Pick<
+  ProfilesRow,
+  | 'id'
+  | 'email'
+  | 'fullname'
+  | 'role'
+  | 'country'
+  | 'level'
+  | 'school_name'
+  | 'expertise'
+  | 'bio'
+  | 'avatar_url'
+>;
 
 type ProfileUpdatePayload = {
   fullname?: string;
@@ -178,7 +193,7 @@ export class DashboardService {
   }
 
   private async getStudentDashboard(
-    profile: Record<string, unknown>,
+    profile: ProfileSummary,
     workspace: WorkspacePayload,
   ) {
     const { data: enrollments } = await this.supabaseService.client
@@ -690,7 +705,7 @@ export class DashboardService {
   }
 
   private async getTeacherDashboard(
-    profile: Record<string, unknown>,
+    profile: ProfileSummary,
     workspace: WorkspacePayload,
   ) {
     const { data: courses } = await this.supabaseService.client
@@ -1104,7 +1119,7 @@ export class DashboardService {
 
   private async getInstitutionDashboard(
     userId: string,
-    profile: Record<string, unknown>,
+    profile: ProfileSummary,
   ) {
     const { data: institutionRows } = await this.supabaseService.client
       .from('institution_members')

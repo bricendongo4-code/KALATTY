@@ -74,7 +74,9 @@ export class InstitutionsService {
     return (data ?? []).map((row: any) => ({
       membershipRole: row.role,
       joinedAt: row.joined_at,
-      ...(Array.isArray(row.institutions) ? row.institutions[0] : row.institutions),
+      ...(Array.isArray(row.institutions)
+        ? row.institutions[0]
+        : row.institutions),
     }));
   }
 
@@ -96,13 +98,15 @@ export class InstitutionsService {
 
     if (!['institution', 'admin'].includes(globalRole ?? '')) {
       throw new ForbiddenException(
-        "Seuls les comptes etablissement peuvent creer un espace institutionnel.",
+        'Seuls les comptes etablissement peuvent creer un espace institutionnel.',
       );
     }
 
     const name = payload.name?.trim();
     if (!name) {
-      throw new BadRequestException("Le nom de l'etablissement est obligatoire.");
+      throw new BadRequestException(
+        "Le nom de l'etablissement est obligatoire.",
+      );
     }
 
     const slug = this.buildSlug(payload.slug || name);
@@ -110,11 +114,15 @@ export class InstitutionsService {
     const maxRooms = Number(payload.max_rooms ?? 10);
 
     if (Number.isNaN(maxStudents) || maxStudents < 1) {
-      throw new BadRequestException('Le nombre maximal etudiants est invalide.');
+      throw new BadRequestException(
+        'Le nombre maximal etudiants est invalide.',
+      );
     }
 
     if (Number.isNaN(maxRooms) || maxRooms < 1) {
-      throw new BadRequestException('Le nombre maximal de salles est invalide.');
+      throw new BadRequestException(
+        'Le nombre maximal de salles est invalide.',
+      );
     }
 
     const { data: institution, error } = await this.supabaseService.client
@@ -252,11 +260,17 @@ export class InstitutionsService {
       throw new BadRequestException(managedUsersRes.error.message);
     }
 
-    if (scheduleRes.error && !this.isMissingCampusLifeTableError(scheduleRes.error)) {
+    if (
+      scheduleRes.error &&
+      !this.isMissingCampusLifeTableError(scheduleRes.error)
+    ) {
       throw new BadRequestException(scheduleRes.error.message);
     }
 
-    if (attendanceRes.error && !this.isMissingCampusLifeTableError(attendanceRes.error)) {
+    if (
+      attendanceRes.error &&
+      !this.isMissingCampusLifeTableError(attendanceRes.error)
+    ) {
       throw new BadRequestException(attendanceRes.error.message);
     }
 
@@ -273,10 +287,18 @@ export class InstitutionsService {
     const managedUsers = managedUsersRes.data ?? [];
     const scheduleItems = scheduleRes.data ?? [];
     const attendanceSessions = attendanceRes.data ?? [];
-    const ownersCount = members.filter((member: any) => member.role === 'owner').length;
-    const adminsCount = members.filter((member: any) => member.role === 'admin').length;
-    const teachersCount = members.filter((member: any) => member.role === 'teacher').length;
-    const studentsCount = members.filter((member: any) => member.role === 'student').length;
+    const ownersCount = members.filter(
+      (member: any) => member.role === 'owner',
+    ).length;
+    const adminsCount = members.filter(
+      (member: any) => member.role === 'admin',
+    ).length;
+    const teachersCount = members.filter(
+      (member: any) => member.role === 'teacher',
+    ).length;
+    const studentsCount = members.filter(
+      (member: any) => member.role === 'student',
+    ).length;
     const maxStudents = Number(institutionRes.data.max_students ?? 0);
     const maxRooms = Number(institutionRes.data.max_rooms ?? 0);
 
@@ -298,7 +320,8 @@ export class InstitutionsService {
         adminsCount,
         teachersCount,
         studentsCount,
-        activeInvitesCount: invites.filter((invite: any) => invite.is_active).length,
+        activeInvitesCount: invites.filter((invite: any) => invite.is_active)
+          .length,
         totalSubmissions: submissions.length,
         reviewedSubmissions: submissions.filter(
           (submission: any) => submission.status === 'reviewed',
@@ -310,7 +333,9 @@ export class InstitutionsService {
         scheduleItemsCount: scheduleItems.length,
         attendanceSessionsCount: attendanceSessions.length,
         roomUsagePercentage:
-          maxRooms > 0 ? Math.round(((roomsRes.data?.length ?? 0) / maxRooms) * 100) : 0,
+          maxRooms > 0
+            ? Math.round(((roomsRes.data?.length ?? 0) / maxRooms) * 100)
+            : 0,
         studentUsagePercentage:
           maxStudents > 0 ? Math.round((studentsCount / maxStudents) * 100) : 0,
       },
@@ -330,12 +355,15 @@ export class InstitutionsService {
       room_ids?: string[];
     },
   ) {
-    await this.assertInstitutionStaff(user.id, institutionId, ['owner', 'admin']);
+    await this.assertInstitutionStaff(user.id, institutionId, [
+      'owner',
+      'admin',
+    ]);
 
     const institution = await this.getInstitutionOrThrow(institutionId);
     const fullname = payload.fullname?.trim();
     if (!fullname) {
-      throw new BadRequestException("Le nom complet est obligatoire.");
+      throw new BadRequestException('Le nom complet est obligatoire.');
     }
 
     const role = payload.role;
@@ -357,22 +385,28 @@ export class InstitutionsService {
       );
     }
 
-    const { data: createdUser, error: createUserError } = await authAdmin.createUser({
-      email: loginEmail,
-      password: temporaryPassword,
-      email_confirm: true,
-      user_metadata: {
-        fullname,
-        role: role === 'teacher' ? 'teacher' : role === 'admin' ? 'institution' : 'student',
-        country: institution.country ?? 'Cameroun',
-        level: payload.level?.trim() || null,
-        school_name: institution.name ?? null,
-        expertise: payload.expertise?.trim() || null,
-        bio: payload.bio?.trim() || null,
-        institution_id: institutionId,
-        managed_by_institution: true,
-      },
-    });
+    const { data: createdUser, error: createUserError } =
+      await authAdmin.createUser({
+        email: loginEmail,
+        password: temporaryPassword,
+        email_confirm: true,
+        user_metadata: {
+          fullname,
+          role:
+            role === 'teacher'
+              ? 'teacher'
+              : role === 'admin'
+                ? 'institution'
+                : 'student',
+          country: institution.country ?? 'Cameroun',
+          level: payload.level?.trim() || null,
+          school_name: institution.name ?? null,
+          expertise: payload.expertise?.trim() || null,
+          bio: payload.bio?.trim() || null,
+          institution_id: institutionId,
+          managed_by_institution: true,
+        },
+      });
 
     if (createUserError || !createdUser?.user?.id) {
       throw new BadRequestException(
@@ -382,23 +416,29 @@ export class InstitutionsService {
 
     const userId = createdUser.user.id;
     const globalRole =
-      role === 'teacher' ? 'teacher' : role === 'admin' ? 'institution' : 'student';
+      role === 'teacher'
+        ? 'teacher'
+        : role === 'admin'
+          ? 'institution'
+          : 'student';
 
-    const { error: profileError } = await this.supabaseService.client.from('profiles').upsert(
-      {
-        id: userId,
-        email: loginEmail,
-        fullname,
-        role: globalRole,
-        country: institution.country ?? 'Cameroun',
-        level: payload.level?.trim() || null,
-        school_name: institution.name ?? null,
-        expertise: payload.expertise?.trim() || null,
-        bio: payload.bio?.trim() || null,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'id' },
-    );
+    const { error: profileError } = await this.supabaseService.client
+      .from('profiles')
+      .upsert(
+        {
+          id: userId,
+          email: loginEmail,
+          fullname,
+          role: globalRole,
+          country: institution.country ?? 'Cameroun',
+          level: payload.level?.trim() || null,
+          school_name: institution.name ?? null,
+          expertise: payload.expertise?.trim() || null,
+          bio: payload.bio?.trim() || null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'id' },
+      );
 
     if (profileError) {
       throw new BadRequestException(
@@ -449,7 +489,11 @@ export class InstitutionsService {
         }
 
         const roomRole: RoomRole =
-          role === 'teacher' ? 'teacher' : role === 'admin' ? 'assistant' : 'student';
+          role === 'teacher'
+            ? 'teacher'
+            : role === 'admin'
+              ? 'assistant'
+              : 'student';
 
         const { error: roomMemberError } = await this.supabaseService.client
           .from('room_members')
@@ -465,7 +509,7 @@ export class InstitutionsService {
         if (roomMemberError) {
           throw new BadRequestException(
             roomMemberError.message ??
-              "Impossible de rattacher le compte gere a la salle.",
+              'Impossible de rattacher le compte gere a la salle.',
           );
         }
       }
@@ -489,9 +533,15 @@ export class InstitutionsService {
     institutionId: string,
     managedUserId: string,
   ) {
-    await this.assertInstitutionStaff(user.id, institutionId, ['owner', 'admin']);
+    await this.assertInstitutionStaff(user.id, institutionId, [
+      'owner',
+      'admin',
+    ]);
 
-    const managedUser = await this.getManagedUserOrThrow(institutionId, managedUserId);
+    const managedUser = await this.getManagedUserOrThrow(
+      institutionId,
+      managedUserId,
+    );
     const authAdmin = this.supabaseService.client.auth?.admin;
     if (!authAdmin?.updateUserById) {
       throw new BadRequestException(
@@ -542,10 +592,19 @@ export class InstitutionsService {
     institutionId: string,
     payload: { user_id: string; role: 'admin' | 'teacher' | 'student' },
   ) {
-    await this.assertInstitutionStaff(user.id, institutionId, ['owner', 'admin']);
+    await this.assertInstitutionStaff(user.id, institutionId, [
+      'owner',
+      'admin',
+    ]);
 
     if (!payload.user_id?.trim()) {
-      throw new BadRequestException("L'identifiant utilisateur est obligatoire.");
+      throw new BadRequestException(
+        "L'identifiant utilisateur est obligatoire.",
+      );
+    }
+
+    if (!['admin', 'teacher', 'student'].includes(payload.role)) {
+      throw new BadRequestException('Le role fourni est invalide.');
     }
 
     const { data, error } = await this.supabaseService.client
@@ -575,7 +634,11 @@ export class InstitutionsService {
     institutionId: string,
     payload: { name: string; slug?: string; description?: string },
   ) {
-    await this.assertInstitutionStaff(user.id, institutionId, ['owner', 'admin', 'teacher']);
+    await this.assertInstitutionStaff(user.id, institutionId, [
+      'owner',
+      'admin',
+      'teacher',
+    ]);
 
     const name = payload.name?.trim();
     if (!name) {
@@ -587,7 +650,9 @@ export class InstitutionsService {
       .insert({
         institution_id: institutionId,
         name,
-        slug: payload.slug?.trim() ? this.buildSlug(payload.slug) : this.buildSlug(name),
+        slug: payload.slug?.trim()
+          ? this.buildSlug(payload.slug)
+          : this.buildSlug(name),
         description: payload.description?.trim() || null,
         created_by: user.id,
       })
@@ -617,38 +682,37 @@ export class InstitutionsService {
       scheduleRes,
       attendanceRes,
       controlsRes,
-    ] =
-      await Promise.all([
-        this.supabaseService.client
-          .from('room_members')
-          .select('id, role, joined_at, profiles ( id, fullname, email, role )')
-          .eq('room_id', roomId)
-          .order('joined_at', { ascending: false }),
-        this.supabaseService.client
-          .from('room_courses')
-          .select(
-            'id, created_at, courses ( id, title, description, short_description, price_fcfa )',
-          )
-          .eq('room_id', roomId)
-          .order('created_at', { ascending: false }),
-        this.supabaseService.client
-          .from('assignments')
-          .select(
-            'id, title, instructions, status, due_at, created_at, max_score, assignment_files ( id, name, file_path, file_type )',
-          )
-          .eq('room_id', roomId)
-          .order('created_at', { ascending: false }),
-        this.supabaseService.client
-          .from('room_invites')
-          .select(
-            'id, token, invite_role, expires_at, max_uses, used_count, is_active, created_at',
-          )
-          .eq('room_id', roomId)
-          .order('created_at', { ascending: false }),
-        this.loadScheduleItemsForRooms([roomId]),
-        this.loadAttendanceSessionsForRooms([roomId]),
-        this.loadRoomMemberControls(roomId),
-      ]);
+    ] = await Promise.all([
+      this.supabaseService.client
+        .from('room_members')
+        .select('id, role, joined_at, profiles ( id, fullname, email, role )')
+        .eq('room_id', roomId)
+        .order('joined_at', { ascending: false }),
+      this.supabaseService.client
+        .from('room_courses')
+        .select(
+          'id, created_at, courses ( id, title, description, short_description, price_fcfa )',
+        )
+        .eq('room_id', roomId)
+        .order('created_at', { ascending: false }),
+      this.supabaseService.client
+        .from('assignments')
+        .select(
+          'id, title, instructions, status, due_at, created_at, max_score, assignment_files ( id, name, file_path, file_type )',
+        )
+        .eq('room_id', roomId)
+        .order('created_at', { ascending: false }),
+      this.supabaseService.client
+        .from('room_invites')
+        .select(
+          'id, token, invite_role, expires_at, max_uses, used_count, is_active, created_at',
+        )
+        .eq('room_id', roomId)
+        .order('created_at', { ascending: false }),
+      this.loadScheduleItemsForRooms([roomId]),
+      this.loadAttendanceSessionsForRooms([roomId]),
+      this.loadRoomMemberControls(roomId),
+    ]);
 
     const submissionsRes = assignmentIds.length
       ? await this.supabaseService.client
@@ -688,15 +752,24 @@ export class InstitutionsService {
       throw new BadRequestException(submissionsRes.error.message);
     }
 
-    if (scheduleRes.error && !this.isMissingCampusLifeTableError(scheduleRes.error)) {
+    if (
+      scheduleRes.error &&
+      !this.isMissingCampusLifeTableError(scheduleRes.error)
+    ) {
       throw new BadRequestException(scheduleRes.error.message);
     }
 
-    if (attendanceRes.error && !this.isMissingCampusLifeTableError(attendanceRes.error)) {
+    if (
+      attendanceRes.error &&
+      !this.isMissingCampusLifeTableError(attendanceRes.error)
+    ) {
       throw new BadRequestException(attendanceRes.error.message);
     }
 
-    if (controlsRes.error && !this.isMissingCampusLifeTableError(controlsRes.error)) {
+    if (
+      controlsRes.error &&
+      !this.isMissingCampusLifeTableError(controlsRes.error)
+    ) {
       throw new BadRequestException(controlsRes.error.message);
     }
 
@@ -717,13 +790,12 @@ export class InstitutionsService {
         id: row.id,
         role: row.role,
         joinedAt: row.joined_at,
-        access:
-          controlsByUserId.get(
-            String(
-              (Array.isArray(row.profiles) ? row.profiles[0] : row.profiles)?.id ??
-                '',
-            ),
-          ) ?? { status: 'active', reason: '' },
+        access: controlsByUserId.get(
+          String(
+            (Array.isArray(row.profiles) ? row.profiles[0] : row.profiles)
+              ?.id ?? '',
+          ),
+        ) ?? { status: 'active', reason: '' },
         profile: Array.isArray(row.profiles) ? row.profiles[0] : row.profiles,
       })),
       courses: (roomCoursesRes.data ?? []).map((row: any) => ({
@@ -744,7 +816,8 @@ export class InstitutionsService {
           ).length,
           pendingCount: assignmentSubmissions.filter(
             (submission: any) =>
-              submission.status === 'submitted' || submission.status === 'returned',
+              submission.status === 'submitted' ||
+              submission.status === 'returned',
           ).length,
           files: assignment.assignment_files ?? [],
         };
@@ -754,11 +827,13 @@ export class InstitutionsService {
       attendanceSessions: attendanceRes.data ?? [],
       submissionSummary: {
         total: submissions.length,
-        reviewed: submissions.filter((submission: any) => submission.status === 'reviewed')
-          .length,
+        reviewed: submissions.filter(
+          (submission: any) => submission.status === 'reviewed',
+        ).length,
         pending: submissions.filter(
           (submission: any) =>
-            submission.status === 'submitted' || submission.status === 'returned',
+            submission.status === 'submitted' ||
+            submission.status === 'returned',
         ).length,
       },
       recentSubmissions: submissions.slice(0, 8).map((submission: any) => ({
@@ -769,14 +844,17 @@ export class InstitutionsService {
         assignmentTitle:
           (Array.isArray(submission.assignments)
             ? submission.assignments[0]
-            : submission.assignments)?.title ?? 'Devoir',
+            : submission.assignments
+          )?.title ?? 'Devoir',
         studentName:
           (Array.isArray(submission.profiles)
             ? submission.profiles[0]
-            : submission.profiles)?.fullname ??
+            : submission.profiles
+          )?.fullname ??
           (Array.isArray(submission.profiles)
             ? submission.profiles[0]
-            : submission.profiles)?.email ??
+            : submission.profiles
+          )?.email ??
           'Etudiant',
       })),
     };
@@ -803,7 +881,7 @@ export class InstitutionsService {
 
     const title = payload.title?.trim();
     if (!title) {
-      throw new BadRequestException("Le titre du creneau est obligatoire.");
+      throw new BadRequestException('Le titre du creneau est obligatoire.');
     }
 
     const weekday = Number(payload.weekday);
@@ -833,7 +911,7 @@ export class InstitutionsService {
 
     if (error || !data) {
       throw new BadRequestException(
-        error?.message ?? "Impossible de publier le creneau.",
+        error?.message ?? 'Impossible de publier le creneau.',
       );
     }
 
@@ -878,11 +956,16 @@ export class InstitutionsService {
     };
 
     if (payload.title !== undefined) updates.title = payload.title.trim();
-    if (payload.weekday !== undefined) updates.weekday = Number(payload.weekday);
-    if (payload.starts_at !== undefined) updates.starts_at = payload.starts_at.trim();
-    if (payload.ends_at !== undefined) updates.ends_at = payload.ends_at?.trim() || null;
-    if (payload.location !== undefined) updates.location = payload.location?.trim() || null;
-    if (payload.notes !== undefined) updates.notes = payload.notes?.trim() || null;
+    if (payload.weekday !== undefined)
+      updates.weekday = Number(payload.weekday);
+    if (payload.starts_at !== undefined)
+      updates.starts_at = payload.starts_at.trim();
+    if (payload.ends_at !== undefined)
+      updates.ends_at = payload.ends_at?.trim() || null;
+    if (payload.location !== undefined)
+      updates.location = payload.location?.trim() || null;
+    if (payload.notes !== undefined)
+      updates.notes = payload.notes?.trim() || null;
 
     const { data, error } = await this.supabaseService.client
       .from('room_schedule_items')
@@ -893,7 +976,7 @@ export class InstitutionsService {
 
     if (error || !data) {
       throw new BadRequestException(
-        error?.message ?? "Impossible de modifier le creneau.",
+        error?.message ?? 'Impossible de modifier le creneau.',
       );
     }
 
@@ -1029,6 +1112,10 @@ export class InstitutionsService {
       'teacher',
     ]);
 
+    if (!['teacher', 'student', 'assistant'].includes(payload.role)) {
+      throw new BadRequestException('Le role fourni est invalide.');
+    }
+
     const { data, error } = await this.supabaseService.client
       .from('room_members')
       .upsert(
@@ -1119,7 +1206,9 @@ export class InstitutionsService {
 
     const dueAt = payload.due_at?.trim() ? new Date(payload.due_at) : null;
     if (dueAt && Number.isNaN(dueAt.getTime())) {
-      throw new BadRequestException("La date limite de l'exercice est invalide.");
+      throw new BadRequestException(
+        "La date limite de l'exercice est invalide.",
+      );
     }
 
     const maxScore =
@@ -1128,7 +1217,7 @@ export class InstitutionsService {
         : Number(payload.max_score);
 
     if (maxScore !== null && (Number.isNaN(maxScore) || maxScore < 0)) {
-      throw new BadRequestException("La note maximale est invalide.");
+      throw new BadRequestException('La note maximale est invalide.');
     }
 
     const { data, error } = await this.supabaseService.client
@@ -1173,7 +1262,11 @@ export class InstitutionsService {
     return data;
   }
 
-  async uploadAssignmentFile(user: AuthUser, roomId: string, file: UploadedAsset) {
+  async uploadAssignmentFile(
+    user: AuthUser,
+    roomId: string,
+    file: UploadedAsset,
+  ) {
     const room = await this.getRoomOrThrow(roomId);
     await this.assertInstitutionStaff(user.id, room.institution_id, [
       'owner',
@@ -1240,12 +1333,18 @@ export class InstitutionsService {
       'teacher',
     ]);
 
+    if (!['teacher', 'student', 'assistant'].includes(payload.invite_role)) {
+      throw new BadRequestException("Le role d'invitation fourni est invalide.");
+    }
+
     const maxUses = Number(payload.max_uses ?? 1);
     if (Number.isNaN(maxUses) || maxUses < 1) {
       throw new BadRequestException("Le nombre d'utilisations est invalide.");
     }
 
-    const expiresAt = payload.expires_at?.trim() ? new Date(payload.expires_at) : null;
+    const expiresAt = payload.expires_at?.trim()
+      ? new Date(payload.expires_at)
+      : null;
     if (expiresAt && Number.isNaN(expiresAt.getTime())) {
       throw new BadRequestException("La date d'expiration est invalide.");
     }
@@ -1291,7 +1390,7 @@ export class InstitutionsService {
     }
 
     if (!invite) {
-      throw new NotFoundException("Invitation introuvable.");
+      throw new NotFoundException('Invitation introuvable.');
     }
 
     if (!invite.is_active) {
@@ -1299,17 +1398,33 @@ export class InstitutionsService {
     }
 
     if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
-      throw new ForbiddenException("Cette invitation a expire.");
+      throw new ForbiddenException('Cette invitation a expire.');
     }
 
     if (Number(invite.used_count ?? 0) >= Number(invite.max_uses ?? 1)) {
-      throw new ForbiddenException("Cette invitation a atteint sa limite d'utilisation.");
+      throw new ForbiddenException(
+        "Cette invitation a atteint sa limite d'utilisation.",
+      );
     }
 
     const room = await this.getRoomOrThrow(String(invite.room_id));
 
-    const memberRole = invite.invite_role === 'assistant' ? 'teacher' : invite.invite_role;
-    const roomRole = invite.invite_role as RoomRole;
+    if (!['teacher', 'student', 'assistant'].includes(invite.invite_role)) {
+      throw new BadRequestException("Le role d'invitation est invalide.");
+    }
+    const invitedRoomRole = invite.invite_role as RoomRole;
+    const invitedInstitutionRole: InstitutionRole =
+      invitedRoomRole === 'assistant' ? 'teacher' : invitedRoomRole;
+
+    const existingInstitutionRole = await this.getInstitutionRole(
+      user.id,
+      room.institution_id,
+    );
+    const finalInstitutionRole =
+      this.rankInstitutionRole(existingInstitutionRole) >=
+      this.rankInstitutionRole(invitedInstitutionRole)
+        ? existingInstitutionRole!
+        : invitedInstitutionRole;
 
     const { error: institutionMemberError } = await this.supabaseService.client
       .from('institution_members')
@@ -1317,7 +1432,7 @@ export class InstitutionsService {
         {
           institution_id: room.institution_id,
           user_id: user.id,
-          role: memberRole,
+          role: finalInstitutionRole,
         },
         { onConflict: 'institution_id,user_id' },
       );
@@ -1329,13 +1444,26 @@ export class InstitutionsService {
       );
     }
 
+    const { data: existingRoomMember } = await this.supabaseService.client
+      .from('room_members')
+      .select('role')
+      .eq('room_id', room.id)
+      .eq('user_id', user.id)
+      .maybeSingle();
+    const existingRoomRole =
+      (existingRoomMember?.role as RoomRole | undefined) ?? null;
+    const finalRoomRole =
+      this.rankRoomRole(existingRoomRole) >= this.rankRoomRole(invitedRoomRole)
+        ? existingRoomRole!
+        : invitedRoomRole;
+
     const { error: roomMemberError } = await this.supabaseService.client
       .from('room_members')
       .upsert(
         {
           room_id: room.id,
           user_id: user.id,
-          role: roomRole,
+          role: finalRoomRole,
         },
         { onConflict: 'room_id,user_id' },
       );
@@ -1365,8 +1493,36 @@ export class InstitutionsService {
       institutionId: room.institution_id,
       roomId: room.id,
       roomName: room.name,
-      role: roomRole,
+      role: finalRoomRole,
     };
+  }
+
+  private rankInstitutionRole(role: InstitutionRole | null | undefined) {
+    switch (role) {
+      case 'owner':
+        return 4;
+      case 'admin':
+        return 3;
+      case 'teacher':
+        return 2;
+      case 'student':
+        return 1;
+      default:
+        return 0;
+    }
+  }
+
+  private rankRoomRole(role: RoomRole | null | undefined) {
+    switch (role) {
+      case 'teacher':
+        return 3;
+      case 'assistant':
+        return 2;
+      case 'student':
+        return 1;
+      default:
+        return 0;
+    }
   }
 
   async reviewAssignmentSubmission(
@@ -1422,19 +1578,20 @@ export class InstitutionsService {
       throw new BadRequestException('La note saisie est invalide.');
     }
 
-    const { data: updated, error: updateError } = await this.supabaseService.client
-      .from('assignment_submissions')
-      .update({
-        status: nextStatus,
-        score,
-        feedback: payload.feedback?.trim() || null,
-        reviewed_at: new Date().toISOString(),
-        reviewed_by: user.id,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', submissionId)
-      .select('id, status, score, feedback, reviewed_at')
-      .single();
+    const { data: updated, error: updateError } =
+      await this.supabaseService.client
+        .from('assignment_submissions')
+        .update({
+          status: nextStatus,
+          score,
+          feedback: payload.feedback?.trim() || null,
+          reviewed_at: new Date().toISOString(),
+          reviewed_by: user.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', submissionId)
+        .select('id, status, score, feedback, reviewed_at')
+        .single();
 
     if (updateError || !updated) {
       throw new BadRequestException(
@@ -1467,9 +1624,7 @@ export class InstitutionsService {
     const role = await this.getInstitutionRole(userId, institutionId);
 
     if (!role) {
-      throw new ForbiddenException(
-        "Tu n'as pas acces a cet etablissement.",
-      );
+      throw new ForbiddenException("Tu n'as pas acces a cet etablissement.");
     }
 
     return role;
@@ -1750,7 +1905,10 @@ export class InstitutionsService {
     }
   }
 
-  private async getManagedUserOrThrow(institutionId: string, managedUserId: string) {
+  private async getManagedUserOrThrow(
+    institutionId: string,
+    managedUserId: string,
+  ) {
     if (!(await this.managedUserTableExists())) {
       throw new NotFoundException(
         "La table des comptes geres n'est pas encore disponible.",
@@ -1784,16 +1942,20 @@ export class InstitutionsService {
     return !this.isMissingManagedTableError(error);
   }
 
-  private isMissingManagedTableError(error: { message?: string } | null | undefined) {
+  private isMissingManagedTableError(
+    error: { message?: string } | null | undefined,
+  ) {
     const message = String(error?.message ?? '').toLowerCase();
     return (
-      message.includes("could not find the table") ||
+      message.includes('could not find the table') ||
       message.includes('schema cache') ||
       message.includes('institution_managed_users')
     );
   }
 
-  private isMissingCampusLifeTableError(error: { message?: string } | null | undefined) {
+  private isMissingCampusLifeTableError(
+    error: { message?: string } | null | undefined,
+  ) {
     const message = String(error?.message ?? '').toLowerCase();
     return (
       message.includes('schema cache') ||
@@ -1816,11 +1978,13 @@ export class InstitutionsService {
       return explicitEmail;
     }
 
-    const baseName = this.buildSlug(fullname || 'compte-campus') || 'compte-campus';
+    const baseName =
+      this.buildSlug(fullname || 'compte-campus') || 'compte-campus';
     const scope = this.buildSlug(institution.slug || 'campus') || 'campus';
 
     for (let attempt = 0; attempt < 20; attempt += 1) {
-      const suffix = attempt === 0 ? '' : `-${Math.random().toString(36).slice(2, 6)}`;
+      const suffix =
+        attempt === 0 ? '' : `-${Math.random().toString(36).slice(2, 6)}`;
       const candidate = `${baseName}${suffix}@${scope}.kalatty.app`;
       const { data } = await this.supabaseService.client
         .from('profiles')

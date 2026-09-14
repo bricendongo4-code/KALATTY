@@ -620,11 +620,11 @@ export default function Home() {
       <section className={styles.competitiveSection}>
         <div className={styles.sectionIntro}>
           <span>Standard marché</span>
-          <h2>Les codes d'une vraie plateforme e-learning moderne.</h2>
+          <h2>Les codes d&apos;une vraie plateforme e-learning moderne.</h2>
           <p>
             Les références du marché rassurent vite : recherche claire, cartes
             comparables, avis visibles, progression, certificats potentiels et
-            outils d'administration. Kalatty reprend ces repères en les adaptant
+            outils d&apos;administration. Kalatty reprend ces repères en les adaptant
             au contexte des apprenants et établissements camerounais.
           </p>
         </div>
@@ -675,12 +675,12 @@ export default function Home() {
       <section className={styles.marketSection}>
         <div className={styles.marketPanel}>
           <span className={styles.marketEyebrow}>Objectif marché</span>
-          <h2>Kalatty doit donner confiance avant même l'inscription.</h2>
+          <h2>Kalatty doit donner confiance avant même l&apos;inscription.</h2>
           <p>
-            Un produit lançable doit être clair pour l'apprenant, crédible pour
-            le formateur et rassurant pour l'administration d'un établissement.
-            Cette base permet ensuite d'ajouter paiement, IA, application mobile
-            et analytics sans casser l'expérience.
+            Un produit lançable doit être clair pour l&apos;apprenant, crédible pour
+            le formateur et rassurant pour l&apos;administration d&apos;un établissement.
+            Cette base permet ensuite d&apos;ajouter paiement, IA, application mobile
+            et analytics sans casser l&apos;expérience.
           </p>
         </div>
         <div className={styles.marketGrid}>
@@ -729,7 +729,7 @@ export default function Home() {
               >
                 <h3>{promo.title}</h3>
                 <p>{promo.description}</p>
-                <b>Voir l'action</b>
+                <b>Voir l&apos;action</b>
               </Link>
             ))}
           </div>

@@ -1382,9 +1382,9 @@ export default function InstitutionWorkspace({
           >
             <div className={styles.campusOperatingIntro}>
               <span>Mode administration</span>
-              <strong>Gérer l'école en ligne, étape par étape.</strong>
+              <strong>Gérer l&apos;école en ligne, étape par étape.</strong>
               <p>
-                L'administrateur pilote l'organisation. Les professeurs se
+                L&apos;administrateur pilote l&apos;organisation. Les professeurs se
                 concentrent ensuite sur leurs classes, les devoirs et le suivi.
               </p>
             </div>
@@ -1825,7 +1825,7 @@ export default function InstitutionWorkspace({
                 <span>Supervision admin</span>
                 <strong>Une vue complète sans remplacer le professeur.</strong>
                 <p>
-                  L'administration garde le contrôle des accès, de la sécurité,
+                  L&apos;administration garde le contrôle des accès, de la sécurité,
                   des affectations et du suivi global. Les actions pédagogiques
                   quotidiennes restent côté professeur.
                 </p>

@@ -95,6 +95,12 @@ export class PaymentsService {
       );
     }
 
+    if (!course.teacher_id) {
+      throw new BadRequestException(
+        "Ce cours n'a pas encore de professeur assigne et ne peut pas etre paye.",
+      );
+    }
+
     if (await this.hasInstitutionCourseAccess(user.id, courseId)) {
       return {
         alreadyEnrolled: true,

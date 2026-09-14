@@ -1,37 +1,44 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { Database } from '../types/supabase';
 
 @Injectable()
 export class SupabaseService {
-  public client: any;
-  public authClient: any;
+  public readonly client: SupabaseClient<Database>;
+  public readonly authClient: SupabaseClient<Database>;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(configService: ConfigService) {
     const url =
-      this.configService.get<string>('SUPABASE_URL') ??
-      this.configService.get<string>('NEXT_PUBLIC_SUPABASE_URL');
-    const serviceRoleKey = this.configService.get<string>(
+      configService.get<string>('SUPABASE_URL') ??
+      configService.get<string>('NEXT_PUBLIC_SUPABASE_URL');
+    const serviceRoleKey = configService.get<string>(
       'SUPABASE_SERVICE_ROLE_KEY',
     );
     const publicKey =
-      this.configService.get<string>('SUPABASE_KEY') ??
-      this.configService.get<string>(
-        'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY',
+      configService.get<string>('SUPABASE_KEY') ??
+      configService.get<string>('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY');
+
+    if (!url) {
+      throw new Error(
+        'SUPABASE_URL (ou NEXT_PUBLIC_SUPABASE_URL) doit etre defini.',
       );
+    }
 
-    this.client = createClient(
-      url as string,
-      (serviceRoleKey ?? publicKey) as string,
-      {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false,
-        },
+    if (!serviceRoleKey && !publicKey) {
+      throw new Error(
+        'SUPABASE_SERVICE_ROLE_KEY ou SUPABASE_KEY doit etre defini.',
+      );
+    }
+
+    this.client = createClient(url, serviceRoleKey ?? publicKey!, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
       },
-    );
+    });
 
-    this.authClient = createClient(url as string, publicKey as string, {
+    this.authClient = createClient(url, publicKey ?? serviceRoleKey!, {
       auth: {
         persistSession: false,
         autoRefreshToken: false,

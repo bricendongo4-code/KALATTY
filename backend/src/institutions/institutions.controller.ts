@@ -62,7 +62,10 @@ export class InstitutionsController {
     @Req() req: RequestUser,
     @Param('institutionId') institutionId: string,
   ) {
-    return this.institutionsService.getInstitutionDetails(req.user, institutionId);
+    return this.institutionsService.getInstitutionDetails(
+      req.user,
+      institutionId,
+    );
   }
 
   @Post(':institutionId/members')
@@ -75,7 +78,11 @@ export class InstitutionsController {
       role: 'admin' | 'teacher' | 'student';
     },
   ) {
-    return this.institutionsService.addInstitutionMember(req.user, institutionId, body);
+    return this.institutionsService.addInstitutionMember(
+      req.user,
+      institutionId,
+      body,
+    );
   }
 
   @Post(':institutionId/provision-user')
@@ -93,7 +100,11 @@ export class InstitutionsController {
       room_ids?: string[];
     },
   ) {
-    return this.institutionsService.provisionManagedUser(req.user, institutionId, body);
+    return this.institutionsService.provisionManagedUser(
+      req.user,
+      institutionId,
+      body,
+    );
   }
 
   @Post(':institutionId/managed-users/:managedUserId/reset-password')
@@ -124,10 +135,7 @@ export class InstitutionsController {
   }
 
   @Get('rooms/:roomId')
-  getRoomDetails(
-    @Req() req: RequestUser,
-    @Param('roomId') roomId: string,
-  ) {
+  getRoomDetails(@Req() req: RequestUser, @Param('roomId') roomId: string) {
     return this.institutionsService.getRoomDetails(req.user, roomId);
   }
 
@@ -180,7 +188,11 @@ export class InstitutionsController {
     @Param('roomId') roomId: string,
     @UploadedFile() file: UploadedAsset,
   ) {
-    return this.institutionsService.uploadAssignmentFile(req.user, roomId, file);
+    return this.institutionsService.uploadAssignmentFile(
+      req.user,
+      roomId,
+      file,
+    );
   }
 
   @Post('rooms/:roomId/schedule')
@@ -277,10 +289,7 @@ export class InstitutionsController {
   }
 
   @Post('invites/:token/redeem')
-  redeemInvite(
-    @Req() req: RequestUser,
-    @Param('token') token: string,
-  ) {
+  redeemInvite(@Req() req: RequestUser, @Param('token') token: string) {
     return this.institutionsService.redeemInvite(req.user, token);
   }
 

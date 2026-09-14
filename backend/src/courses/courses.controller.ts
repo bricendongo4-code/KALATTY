@@ -98,10 +98,7 @@ export class CoursesController {
 
   @UseGuards(AuthGuard('jwt'))
   @Post(':courseId/enroll')
-  enroll(
-    @Req() req: RequestUser,
-    @Body() body: { courseId?: string },
-  ) {
+  enroll(@Req() req: RequestUser, @Body() body: { courseId?: string }) {
     const courseId = body.courseId?.trim();
     return this.coursesService.enrollInCourse(req.user, courseId);
   }
@@ -159,10 +156,7 @@ export class CoursesController {
   @UseGuards(AuthGuard('jwt'))
   @Post('upload-video')
   @UseInterceptors(FileInterceptor('file'))
-  uploadVideo(
-    @Req() req: RequestUser,
-    @UploadedFile() file?: UploadedAsset,
-  ) {
+  uploadVideo(@Req() req: RequestUser, @UploadedFile() file?: UploadedAsset) {
     if (!file) {
       throw new BadRequestException('Aucun fichier video recu.');
     }

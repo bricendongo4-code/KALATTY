@@ -2785,7 +2785,7 @@ export default function DashboardPage() {
                         <h2>Un espace formateur découpé par objectif</h2>
                       </div>
                       <span className={styles.sectionHint}>
-                        Choisis l'action à traiter maintenant
+                        Choisis l&apos;action à traiter maintenant
                       </span>
                     </div>
                     <div className={styles.teacherOperatingGrid}>

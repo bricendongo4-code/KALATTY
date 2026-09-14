@@ -43,6 +43,7 @@ Copier `frontend/.env.example` vers `frontend/.env.local` puis definir:
 
 Copier `backend/.env.example` vers `backend/.env` puis definir:
 
+- `JWT_SECRET` (chaine aleatoire longue, obligatoire pour signer les tokens)
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `NEXT_PUBLIC_SUPABASE_URL`
@@ -76,6 +77,7 @@ Variables:
 
 - `PORT`
 - `CORS_ORIGINS`
+- `JWT_SECRET`
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `NEXT_PUBLIC_SUPABASE_URL`

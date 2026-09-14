@@ -560,10 +560,9 @@ export class CoursesService {
     ).length;
 
     const courseReviews = await this.getCourseReviews(course.id);
-    const teacherReviews = await this.getTeacherReviews(
-      course.teacher_id,
-      course.id,
-    );
+    const teacherReviews = course.teacher_id
+      ? await this.getTeacherReviews(course.teacher_id, course.id)
+      : [];
 
     return {
       id: course.id,
@@ -575,8 +574,12 @@ export class CoursesService {
         'course-thumbnails',
         course.thumbnail_url ?? '',
       ),
-      teacherName: course.profiles?.fullname ?? 'Formateur Kalatty',
-      teacherExpertise: course.profiles?.expertise ?? '',
+      teacherName:
+        (course.profiles as { fullname?: string; expertise?: string } | null)
+          ?.fullname ?? 'Formateur Kalatty',
+      teacherExpertise:
+        (course.profiles as { fullname?: string; expertise?: string } | null)
+          ?.expertise ?? '',
       status: course.status ?? 'draft',
       modules,
       courseReviews,
@@ -643,6 +646,11 @@ export class CoursesService {
     payload: ReviewPayload,
   ) {
     const course = await this.assertStudentReviewer(user, courseId);
+    if (!course.teacher_id) {
+      throw new BadRequestException(
+        "Ce cours n'a pas encore de professeur assigne.",
+      );
+    }
     const rating = this.normalizeRating(payload.rating);
     const comment = payload.comment?.trim() || null;
 
@@ -955,7 +963,7 @@ export class CoursesService {
     const progressMap = new Map<string, string>();
 
     for (const row of data ?? []) {
-      if (!progressMap.has(row.lesson_id)) {
+      if (row.lesson_id && !progressMap.has(row.lesson_id)) {
         progressMap.set(row.lesson_id, row.status ?? 'started');
       }
     }
