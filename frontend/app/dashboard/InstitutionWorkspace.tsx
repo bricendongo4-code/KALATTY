@@ -11,6 +11,7 @@ type InstitutionSummary = {
   institution_type?: string | null;
   plan_name?: string | null;
   subscription_status?: string | null;
+  membershipRole?: string;
 };
 
 type InstitutionDetail = {
@@ -296,6 +297,8 @@ export default function InstitutionWorkspace({
   const [query, setQuery] = useState("");
   const [institutionName, setInstitutionName] = useState("");
   const [institutionType, setInstitutionType] = useState("");
+  const [showCreateInstitutionForm, setShowCreateInstitutionForm] =
+    useState(false);
   const [roomName, setRoomName] = useState("");
   const [roomDescription, setRoomDescription] = useState("");
   const [inviteRoomId, setInviteRoomId] = useState("");
@@ -314,6 +317,7 @@ export default function InstitutionWorkspace({
     temporaryPassword: string;
     fullname: string;
     role: string;
+    managedUserId?: string;
   } | null>(null);
   const [resettingManagedUserId, setResettingManagedUserId] = useState("");
   const [savingCampusLife, setSavingCampusLife] = useState(false);
@@ -326,6 +330,10 @@ export default function InstitutionWorkspace({
     () => institutions.find((institution) => institution.id === selectedInstitutionId) ?? null,
     [institutions, selectedInstitutionId],
   );
+
+  const currentInstitutionRole = selectedInstitution?.membershipRole ?? "owner";
+  const canManageInstitutionStaff =
+    currentInstitutionRole === "owner" || currentInstitutionRole === "admin";
 
   const roomLookup = useMemo(
     () => new Map((detail?.rooms ?? []).map((room) => [room.id, room.name])),
@@ -925,6 +933,7 @@ export default function InstitutionWorkspace({
       setSelectedInstitutionId(String(data.id));
       setInstitutionName("");
       setInstitutionType("");
+      setShowCreateInstitutionForm(false);
       setMessage("Etablissement cree.");
     } catch {
       setMessage("La création de l'établissement a échoué.");
@@ -1121,6 +1130,7 @@ export default function InstitutionWorkspace({
         temporaryPassword: String(data.temporaryPassword ?? ""),
         fullname: String(data.fullname ?? managedUserFullname),
         role: String(data.role ?? managedUserRole),
+        managedUserId: String(data.userId ?? ""),
       });
       setManagedUserFullname("");
       setManagedUserLevel("");
@@ -1170,8 +1180,11 @@ export default function InstitutionWorkspace({
       setLastProvisionedAccess({
         loginEmail: String(data.loginEmail ?? ""),
         temporaryPassword: String(data.temporaryPassword ?? ""),
-        fullname: "Compte gere",
+        fullname:
+          managedUsers.find((user) => user.id === managedUserId)
+            ?.full_name ?? "Compte gere",
         role: "reset",
+        managedUserId,
       });
       setMessage("Mot de passe provisoire regenere.");
       await loadInstitutionDetails(selectedInstitutionId);
@@ -1683,6 +1696,13 @@ export default function InstitutionWorkspace({
                   <h3>Créer un compte géré</h3>
                 </div>
               </div>
+              {!canManageInstitutionStaff ? (
+                <p className={styles.paragraph}>
+                  Cette action est réservée aux propriétaires et
+                  administrateurs de l&apos;établissement.
+                </p>
+              ) : (
+              <>
               <form onSubmit={handleProvisionManagedUser} className={styles.teacherForm}>
                 <label className={styles.formField}>
                   <span>Nom complet</span>
@@ -1736,7 +1756,7 @@ export default function InstitutionWorkspace({
                       placeholder="Terminale C, Licence 1, BTS..."
                     />
                   </label>
-                ) : (
+                ) : managedUserRole === "teacher" ? (
                   <label className={styles.formField}>
                     <span>Matiere / expertise</span>
                     <input
@@ -1744,6 +1764,16 @@ export default function InstitutionWorkspace({
                       value={managedUserExpertise}
                       onChange={(event) => setManagedUserExpertise(event.target.value)}
                       placeholder="Maths, Histoire, Informatique..."
+                    />
+                  </label>
+                ) : (
+                  <label className={styles.formField}>
+                    <span>Fonction</span>
+                    <input
+                      type="text"
+                      value={managedUserExpertise}
+                      onChange={(event) => setManagedUserExpertise(event.target.value)}
+                      placeholder="Vie scolaire, direction, secretariat..."
                     />
                   </label>
                 )}
@@ -1761,6 +1791,8 @@ export default function InstitutionWorkspace({
                   {lastProvisionedAccess.temporaryPassword}
                 </div>
               ) : null}
+              </>
+              )}
             </section>
 
             <section className={styles.card}>
@@ -1785,16 +1817,25 @@ export default function InstitutionWorkspace({
                           ? "Mot de passe provisoire actif"
                           : "Accès actif"}
                       </small>
-                      <button
-                        type="button"
-                        className={styles.secondaryButton}
-                        disabled={resettingManagedUserId === managedUser.id}
-                        onClick={() => void handleResetManagedPassword(managedUser.id)}
-                      >
-                        {resettingManagedUserId === managedUser.id
-                          ? "Regeneration..."
-                          : "Regenerer le mot de passe"}
-                      </button>
+                      {canManageInstitutionStaff ? (
+                        <button
+                          type="button"
+                          className={styles.secondaryButton}
+                          disabled={resettingManagedUserId === managedUser.id}
+                          onClick={() => void handleResetManagedPassword(managedUser.id)}
+                        >
+                          {resettingManagedUserId === managedUser.id
+                            ? "Regeneration..."
+                            : "Regenerer le mot de passe"}
+                        </button>
+                      ) : null}
+                      {lastProvisionedAccess?.managedUserId === managedUser.id ? (
+                        <div className={styles.inlineAssetStatus}>
+                          Nouveau mot de passe provisoire pour{" "}
+                          {lastProvisionedAccess.fullname}:{" "}
+                          {lastProvisionedAccess.temporaryPassword}
+                        </div>
+                      ) : null}
                     </article>
                   ))
                 ) : (
@@ -1804,6 +1845,46 @@ export default function InstitutionWorkspace({
                 )}
               </div>
             </section>
+          </div>
+        </section>
+        ) : null}
+
+        {activeView === "accounts" ? (
+        <section className={styles.card}>
+          <div className={styles.sectionHeader}>
+            <div>
+              <p className={styles.sectionLabel}>Annuaire</p>
+              <h2>Membres rattachés à l&apos;établissement</h2>
+            </div>
+            <span className={styles.sectionHint}>
+              Inclut les comptes créés ci-dessus et ceux arrivés via un lien
+              d&apos;invitation.
+            </span>
+          </div>
+          <div className={styles.roadmapList}>
+            {(detail?.members ?? []).length > 0 ? (
+              (detail?.members ?? []).map((member) => (
+                <article key={member.id} className={styles.roadmapItem}>
+                  <strong>
+                    {member.profile?.fullname || "Utilisateur"}
+                  </strong>
+                  <p>
+                    {formatRoleLabel(member.role)}
+                    {member.profile?.email ? ` | ${member.profile.email}` : ""}
+                  </p>
+                  {member.joinedAt ? (
+                    <small>
+                      Membre depuis le{" "}
+                      {new Date(member.joinedAt).toLocaleDateString("fr-FR")}
+                    </small>
+                  ) : null}
+                </article>
+              ))
+            ) : (
+              <p className={styles.paragraph}>
+                Aucun membre n&apos;est encore rattaché à cet établissement.
+              </p>
+            )}
           </div>
         </section>
         ) : null}
@@ -2381,8 +2462,12 @@ export default function InstitutionWorkspace({
         {activeView === "overview" ? (
         <section className={styles.cardAccent}>
           <p className={styles.sectionLabel}>Campus</p>
-          <h2>{institutions.length > 0 ? "Pilotage administrateur" : "Créer un établissement"}</h2>
-          {institutions.length > 0 ? (
+          <h2>
+            {institutions.length > 0 && !showCreateInstitutionForm
+              ? "Pilotage administrateur"
+              : "Créer un établissement"}
+          </h2>
+          {institutions.length > 0 && !showCreateInstitutionForm ? (
             <div className={styles.roadmapList}>
               {campusAdminCards.map((card) => (
                 <article key={card.title} className={styles.roadmapItem}>
@@ -2390,6 +2475,13 @@ export default function InstitutionWorkspace({
                   <p>{card.text}</p>
                 </article>
               ))}
+              <button
+                type="button"
+                className={styles.secondaryButton}
+                onClick={() => setShowCreateInstitutionForm(true)}
+              >
+                Créer un nouvel établissement
+              </button>
             </div>
           ) : (
             <form onSubmit={handleCreateInstitution} className={styles.teacherForm}>
@@ -2414,6 +2506,15 @@ export default function InstitutionWorkspace({
               <button type="submit" className={styles.submitButton}>
                 Créer l&apos;établissement
               </button>
+              {institutions.length > 0 ? (
+                <button
+                  type="button"
+                  className={styles.secondaryButton}
+                  onClick={() => setShowCreateInstitutionForm(false)}
+                >
+                  Annuler
+                </button>
+              ) : null}
             </form>
           )}
         </section>

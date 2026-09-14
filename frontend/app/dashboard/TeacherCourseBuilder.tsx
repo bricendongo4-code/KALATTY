@@ -13,11 +13,18 @@ type LessonDraft = {
   uploading: boolean;
 };
 
+type ExerciseDraft = {
+  title: string;
+  instructions: string;
+  correction: string;
+};
+
 type ModuleDraft = {
   id?: string;
   title: string;
   description: string;
   lessons: LessonDraft[];
+  exercises: ExerciseDraft[];
 };
 
 type BuilderStep = "landing" | "basics" | "curriculum" | "publish";
@@ -44,10 +51,17 @@ const createLesson = (): LessonDraft => ({
   uploading: false,
 });
 
+const createExercise = (): ExerciseDraft => ({
+  title: "",
+  instructions: "",
+  correction: "",
+});
+
 const createModule = (): ModuleDraft => ({
   title: "",
   description: "",
   lessons: [createLesson()],
+  exercises: [],
 });
 
 type Props = {
@@ -71,7 +85,7 @@ export default function TeacherCourseBuilder({
   const [coursePrice, setCoursePrice] = useState("");
   const [courseStatus, setCourseStatus] = useState<
     "draft" | "published" | "archived"
-  >("published");
+  >("draft");
   const [thumbnailPath, setThumbnailPath] = useState("");
   const [thumbnailUploading, setThumbnailUploading] = useState(false);
   const [modules, setModules] = useState<ModuleDraft[]>([createModule()]);
@@ -253,6 +267,13 @@ export default function TeacherCourseBuilder({
                         uploading: false,
                       }))
                     : [createLesson()],
+                exercises: Array.isArray(module.exercises)
+                  ? module.exercises.map((exercise) => ({
+                      title: String(exercise.title ?? ""),
+                      instructions: String(exercise.instructions ?? ""),
+                      correction: String(exercise.correction ?? ""),
+                    }))
+                  : [],
               }))
             : [createModule()],
         );
@@ -341,6 +362,15 @@ export default function TeacherCourseBuilder({
                         uploading: false,
                       }))
                     : [createLesson()],
+                exercises: Array.isArray(module.exercises)
+                  ? (
+                      module.exercises as Array<Record<string, unknown>>
+                    ).map((exercise) => ({
+                      title: String(exercise.title ?? ""),
+                      instructions: String(exercise.instructions ?? ""),
+                      correction: String(exercise.correction ?? ""),
+                    }))
+                  : [],
               }))
             : [createModule()],
         );
@@ -566,6 +596,13 @@ export default function TeacherCourseBuilder({
                   ? Number(lesson.duration_seconds)
                   : null,
                 is_preview: lesson.is_preview,
+              })),
+            exercises: currentModule.exercises
+              .filter((exercise) => exercise.title.trim())
+              .map((exercise) => ({
+                title: exercise.title,
+                instructions: exercise.instructions,
+                correction: exercise.correction,
               })),
           })),
         }),
@@ -1091,13 +1128,20 @@ export default function TeacherCourseBuilder({
                             <button
                               type="button"
                               className={styles.secondaryButton}
-                              onClick={() =>
+                              onClick={() => {
+                                if (
+                                  !window.confirm(
+                                    `Supprimer le module "${currentModule.title || "Nouveau module"}" et tout son contenu (lecons, exercices) ?`,
+                                  )
+                                ) {
+                                  return;
+                                }
                                 setModules((current) =>
                                   current.filter(
                                     (_, index) => index !== moduleIndex,
                                   ),
-                                )
-                              }
+                                );
+                              }}
                             >
                               Supprimer
                             </button>
@@ -1171,14 +1215,21 @@ export default function TeacherCourseBuilder({
                                   type="button"
                                   className={styles.secondaryButton}
                                   disabled={currentModule.lessons.length <= 1}
-                                  onClick={() =>
+                                  onClick={() => {
+                                    if (
+                                      !window.confirm(
+                                        `Supprimer la lecon "${lesson.title || `Lecon ${lessonIndex + 1}`}" ?`,
+                                      )
+                                    ) {
+                                      return;
+                                    }
                                     updateModule(moduleIndex, {
                                       ...currentModule,
                                       lessons: currentModule.lessons.filter(
                                         (_, index) => index !== lessonIndex,
                                       ),
-                                    })
-                                  }
+                                    });
+                                  }}
                                 >
                                   Supprimer la lecon
                                 </button>
@@ -1309,6 +1360,133 @@ export default function TeacherCourseBuilder({
                             </div>
                           ))}
                         </div>
+
+                        <div className={styles.sectionHeader}>
+                          <div>
+                            <p className={styles.sectionLabel}>Exercices</p>
+                            <h4>Exercices de ce module (optionnel)</h4>
+                          </div>
+                          <button
+                            type="button"
+                            className={styles.secondaryButton}
+                            onClick={() =>
+                              updateModule(moduleIndex, {
+                                ...currentModule,
+                                exercises: [
+                                  ...currentModule.exercises,
+                                  createExercise(),
+                                ],
+                              })
+                            }
+                          >
+                            Ajouter un exercice
+                          </button>
+                        </div>
+
+                        {currentModule.exercises.map(
+                          (exercise, exerciseIndex) => (
+                            <div
+                              key={`exercise-${exerciseIndex}`}
+                              className={styles.nestedCard}
+                            >
+                              <div className={styles.nestedHeader}>
+                                <strong>Exercice {exerciseIndex + 1}</strong>
+                                <button
+                                  type="button"
+                                  className={styles.secondaryButton}
+                                  onClick={() => {
+                                    if (
+                                      !window.confirm(
+                                        `Supprimer l'exercice "${exercise.title || `Exercice ${exerciseIndex + 1}`}" ?`,
+                                      )
+                                    ) {
+                                      return;
+                                    }
+                                    updateModule(moduleIndex, {
+                                      ...currentModule,
+                                      exercises:
+                                        currentModule.exercises.filter(
+                                          (_, index) =>
+                                            index !== exerciseIndex,
+                                        ),
+                                    });
+                                  }}
+                                >
+                                  Supprimer l&apos;exercice
+                                </button>
+                              </div>
+
+                              <label className={styles.formField}>
+                                <span>Titre</span>
+                                <input
+                                  type="text"
+                                  value={exercise.title}
+                                  onChange={(event) =>
+                                    updateModule(moduleIndex, {
+                                      ...currentModule,
+                                      exercises: currentModule.exercises.map(
+                                        (item, index) =>
+                                          index === exerciseIndex
+                                            ? {
+                                                ...item,
+                                                title: event.target.value,
+                                              }
+                                            : item,
+                                      ),
+                                    })
+                                  }
+                                  placeholder="Ex: Exercices sur les fractions"
+                                />
+                              </label>
+
+                              <label className={styles.formField}>
+                                <span>Consignes</span>
+                                <textarea
+                                  value={exercise.instructions}
+                                  onChange={(event) =>
+                                    updateModule(moduleIndex, {
+                                      ...currentModule,
+                                      exercises: currentModule.exercises.map(
+                                        (item, index) =>
+                                          index === exerciseIndex
+                                            ? {
+                                                ...item,
+                                                instructions:
+                                                  event.target.value,
+                                              }
+                                            : item,
+                                      ),
+                                    })
+                                  }
+                                  placeholder="Ce que l'apprenant doit faire"
+                                />
+                              </label>
+
+                              <label className={styles.formField}>
+                                <span>Correction (optionnelle)</span>
+                                <textarea
+                                  value={exercise.correction}
+                                  onChange={(event) =>
+                                    updateModule(moduleIndex, {
+                                      ...currentModule,
+                                      exercises: currentModule.exercises.map(
+                                        (item, index) =>
+                                          index === exerciseIndex
+                                            ? {
+                                                ...item,
+                                                correction:
+                                                  event.target.value,
+                                              }
+                                            : item,
+                                      ),
+                                    })
+                                  }
+                                  placeholder="Corrige detaille, visible apres tentative"
+                                />
+                              </label>
+                            </div>
+                          ),
+                        )}
                       </section>
                     ))}
                   </div>
@@ -1415,7 +1593,11 @@ export default function TeacherCourseBuilder({
                     <button
                       type="submit"
                       className={styles.submitButton}
-                      disabled={courseLoading || !publishReady}
+                      disabled={
+                        courseLoading ||
+                        courseTitle.trim().length === 0 ||
+                        (courseStatus === "published" && !publishReady)
+                      }
                     >
                       {courseLoading
                         ? editingCourseId

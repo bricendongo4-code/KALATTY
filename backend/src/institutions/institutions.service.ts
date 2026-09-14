@@ -1334,7 +1334,9 @@ export class InstitutionsService {
     ]);
 
     if (!['teacher', 'student', 'assistant'].includes(payload.invite_role)) {
-      throw new BadRequestException("Le role d'invitation fourni est invalide.");
+      throw new BadRequestException(
+        "Le role d'invitation fourni est invalide.",
+      );
     }
 
     const maxUses = Number(payload.max_uses ?? 1);

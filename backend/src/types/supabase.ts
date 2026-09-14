@@ -1436,48 +1436,84 @@ export interface Database {
   };
 }
 
-export type AssignmentFilesRow = Database['public']['Tables']['assignment_files']['Row'];
-export type AssignmentFilesInsert = Database['public']['Tables']['assignment_files']['Insert'];
-export type AssignmentFilesUpdate = Database['public']['Tables']['assignment_files']['Update'];
-export type AssignmentSubmissionsRow = Database['public']['Tables']['assignment_submissions']['Row'];
-export type AssignmentSubmissionsInsert = Database['public']['Tables']['assignment_submissions']['Insert'];
-export type AssignmentSubmissionsUpdate = Database['public']['Tables']['assignment_submissions']['Update'];
+export type AssignmentFilesRow =
+  Database['public']['Tables']['assignment_files']['Row'];
+export type AssignmentFilesInsert =
+  Database['public']['Tables']['assignment_files']['Insert'];
+export type AssignmentFilesUpdate =
+  Database['public']['Tables']['assignment_files']['Update'];
+export type AssignmentSubmissionsRow =
+  Database['public']['Tables']['assignment_submissions']['Row'];
+export type AssignmentSubmissionsInsert =
+  Database['public']['Tables']['assignment_submissions']['Insert'];
+export type AssignmentSubmissionsUpdate =
+  Database['public']['Tables']['assignment_submissions']['Update'];
 export type AssignmentsRow = Database['public']['Tables']['assignments']['Row'];
-export type AssignmentsInsert = Database['public']['Tables']['assignments']['Insert'];
-export type AssignmentsUpdate = Database['public']['Tables']['assignments']['Update'];
-export type CourseAssetsRow = Database['public']['Tables']['course_assets']['Row'];
-export type CourseAssetsInsert = Database['public']['Tables']['course_assets']['Insert'];
-export type CourseAssetsUpdate = Database['public']['Tables']['course_assets']['Update'];
-export type CourseModulesRow = Database['public']['Tables']['course_modules']['Row'];
-export type CourseModulesInsert = Database['public']['Tables']['course_modules']['Insert'];
-export type CourseModulesUpdate = Database['public']['Tables']['course_modules']['Update'];
-export type CourseReviewsRow = Database['public']['Tables']['course_reviews']['Row'];
-export type CourseReviewsInsert = Database['public']['Tables']['course_reviews']['Insert'];
-export type CourseReviewsUpdate = Database['public']['Tables']['course_reviews']['Update'];
+export type AssignmentsInsert =
+  Database['public']['Tables']['assignments']['Insert'];
+export type AssignmentsUpdate =
+  Database['public']['Tables']['assignments']['Update'];
+export type CourseAssetsRow =
+  Database['public']['Tables']['course_assets']['Row'];
+export type CourseAssetsInsert =
+  Database['public']['Tables']['course_assets']['Insert'];
+export type CourseAssetsUpdate =
+  Database['public']['Tables']['course_assets']['Update'];
+export type CourseModulesRow =
+  Database['public']['Tables']['course_modules']['Row'];
+export type CourseModulesInsert =
+  Database['public']['Tables']['course_modules']['Insert'];
+export type CourseModulesUpdate =
+  Database['public']['Tables']['course_modules']['Update'];
+export type CourseReviewsRow =
+  Database['public']['Tables']['course_reviews']['Row'];
+export type CourseReviewsInsert =
+  Database['public']['Tables']['course_reviews']['Insert'];
+export type CourseReviewsUpdate =
+  Database['public']['Tables']['course_reviews']['Update'];
 export type CoursesRow = Database['public']['Tables']['courses']['Row'];
 export type CoursesInsert = Database['public']['Tables']['courses']['Insert'];
 export type CoursesUpdate = Database['public']['Tables']['courses']['Update'];
 export type EnrollmentsRow = Database['public']['Tables']['enrollments']['Row'];
-export type EnrollmentsInsert = Database['public']['Tables']['enrollments']['Insert'];
-export type EnrollmentsUpdate = Database['public']['Tables']['enrollments']['Update'];
-export type ExerciseFilesRow = Database['public']['Tables']['exercise_files']['Row'];
-export type ExerciseFilesInsert = Database['public']['Tables']['exercise_files']['Insert'];
-export type ExerciseFilesUpdate = Database['public']['Tables']['exercise_files']['Update'];
+export type EnrollmentsInsert =
+  Database['public']['Tables']['enrollments']['Insert'];
+export type EnrollmentsUpdate =
+  Database['public']['Tables']['enrollments']['Update'];
+export type ExerciseFilesRow =
+  Database['public']['Tables']['exercise_files']['Row'];
+export type ExerciseFilesInsert =
+  Database['public']['Tables']['exercise_files']['Insert'];
+export type ExerciseFilesUpdate =
+  Database['public']['Tables']['exercise_files']['Update'];
 export type ExercisesRow = Database['public']['Tables']['exercises']['Row'];
-export type ExercisesInsert = Database['public']['Tables']['exercises']['Insert'];
-export type ExercisesUpdate = Database['public']['Tables']['exercises']['Update'];
-export type InstitutionCoursesRow = Database['public']['Tables']['institution_courses']['Row'];
-export type InstitutionCoursesInsert = Database['public']['Tables']['institution_courses']['Insert'];
-export type InstitutionCoursesUpdate = Database['public']['Tables']['institution_courses']['Update'];
-export type InstitutionManagedUsersRow = Database['public']['Tables']['institution_managed_users']['Row'];
-export type InstitutionManagedUsersInsert = Database['public']['Tables']['institution_managed_users']['Insert'];
-export type InstitutionManagedUsersUpdate = Database['public']['Tables']['institution_managed_users']['Update'];
-export type InstitutionMembersRow = Database['public']['Tables']['institution_members']['Row'];
-export type InstitutionMembersInsert = Database['public']['Tables']['institution_members']['Insert'];
-export type InstitutionMembersUpdate = Database['public']['Tables']['institution_members']['Update'];
-export type InstitutionsRow = Database['public']['Tables']['institutions']['Row'];
-export type InstitutionsInsert = Database['public']['Tables']['institutions']['Insert'];
-export type InstitutionsUpdate = Database['public']['Tables']['institutions']['Update'];
+export type ExercisesInsert =
+  Database['public']['Tables']['exercises']['Insert'];
+export type ExercisesUpdate =
+  Database['public']['Tables']['exercises']['Update'];
+export type InstitutionCoursesRow =
+  Database['public']['Tables']['institution_courses']['Row'];
+export type InstitutionCoursesInsert =
+  Database['public']['Tables']['institution_courses']['Insert'];
+export type InstitutionCoursesUpdate =
+  Database['public']['Tables']['institution_courses']['Update'];
+export type InstitutionManagedUsersRow =
+  Database['public']['Tables']['institution_managed_users']['Row'];
+export type InstitutionManagedUsersInsert =
+  Database['public']['Tables']['institution_managed_users']['Insert'];
+export type InstitutionManagedUsersUpdate =
+  Database['public']['Tables']['institution_managed_users']['Update'];
+export type InstitutionMembersRow =
+  Database['public']['Tables']['institution_members']['Row'];
+export type InstitutionMembersInsert =
+  Database['public']['Tables']['institution_members']['Insert'];
+export type InstitutionMembersUpdate =
+  Database['public']['Tables']['institution_members']['Update'];
+export type InstitutionsRow =
+  Database['public']['Tables']['institutions']['Row'];
+export type InstitutionsInsert =
+  Database['public']['Tables']['institutions']['Insert'];
+export type InstitutionsUpdate =
+  Database['public']['Tables']['institutions']['Update'];
 export type LessonsRow = Database['public']['Tables']['lessons']['Row'];
 export type LessonsInsert = Database['public']['Tables']['lessons']['Insert'];
 export type LessonsUpdate = Database['public']['Tables']['lessons']['Update'];
@@ -1490,30 +1526,54 @@ export type ProfilesUpdate = Database['public']['Tables']['profiles']['Update'];
 export type ProgressRow = Database['public']['Tables']['progress']['Row'];
 export type ProgressInsert = Database['public']['Tables']['progress']['Insert'];
 export type ProgressUpdate = Database['public']['Tables']['progress']['Update'];
-export type RoomAttendanceRecordsRow = Database['public']['Tables']['room_attendance_records']['Row'];
-export type RoomAttendanceRecordsInsert = Database['public']['Tables']['room_attendance_records']['Insert'];
-export type RoomAttendanceRecordsUpdate = Database['public']['Tables']['room_attendance_records']['Update'];
-export type RoomAttendanceSessionsRow = Database['public']['Tables']['room_attendance_sessions']['Row'];
-export type RoomAttendanceSessionsInsert = Database['public']['Tables']['room_attendance_sessions']['Insert'];
-export type RoomAttendanceSessionsUpdate = Database['public']['Tables']['room_attendance_sessions']['Update'];
-export type RoomCoursesRow = Database['public']['Tables']['room_courses']['Row'];
-export type RoomCoursesInsert = Database['public']['Tables']['room_courses']['Insert'];
-export type RoomCoursesUpdate = Database['public']['Tables']['room_courses']['Update'];
-export type RoomInvitesRow = Database['public']['Tables']['room_invites']['Row'];
-export type RoomInvitesInsert = Database['public']['Tables']['room_invites']['Insert'];
-export type RoomInvitesUpdate = Database['public']['Tables']['room_invites']['Update'];
-export type RoomMemberControlsRow = Database['public']['Tables']['room_member_controls']['Row'];
-export type RoomMemberControlsInsert = Database['public']['Tables']['room_member_controls']['Insert'];
-export type RoomMemberControlsUpdate = Database['public']['Tables']['room_member_controls']['Update'];
-export type RoomMembersRow = Database['public']['Tables']['room_members']['Row'];
-export type RoomMembersInsert = Database['public']['Tables']['room_members']['Insert'];
-export type RoomMembersUpdate = Database['public']['Tables']['room_members']['Update'];
-export type RoomScheduleItemsRow = Database['public']['Tables']['room_schedule_items']['Row'];
-export type RoomScheduleItemsInsert = Database['public']['Tables']['room_schedule_items']['Insert'];
-export type RoomScheduleItemsUpdate = Database['public']['Tables']['room_schedule_items']['Update'];
+export type RoomAttendanceRecordsRow =
+  Database['public']['Tables']['room_attendance_records']['Row'];
+export type RoomAttendanceRecordsInsert =
+  Database['public']['Tables']['room_attendance_records']['Insert'];
+export type RoomAttendanceRecordsUpdate =
+  Database['public']['Tables']['room_attendance_records']['Update'];
+export type RoomAttendanceSessionsRow =
+  Database['public']['Tables']['room_attendance_sessions']['Row'];
+export type RoomAttendanceSessionsInsert =
+  Database['public']['Tables']['room_attendance_sessions']['Insert'];
+export type RoomAttendanceSessionsUpdate =
+  Database['public']['Tables']['room_attendance_sessions']['Update'];
+export type RoomCoursesRow =
+  Database['public']['Tables']['room_courses']['Row'];
+export type RoomCoursesInsert =
+  Database['public']['Tables']['room_courses']['Insert'];
+export type RoomCoursesUpdate =
+  Database['public']['Tables']['room_courses']['Update'];
+export type RoomInvitesRow =
+  Database['public']['Tables']['room_invites']['Row'];
+export type RoomInvitesInsert =
+  Database['public']['Tables']['room_invites']['Insert'];
+export type RoomInvitesUpdate =
+  Database['public']['Tables']['room_invites']['Update'];
+export type RoomMemberControlsRow =
+  Database['public']['Tables']['room_member_controls']['Row'];
+export type RoomMemberControlsInsert =
+  Database['public']['Tables']['room_member_controls']['Insert'];
+export type RoomMemberControlsUpdate =
+  Database['public']['Tables']['room_member_controls']['Update'];
+export type RoomMembersRow =
+  Database['public']['Tables']['room_members']['Row'];
+export type RoomMembersInsert =
+  Database['public']['Tables']['room_members']['Insert'];
+export type RoomMembersUpdate =
+  Database['public']['Tables']['room_members']['Update'];
+export type RoomScheduleItemsRow =
+  Database['public']['Tables']['room_schedule_items']['Row'];
+export type RoomScheduleItemsInsert =
+  Database['public']['Tables']['room_schedule_items']['Insert'];
+export type RoomScheduleItemsUpdate =
+  Database['public']['Tables']['room_schedule_items']['Update'];
 export type RoomsRow = Database['public']['Tables']['rooms']['Row'];
 export type RoomsInsert = Database['public']['Tables']['rooms']['Insert'];
 export type RoomsUpdate = Database['public']['Tables']['rooms']['Update'];
-export type TeacherReviewsRow = Database['public']['Tables']['teacher_reviews']['Row'];
-export type TeacherReviewsInsert = Database['public']['Tables']['teacher_reviews']['Insert'];
-export type TeacherReviewsUpdate = Database['public']['Tables']['teacher_reviews']['Update'];
+export type TeacherReviewsRow =
+  Database['public']['Tables']['teacher_reviews']['Row'];
+export type TeacherReviewsInsert =
+  Database['public']['Tables']['teacher_reviews']['Insert'];
+export type TeacherReviewsUpdate =
+  Database['public']['Tables']['teacher_reviews']['Update'];

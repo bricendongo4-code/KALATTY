@@ -508,7 +508,7 @@ export class AuthService {
       );
     }
 
-    let institutionId = existingInstitution?.id as string | undefined;
+    let institutionId = existingInstitution?.id;
 
     if (!institutionId) {
       const baseSlug = this.buildSlug(payload.name || 'etablissement-kalatty');

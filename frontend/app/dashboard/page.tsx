@@ -112,11 +112,6 @@ type DiscoveryCourse = {
   roomNames?: string[];
 };
 
-const studentTimeline = [
-  { day: "Lun", topic: "Revision math", time: "19h00" },
-  { day: "Mer", topic: "Quiz anglais", time: "18h30" },
-  { day: "Sam", topic: "Serie bureautique", time: "09h00" },
-];
 const teacherInsights = [
   {
     title: "Matiere la plus suivie",
@@ -130,17 +125,23 @@ const teacherInsights = [
   },
 ];
 
-const learnerExperienceSignals = [
+const getLearnerExperienceSignals = (isInstitutionStudent: boolean) => [
   {
     label: "Reprise",
     title: "Continuer exactement au bon endroit",
     text: "Le prochain cours et la progression restent visibles pour eviter de chercher.",
   },
-  {
-    label: "Campus",
-    title: "Cours d'etablissement separes",
-    text: "Un etudiant rattache ne voit que ses cours campus, devoirs et planning.",
-  },
+  isInstitutionStudent
+    ? {
+        label: "Campus",
+        title: "Cours d'etablissement separes",
+        text: "Un etudiant rattache ne voit que ses cours campus, devoirs et planning.",
+      }
+    : {
+        label: "Etablissement",
+        title: "Rejoindre une ecole ou un centre",
+        text: "Utilise le lien d'invitation envoye par ton etablissement pour acceder a tes classes et devoirs.",
+      },
   {
     label: "Planning",
     title: "Semaine lisible",
@@ -642,6 +643,7 @@ export default function DashboardPage() {
           ratingAverage: Number(course.ratingAverage ?? 0),
           lessonsCount: Number(course.lessonsCount ?? 0),
           thumbnailUrl: String(course.thumbnailUrl ?? ""),
+          enrolled: Boolean(course.enrolled),
         }))
       : fallbackDiscovery;
   const weeklySchedule = isInstitutionStudent
@@ -652,19 +654,48 @@ export default function DashboardPage() {
         roomName: String(item.roomName ?? "Salle"),
         id: String(item.id ?? `schedule-${index}`),
       }))
-    : studentTimeline.map((item, index) => ({
-        ...item,
-        roomName: "",
-        id: `${item.day}-${item.topic}-${index}`,
-      }));
+    : studentCourses
+        .filter((course) => Number(course.progress ?? 0) < 100)
+        .slice(0, 5)
+        .map((course, index) => ({
+          day: "A reprendre",
+          topic: String(course.title ?? "Cours en cours"),
+          time: course.nextLesson
+            ? `Prochaine lecon : ${course.nextLesson}`
+            : "",
+          roomName: "",
+          id: `resume-${course.id ?? index}`,
+        }));
   const studentQuery = studentSearch.trim().toLowerCase();
   const teacherQuery = teacherSearch.trim().toLowerCase();
-  const filteredDiscovery = discoveryCourses.filter((course) =>
-    includesSearch(
-      [course.title, course.description, course.category, course.badge],
-      studentQuery,
-    ),
-  );
+  const studentInterestQuery = [profile?.expertise, profile?.level]
+    .filter((value) => typeof value === "string" && value.trim())
+    .join(" ")
+    .toLowerCase();
+  const filteredDiscovery = discoveryCourses
+    .filter((course) =>
+      includesSearch(
+        [course.title, course.description, course.category, course.badge],
+        studentQuery,
+      ),
+    )
+    .slice()
+    .sort((a, b) => {
+      if (!studentInterestQuery) return 0;
+      const aMatches = includesSearch(
+        [a.title, a.description, a.category],
+        studentInterestQuery,
+      )
+        ? 1
+        : 0;
+      const bMatches = includesSearch(
+        [b.title, b.description, b.category],
+        studentInterestQuery,
+      )
+        ? 1
+        : 0;
+      return bMatches - aMatches;
+    });
   const filteredStudentCourses = studentCourses.filter((course) =>
     includesSearch(
       [course.title, course.description, course.nextLesson],
@@ -1534,6 +1565,14 @@ export default function DashboardPage() {
                       : "Nom de ton etablissement"
                   }
                 />
+                {role === "student" && !isInstitutionStudent ? (
+                  <small className={styles.fieldHint}>
+                    Ce champ est indicatif. Pour rejoindre reellement un
+                    etablissement et acceder a ses classes et devoirs,
+                    utilise le lien d&apos;invitation envoye par cet
+                    etablissement.
+                  </small>
+                ) : null}
               </label>
 
               {role === "student" ? (
@@ -2086,8 +2125,14 @@ export default function DashboardPage() {
                     onClick={() => changeStudentView("institutions")}
                   >
                     <span>02</span>
-                    <strong>Mon campus</strong>
-                    <small>Voir mes classes, devoirs et etablissements</small>
+                    <strong>
+                      {isInstitutionStudent ? "Mon campus" : "Etablissement"}
+                    </strong>
+                    <small>
+                      {isInstitutionStudent
+                        ? "Voir mes classes, devoirs et etablissements"
+                        : "Rejoindre un etablissement avec un lien d'invitation"}
+                    </small>
                   </button>
                   <button
                     type="button"
@@ -2100,13 +2145,15 @@ export default function DashboardPage() {
                 </nav>
 
                 <section className={styles.experienceSignalStrip}>
-                  {learnerExperienceSignals.map((signal) => (
+                  {getLearnerExperienceSignals(isInstitutionStudent).map(
+                    (signal) => (
                     <button
                       key={signal.title}
                       type="button"
                       onClick={() =>
                         changeStudentView(
-                          signal.label === "Campus"
+                          signal.label === "Campus" ||
+                            signal.label === "Etablissement"
                             ? "institutions"
                             : "progress",
                         )
@@ -2341,8 +2388,9 @@ export default function DashboardPage() {
                       ))
                     ) : (
                       <p className={styles.paragraph}>
-                        Aucun horaire n&apos;a encore ete publie par ton
-                        etablissement.
+                        {isInstitutionStudent
+                          ? "Aucun horaire n'a encore ete publie par ton etablissement."
+                          : "Aucun cours en cours. Inscris-toi a un cours pour voir ta progression ici."}
                       </p>
                     )}
                   </div>
@@ -2570,11 +2618,28 @@ export default function DashboardPage() {
                       <p className={styles.paragraph}>
                         {studentInstitutions.length > 0
                           ? "Aucun etablissement ne correspond a cette recherche."
-                          : "Aucun etablissement n'est encore relie a ce compte."}
+                          : "Aucun etablissement n'est encore relie a ce compte. Si ton ecole ou ton centre t'a envoye un lien d'invitation, ouvre-le pour rejoindre ta classe."}
                       </p>
                     )}
                   </div>
                 </section>
+                {!isInstitutionStudent && studentInstitutions.length === 0 ? (
+                  <section className={styles.card}>
+                    <div className={styles.sectionHeader}>
+                      <div>
+                        <p className={styles.sectionLabel}>Devoirs</p>
+                        <h2>Cet espace concerne les comptes rattaches</h2>
+                      </div>
+                    </div>
+                    <p className={styles.paragraph}>
+                      Les devoirs et le planning de classe n&apos;existent que
+                      pour les etudiants rattaches a un etablissement. En tant
+                      qu&apos;apprenant independant, retrouve ta progression
+                      et tes cours depuis l&apos;onglet &quot;Mes
+                      apprentissages&quot;.
+                    </p>
+                  </section>
+                ) : (
                 <section className={styles.card}>
                   <div className={styles.sectionHeader}>
                     <div>
@@ -2613,6 +2678,7 @@ export default function DashboardPage() {
                     )}
                   </div>
                 </section>
+                )}
               </div>
               <div className={styles.sideColumn}>
                 <section className={styles.cardAccent}>

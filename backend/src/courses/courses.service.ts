@@ -253,6 +253,12 @@ export class CoursesService {
                   : null,
               is_preview: Boolean(lesson.is_preview),
             })),
+          exercises: (module.exercises ?? []).map((exercise: any) => ({
+            id: exercise.id,
+            title: exercise.title ?? '',
+            instructions: exercise.instructions ?? '',
+            correction: exercise.correction ?? '',
+          })),
         })),
     };
   }
@@ -1117,7 +1123,7 @@ export class CoursesService {
     const thumbnailPath =
       payload.thumbnail_path?.trim() || this.getDefaultCourseThumbnailUrl();
     const priceFcfa = Number(payload.price_fcfa ?? 0);
-    const status = this.normalizeCourseStatus(payload.status, 'published');
+    const status = this.normalizeCourseStatus(payload.status, 'draft');
     const modules = (payload.modules ?? []).filter((module) =>
       module?.title?.trim(),
     );
@@ -1128,6 +1134,10 @@ export class CoursesService {
 
     if (Number.isNaN(priceFcfa) || priceFcfa < 0) {
       throw new BadRequestException('Le prix du cours est invalide.');
+    }
+
+    if (status === 'published') {
+      this.assertPublishReady(shortDescription, description, modules);
     }
 
     const { data: course, error: courseError } =
@@ -1207,6 +1217,10 @@ export class CoursesService {
 
     if (Number.isNaN(priceFcfa) || priceFcfa < 0) {
       throw new BadRequestException('Le prix du cours est invalide.');
+    }
+
+    if (status === 'published') {
+      this.assertPublishReady(shortDescription, description, modules);
     }
 
     const { data: updatedCourse, error: updateError } =
@@ -1509,7 +1523,23 @@ export class CoursesService {
       return fallback;
     }
 
-    return 'published';
+    return 'draft';
+  }
+
+  private assertPublishReady(
+    shortDescription: string | null,
+    description: string | null,
+    modules: ModulePayload[],
+  ) {
+    const hasVideoLesson = modules.some((module) =>
+      (module.lessons ?? []).some((lesson) => lesson.video_path?.trim()),
+    );
+
+    if (!shortDescription || !description || !hasVideoLesson) {
+      throw new BadRequestException(
+        'Ce cours doit avoir une description courte, une description complete et au moins une lecon avec une video avant publication.',
+      );
+    }
   }
 
   private async assertTeacherCourseAccess(user: AuthUser, courseId: string) {
@@ -1546,6 +1576,12 @@ export class CoursesService {
               duration_seconds,
               is_preview,
               order_index
+            ),
+            exercises (
+              id,
+              title,
+              instructions,
+              correction
             )
           )
         `,
@@ -1715,6 +1751,44 @@ export class CoursesService {
           }
 
           keptLessonIds.add(lessonRow.id);
+        }
+      }
+
+      if (options.allowUpdates && moduleId) {
+        const { error: exerciseDeleteError } = await this.supabaseService.client
+          .from('exercises')
+          .delete()
+          .eq('course_id', courseId)
+          .eq('module_id', moduleId);
+
+        if (exerciseDeleteError) {
+          throw new BadRequestException(
+            exerciseDeleteError.message ??
+              'Impossible de mettre a jour les exercices de ce module.',
+          );
+        }
+      }
+
+      const exercises = (modulePayload.exercises ?? []).filter((exercise) =>
+        exercise?.title?.trim(),
+      );
+
+      for (const exercise of exercises) {
+        const { error: exerciseError } = await this.supabaseService.client
+          .from('exercises')
+          .insert({
+            course_id: courseId,
+            module_id: moduleId,
+            title: exercise.title.trim(),
+            instructions: exercise.instructions?.trim() || null,
+            correction: exercise.correction?.trim() || null,
+          });
+
+        if (exerciseError) {
+          throw new BadRequestException(
+            exerciseError.message ??
+              `Impossible d'enregistrer l'exercice ${exercise.title}.`,
+          );
         }
       }
     }

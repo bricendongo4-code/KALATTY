@@ -218,7 +218,8 @@ export class DashboardService {
           )
         `,
       )
-      .eq('user_id', profile.id);
+      .eq('user_id', profile.id)
+      .order('enrolled_at', { ascending: false });
 
     const { data: progressRows } = await this.supabaseService.client
       .from('progress')
@@ -472,8 +473,12 @@ export class DashboardService {
       },
       0,
     );
+    const enrolledCourseIds = new Set(
+      (enrollments ?? []).map((item: any) => String(item.courses?.id ?? '')),
+    );
     const catalogCourses = (catalogRows ?? []).map((course: any) => ({
       id: course.id,
+      enrolled: enrolledCourseIds.has(String(course.id)),
       title: course.title ?? 'Cours sans titre',
       description:
         course.short_description ??
@@ -744,8 +749,8 @@ export class DashboardService {
       lessonsCount: course.lessons?.length ?? 0,
     }));
 
-    const revenueStats = await this.getTeacherRevenue(profile.id as string);
-    const teacherRooms = await this.getTeacherRooms(profile.id as string);
+    const revenueStats = await this.getTeacherRevenue(profile.id);
+    const teacherRooms = await this.getTeacherRooms(profile.id);
     const totalLearners = coursesList.reduce(
       (sum: number, course: { learners: number }) => sum + course.learners,
       0,
