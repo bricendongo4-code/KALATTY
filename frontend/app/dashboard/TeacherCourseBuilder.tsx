@@ -11,6 +11,7 @@ type LessonDraft = {
   duration_seconds: string;
   is_preview: boolean;
   uploading: boolean;
+  uploadError?: string;
 };
 
 type ExerciseDraft = {
@@ -41,6 +42,9 @@ type CourseDraftSnapshot = {
 };
 
 const COURSE_BUILDER_DRAFT_KEY = "kalatty_teacher_course_builder_draft_v1";
+
+const getEditDraftKey = (courseId: string) =>
+  `${COURSE_BUILDER_DRAFT_KEY}_edit_${courseId}`;
 
 const createLesson = (): LessonDraft => ({
   title: "",
@@ -87,6 +91,9 @@ export default function TeacherCourseBuilder({
     "draft" | "published" | "archived"
   >("draft");
   const [thumbnailPath, setThumbnailPath] = useState("");
+  const [editingLearnersCount, setEditingLearnersCount] = useState<
+    number | null
+  >(null);
   const [thumbnailUploading, setThumbnailUploading] = useState(false);
   const [modules, setModules] = useState<ModuleDraft[]>([createModule()]);
   const [courseMessage, setCourseMessage] = useState("");
@@ -210,12 +217,13 @@ export default function TeacherCourseBuilder({
     setCourseDescription("");
     setCourseShortDescription("");
     setCoursePrice("");
-    setCourseStatus("published");
+    setCourseStatus("draft");
     setThumbnailPath("");
     setModules([createModule()]);
     setStep("landing");
     setDeleteConfirmationOpen(false);
     setDeleteConfirmationText("");
+    setEditingLearnersCount(null);
   };
 
   const clearLocalDraft = () => {
@@ -335,6 +343,11 @@ export default function TeacherCourseBuilder({
             : "",
         );
         setThumbnailPath(String(data.thumbnail_path ?? ""));
+        setEditingLearnersCount(
+          data.learners_count !== null && data.learners_count !== undefined
+            ? Number(data.learners_count)
+            : null,
+        );
         setCourseStatus(
           data.status === "draft" || data.status === "archived"
             ? data.status
@@ -376,6 +389,65 @@ export default function TeacherCourseBuilder({
         );
         setStep("basics");
         setCourseMessage("Cours charge dans le studio. Tu peux le modifier.");
+
+        const rawLocalDraft = localStorage.getItem(
+          getEditDraftKey(editingCourseId),
+        );
+        if (rawLocalDraft) {
+          try {
+            const localDraft = JSON.parse(
+              rawLocalDraft,
+            ) as Partial<CourseDraftSnapshot>;
+            setCourseTitle(String(localDraft.courseTitle ?? ""));
+            setCourseDescription(String(localDraft.courseDescription ?? ""));
+            setCourseShortDescription(
+              String(localDraft.courseShortDescription ?? ""),
+            );
+            setCoursePrice(String(localDraft.coursePrice ?? ""));
+            setCourseStatus(
+              localDraft.courseStatus === "draft" ||
+                localDraft.courseStatus === "archived"
+                ? localDraft.courseStatus
+                : "published",
+            );
+            setThumbnailPath(String(localDraft.thumbnailPath ?? ""));
+            if (Array.isArray(localDraft.modules) && localDraft.modules.length > 0) {
+              setModules(
+                localDraft.modules.map((module) => ({
+                  id: module.id,
+                  title: String(module.title ?? ""),
+                  description: String(module.description ?? ""),
+                  lessons:
+                    Array.isArray(module.lessons) && module.lessons.length > 0
+                      ? module.lessons.map((lesson) => ({
+                          id: lesson.id,
+                          title: String(lesson.title ?? ""),
+                          video_path: String(lesson.video_path ?? ""),
+                          content: String(lesson.content ?? ""),
+                          duration_seconds: String(
+                            lesson.duration_seconds ?? "",
+                          ),
+                          is_preview: Boolean(lesson.is_preview),
+                          uploading: false,
+                        }))
+                      : [createLesson()],
+                  exercises: Array.isArray(module.exercises)
+                    ? module.exercises.map((exercise) => ({
+                        title: String(exercise.title ?? ""),
+                        instructions: String(exercise.instructions ?? ""),
+                        correction: String(exercise.correction ?? ""),
+                      }))
+                    : [],
+                })),
+              );
+            }
+            setCourseMessage(
+              "Modifications non enregistrees retrouvees et restaurees pour ce cours.",
+            );
+          } catch {
+            localStorage.removeItem(getEditDraftKey(editingCourseId));
+          }
+        }
       } catch {
         setCourseMessage("Le cours n'a pas pu etre charge pour edition.");
       } finally {
@@ -387,13 +459,17 @@ export default function TeacherCourseBuilder({
   }, [apiBaseUrl, editingCourseId]);
 
   useEffect(() => {
-    if (editingCourseId || !localDraftReady) {
+    if (editingCourseId ? loadingCourseDraft : !localDraftReady) {
       return;
     }
 
+    const storageKey = editingCourseId
+      ? getEditDraftKey(editingCourseId)
+      : COURSE_BUILDER_DRAFT_KEY;
+
     const timer = window.setTimeout(() => {
       if (!hasMeaningfulDraft) {
-        localStorage.removeItem(COURSE_BUILDER_DRAFT_KEY);
+        localStorage.removeItem(storageKey);
         return;
       }
 
@@ -415,8 +491,12 @@ export default function TeacherCourseBuilder({
         savedAt: new Date().toISOString(),
       };
 
-      localStorage.setItem(COURSE_BUILDER_DRAFT_KEY, JSON.stringify(draft));
-      setLocalDraftMessage("Brouillon sauvegarde automatiquement.");
+      localStorage.setItem(storageKey, JSON.stringify(draft));
+      setLocalDraftMessage(
+        editingCourseId
+          ? "Modifications sauvegardees automatiquement sur cet appareil."
+          : "Brouillon sauvegarde automatiquement.",
+      );
     }, 600);
 
     return () => window.clearTimeout(timer);
@@ -428,6 +508,7 @@ export default function TeacherCourseBuilder({
     courseTitle,
     editingCourseId,
     hasMeaningfulDraft,
+    loadingCourseDraft,
     localDraftReady,
     modules,
     step,
@@ -439,6 +520,41 @@ export default function TeacherCourseBuilder({
       current.map((currentModule, moduleIndex) =>
         moduleIndex === index ? nextModule : currentModule,
       ),
+    );
+  };
+
+  const moveModule = (index: number, direction: -1 | 1) => {
+    setModules((current) => {
+      const targetIndex = index + direction;
+      if (targetIndex < 0 || targetIndex >= current.length) return current;
+
+      const next = current.slice();
+      [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+      return next;
+    });
+  };
+
+  const moveLesson = (
+    moduleIndex: number,
+    lessonIndex: number,
+    direction: -1 | 1,
+  ) => {
+    setModules((current) =>
+      current.map((currentModule, index) => {
+        if (index !== moduleIndex) return currentModule;
+
+        const targetIndex = lessonIndex + direction;
+        if (targetIndex < 0 || targetIndex >= currentModule.lessons.length) {
+          return currentModule;
+        }
+
+        const nextLessons = currentModule.lessons.slice();
+        [nextLessons[lessonIndex], nextLessons[targetIndex]] = [
+          nextLessons[targetIndex],
+          nextLessons[lessonIndex],
+        ];
+        return { ...currentModule, lessons: nextLessons };
+      }),
     );
   };
 
@@ -512,7 +628,9 @@ export default function TeacherCourseBuilder({
     updateModule(moduleIndex, {
       ...modules[moduleIndex],
       lessons: modules[moduleIndex].lessons.map((lesson, index) =>
-        index === lessonIndex ? { ...lesson, uploading: true } : lesson,
+        index === lessonIndex
+          ? { ...lesson, uploading: true, uploadError: undefined }
+          : lesson,
       ),
     });
 
@@ -524,22 +642,27 @@ export default function TeacherCourseBuilder({
         ...currentModule,
         lessons: currentModule.lessons.map((lesson, index) =>
           index === lessonIndex
-            ? { ...lesson, video_path: path, uploading: false }
+            ? {
+                ...lesson,
+                video_path: path,
+                uploading: false,
+                uploadError: undefined,
+              }
             : lesson,
         ),
       });
-      setCourseMessage("Video envoyee avec succes.");
     } catch (error) {
       const currentModule = modules[moduleIndex];
+      const errorMessage =
+        error instanceof Error ? error.message : "Upload video impossible.";
       updateModule(moduleIndex, {
         ...currentModule,
         lessons: currentModule.lessons.map((lesson, index) =>
-          index === lessonIndex ? { ...lesson, uploading: false } : lesson,
+          index === lessonIndex
+            ? { ...lesson, uploading: false, uploadError: errorMessage }
+            : lesson,
         ),
       });
-      setCourseMessage(
-        error instanceof Error ? error.message : "Upload video impossible.",
-      );
     } finally {
       event.target.value = "";
     }
@@ -624,6 +747,9 @@ export default function TeacherCourseBuilder({
       await onCourseCreated();
       if (!isEditing) {
         localStorage.removeItem(COURSE_BUILDER_DRAFT_KEY);
+        setLocalDraftMessage("");
+      } else if (editingCourseId) {
+        localStorage.removeItem(getEditDraftKey(editingCourseId));
         setLocalDraftMessage("");
       }
       resetBuilder();
@@ -717,6 +843,15 @@ export default function TeacherCourseBuilder({
             Une experience plus proche d&apos;Udemy pour construire le cours,
             charger les videos et verifier l&apos;etat avant publication.
           </p>
+          {editingCourseId && editingLearnersCount !== null ? (
+            <p className={styles.paragraph}>
+              {editingLearnersCount === 0
+                ? "Aucun apprenant inscrit pour l'instant."
+                : editingLearnersCount === 1
+                  ? "1 apprenant inscrit sur ce cours."
+                  : `${editingLearnersCount} apprenants inscrits sur ce cours.`}
+            </p>
+          ) : null}
           {editingCourseId ? (
             <button
               type="button"
@@ -1124,6 +1259,24 @@ export default function TeacherCourseBuilder({
                             </p>
                             <h3>{currentModule.title || "Nouveau module"}</h3>
                           </div>
+                          <button
+                            type="button"
+                            className={styles.secondaryButton}
+                            disabled={moduleIndex === 0}
+                            onClick={() => moveModule(moduleIndex, -1)}
+                            aria-label="Deplacer le module vers le haut"
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            className={styles.secondaryButton}
+                            disabled={moduleIndex === modules.length - 1}
+                            onClick={() => moveModule(moduleIndex, 1)}
+                            aria-label="Deplacer le module vers le bas"
+                          >
+                            ↓
+                          </button>
                           {modules.length > 1 ? (
                             <button
                               type="button"
@@ -1211,6 +1364,31 @@ export default function TeacherCourseBuilder({
                                       : "Video manquante"}
                                   </small>
                                 </div>
+                                <button
+                                  type="button"
+                                  className={styles.secondaryButton}
+                                  disabled={lessonIndex === 0}
+                                  onClick={() =>
+                                    moveLesson(moduleIndex, lessonIndex, -1)
+                                  }
+                                  aria-label="Deplacer la lecon vers le haut"
+                                >
+                                  ↑
+                                </button>
+                                <button
+                                  type="button"
+                                  className={styles.secondaryButton}
+                                  disabled={
+                                    lessonIndex ===
+                                    currentModule.lessons.length - 1
+                                  }
+                                  onClick={() =>
+                                    moveLesson(moduleIndex, lessonIndex, 1)
+                                  }
+                                  aria-label="Deplacer la lecon vers le bas"
+                                >
+                                  ↓
+                                </button>
                                 <button
                                   type="button"
                                   className={styles.secondaryButton}
@@ -1355,6 +1533,12 @@ export default function TeacherCourseBuilder({
                               {lesson.uploading ? (
                                 <div className={styles.inlineAssetStatus}>
                                   Upload de la video en cours...
+                                </div>
+                              ) : null}
+
+                              {lesson.uploadError ? (
+                                <div className={styles.inlineAssetError}>
+                                  {lesson.uploadError}
                                 </div>
                               ) : null}
                             </div>
@@ -1552,6 +1736,17 @@ export default function TeacherCourseBuilder({
                       </strong>
                     </article>
                   </div>
+
+                  {editingCourseId ? (
+                    <a
+                      href={`/courses/${editingCourseId}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={styles.secondaryButton}
+                    >
+                      Voir comme un etudiant
+                    </a>
+                  ) : null}
 
                   <div className={styles.courseStudioChecklist}>
                     {checklist.map((item) => (

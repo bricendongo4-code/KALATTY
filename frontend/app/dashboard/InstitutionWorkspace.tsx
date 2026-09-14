@@ -299,6 +299,10 @@ export default function InstitutionWorkspace({
   const [institutionType, setInstitutionType] = useState("");
   const [showCreateInstitutionForm, setShowCreateInstitutionForm] =
     useState(false);
+  const [creatingInstitution, setCreatingInstitution] = useState(false);
+  const [creatingRoom, setCreatingRoom] = useState(false);
+  const [assigningCourse, setAssigningCourse] = useState(false);
+  const [creatingInvite, setCreatingInvite] = useState(false);
   const [roomName, setRoomName] = useState("");
   const [roomDescription, setRoomDescription] = useState("");
   const [inviteRoomId, setInviteRoomId] = useState("");
@@ -334,6 +338,10 @@ export default function InstitutionWorkspace({
   const currentInstitutionRole = selectedInstitution?.membershipRole ?? "owner";
   const canManageInstitutionStaff =
     currentInstitutionRole === "owner" || currentInstitutionRole === "admin";
+
+  const isErrorMessage = /impossible|echou|échou|invalide|erreur|reserv|réserv|obligatoire|introuvable|choisis/i.test(
+    message,
+  );
 
   const roomLookup = useMemo(
     () => new Map((detail?.rooms ?? []).map((room) => [room.id, room.name])),
@@ -910,6 +918,7 @@ export default function InstitutionWorkspace({
     event.preventDefault();
     if (!token) return;
 
+    setCreatingInstitution(true);
     try {
       const res = await fetch(`${apiBaseUrl}/institutions`, {
         method: "POST",
@@ -937,6 +946,8 @@ export default function InstitutionWorkspace({
       setMessage("Etablissement cree.");
     } catch {
       setMessage("La création de l'établissement a échoué.");
+    } finally {
+      setCreatingInstitution(false);
     }
   };
 
@@ -944,6 +955,7 @@ export default function InstitutionWorkspace({
     event.preventDefault();
     if (!token || !selectedInstitutionId) return;
 
+    setCreatingRoom(true);
     try {
       const res = await fetch(`${apiBaseUrl}/institutions/${selectedInstitutionId}/rooms`, {
         method: "POST",
@@ -970,6 +982,8 @@ export default function InstitutionWorkspace({
       setSelectedRoomId(String(data.id));
     } catch {
       setMessage("La création de la classe a échoué.");
+    } finally {
+      setCreatingRoom(false);
     }
   };
 
@@ -977,6 +991,7 @@ export default function InstitutionWorkspace({
     event.preventDefault();
     if (!token || !selectedRoomId || !assignedCourseId) return;
 
+    setAssigningCourse(true);
     try {
       const res = await fetch(`${apiBaseUrl}/institutions/rooms/${selectedRoomId}/courses`, {
         method: "POST",
@@ -1000,6 +1015,8 @@ export default function InstitutionWorkspace({
       await loadRoomDetails(selectedRoomId);
     } catch {
       setMessage("L'affectation du cours a échoué.");
+    } finally {
+      setAssigningCourse(false);
     }
   };
 
@@ -1050,6 +1067,7 @@ export default function InstitutionWorkspace({
     event.preventDefault();
     if (!token || !inviteRoomId) return;
 
+    setCreatingInvite(true);
     try {
       const res = await fetch(`${apiBaseUrl}/institutions/rooms/${inviteRoomId}/invites`, {
         method: "POST",
@@ -1082,6 +1100,8 @@ export default function InstitutionWorkspace({
       }
     } catch {
       setMessage("La création du lien a échoué.");
+    } finally {
+      setCreatingInvite(false);
     }
   };
 
@@ -1458,7 +1478,7 @@ export default function InstitutionWorkspace({
               className={activeView === "settings" ? styles.activeTab : styles.studentTab}
               onClick={() => setActiveView("settings")}
             >
-              Paramètres
+              Mon compte
             </button>
           </div>
         </section>
@@ -1593,7 +1613,11 @@ export default function InstitutionWorkspace({
                 <button
                   type="button"
                   className={styles.secondaryButton}
-                  disabled={billingLoading || !selectedInstitutionId}
+                  disabled={
+                    billingLoading ||
+                    !selectedInstitutionId ||
+                    plan.code === currentPlanCode
+                  }
                   onClick={() => void handleActivatePlan(plan.code)}
                 >
                   {billingLoading
@@ -2166,16 +2190,38 @@ export default function InstitutionWorkspace({
                 </div>
                 <div className={styles.roadmapList}>
                   {roomDetail.invites.length > 0 ? (
-                    roomDetail.invites.map((invite) => (
+                    roomDetail.invites.map((invite) => {
+                      const inviteUrl =
+                        typeof window !== "undefined"
+                          ? `${window.location.origin}/invite/${invite.token}`
+                          : invite.token;
+                      return (
                       <article key={invite.id} className={styles.institutionInviteCard}>
                         <strong>{formatRoleLabel(invite.invite_role)}</strong>
-                        <p>{invite.token}</p>
+                        <p>{inviteUrl}</p>
+                        <button
+                          type="button"
+                          className={styles.linkButton}
+                          onClick={() => {
+                            void navigator.clipboard
+                              ?.writeText(inviteUrl)
+                              .then(() => setMessage("Lien copie."))
+                              .catch(() =>
+                                setMessage(
+                                  "Impossible de copier le lien automatiquement.",
+                                ),
+                              );
+                          }}
+                        >
+                          Copier le lien
+                        </button>
                         <small>
                           {invite.used_count}/{invite.max_uses} utilisation |{" "}
                           {invite.is_active ? "actif" : "clos"}
                         </small>
                       </article>
-                    ))
+                      );
+                    })
                   ) : (
                     <p className={styles.paragraph}>Aucun lien encore genere pour cette classe.</p>
                   )}
@@ -2269,8 +2315,12 @@ export default function InstitutionWorkspace({
                   placeholder="Filiere, niveau, objectif pedagogique et organisation"
                 />
               </label>
-              <button type="submit" className={styles.submitButton}>
-                Créer la classe
+              <button
+                type="submit"
+                className={styles.submitButton}
+                disabled={creatingRoom}
+              >
+                {creatingRoom ? "Création..." : "Créer la classe"}
               </button>
             </form>
           </section>
@@ -2317,8 +2367,12 @@ export default function InstitutionWorkspace({
                   ))}
                 </select>
               </label>
-              <button type="submit" className={styles.submitButton}>
-                Affecter le cours
+              <button
+                type="submit"
+                className={styles.submitButton}
+                disabled={assigningCourse}
+              >
+                {assigningCourse ? "Affectation..." : "Affecter le cours"}
               </button>
             </form>
           </section>
@@ -2393,8 +2447,14 @@ export default function InstitutionWorkspace({
                 </label>
               </div>
 
-              <button type="submit" className={styles.submitButton}>
-                Générer un lien d&apos;invitation
+              <button
+                type="submit"
+                className={styles.submitButton}
+                disabled={creatingInvite}
+              >
+                {creatingInvite
+                  ? "Génération..."
+                  : "Générer un lien d'invitation"}
               </button>
             </form>
 
@@ -2402,6 +2462,22 @@ export default function InstitutionWorkspace({
               <div className={styles.inviteLinkBox}>
                 <strong>Lien pret a partager</strong>
                 <p>{generatedLink}</p>
+                <button
+                  type="button"
+                  className={styles.linkButton}
+                  onClick={() => {
+                    void navigator.clipboard
+                      ?.writeText(generatedLink)
+                      .then(() => setMessage("Lien copie."))
+                      .catch(() =>
+                        setMessage(
+                          "Impossible de copier le lien automatiquement.",
+                        ),
+                      );
+                  }}
+                >
+                  Copier le lien
+                </button>
               </div>
             ) : null}
           </section>
@@ -2503,8 +2579,12 @@ export default function InstitutionWorkspace({
                   placeholder="Lycee, universite, centre"
                 />
               </label>
-              <button type="submit" className={styles.submitButton}>
-                Créer l&apos;établissement
+              <button
+                type="submit"
+                className={styles.submitButton}
+                disabled={creatingInstitution}
+              >
+                {creatingInstitution ? "Création..." : "Créer l'établissement"}
               </button>
               {institutions.length > 0 ? (
                 <button
@@ -2597,7 +2677,17 @@ export default function InstitutionWorkspace({
         </section>
         ) : null}
 
-        {message ? <p className={styles.inlineMessage}>{message}</p> : null}
+        {message ? (
+          <p
+            className={
+              isErrorMessage
+                ? styles.inlineMessageError
+                : styles.inlineMessageSuccess
+            }
+          >
+            {message}
+          </p>
+        ) : null}
       </div>
     </section>
   );

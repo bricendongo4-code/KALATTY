@@ -2214,6 +2214,30 @@
   line-height: 1.6;
 }
 
+.inlineMessageSuccess,
+.inlineMessageError {
+  margin: 0;
+  line-height: 1.6;
+  padding: 0.6rem 0.9rem;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  position: sticky;
+  top: 0.5rem;
+  z-index: 5;
+}
+
+.inlineMessageSuccess {
+  color: #1a7f37;
+  background: #e9f9ee;
+  border: 1px solid #b7ecc4;
+}
+
+.inlineMessageError {
+  color: #b42318;
+  background: #fdecea;
+  border: 1px solid #f5c2bd;
+}
+
 .profileEditor,
 .profilePreview {
   display: grid;
@@ -2676,6 +2700,15 @@
   background: rgba(29, 111, 95, 0.08);
   color: var(--primary-dark);
   line-height: 1.6;
+}
+
+.inlineAssetError {
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius);
+  background: #fdecea;
+  color: #b42318;
+  line-height: 1.6;
+  font-weight: 600;
 }
 
 .draftRecoveryCard {

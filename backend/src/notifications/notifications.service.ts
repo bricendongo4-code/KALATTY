@@ -164,7 +164,82 @@ export class NotificationsService {
       });
     }
 
+    const resumeNotifications = await this.buildResumeNotifications(userId);
+    notifications.push(...resumeNotifications);
+
     return notifications;
+  }
+
+  private async buildResumeNotifications(
+    userId: string,
+  ): Promise<NotificationItem[]> {
+    const { data: enrollments } = await this.supabaseService.client
+      .from('enrollments')
+      .select('course_id, enrolled_at, courses ( id, title )')
+      .eq('user_id', userId);
+
+    if (!enrollments || enrollments.length === 0) {
+      return [];
+    }
+
+    const courseIds = enrollments
+      .map((enrollment: any) => String(enrollment.course_id ?? ''))
+      .filter(Boolean);
+
+    const { data: progressRows } = await this.supabaseService.client
+      .from('progress')
+      .select('status, updated_at, lessons ( course_id )')
+      .eq('user_id', userId);
+
+    const lastActivityByCourse = new Map<string, string>();
+    for (const row of progressRows ?? []) {
+      const lesson = Array.isArray((row as any).lessons)
+        ? (row as any).lessons[0]
+        : (row as any).lessons;
+      const courseId = String(lesson?.course_id ?? '');
+      if (!courseId) continue;
+
+      const updatedAt = String(
+        (row as any).updated_at ?? new Date(0).toISOString(),
+      );
+      if (
+        !lastActivityByCourse.has(courseId) ||
+        updatedAt > lastActivityByCourse.get(courseId)!
+      ) {
+        lastActivityByCourse.set(courseId, updatedAt);
+      }
+    }
+
+    const staleThreshold = new Date();
+    staleThreshold.setDate(staleThreshold.getDate() - 7);
+
+    const notifications: NotificationItem[] = [];
+    for (const enrollment of enrollments as any[]) {
+      const course = Array.isArray(enrollment.courses)
+        ? enrollment.courses[0]
+        : enrollment.courses;
+      const courseId = String(enrollment.course_id ?? course?.id ?? '');
+      if (!courseId || !courseIds.includes(courseId)) continue;
+
+      const lastActivity = lastActivityByCourse.get(courseId);
+      const referenceDate = lastActivity
+        ? new Date(lastActivity)
+        : new Date(String(enrollment.enrolled_at ?? new Date().toISOString()));
+
+      if (referenceDate > staleThreshold) continue;
+
+      notifications.push({
+        id: `resume-${courseId}`,
+        type: 'course',
+        title: 'Reprends ton cours',
+        message: `Tu n'as pas avance sur "${course?.title ?? 'ce cours'}" depuis un moment.`,
+        href: `/courses/${courseId}`,
+        createdAt: referenceDate.toISOString(),
+        read: false,
+      });
+    }
+
+    return notifications.slice(0, 3);
   }
 
   private async buildTeacherNotifications(

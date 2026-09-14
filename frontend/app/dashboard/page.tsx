@@ -830,12 +830,19 @@ export default function DashboardPage() {
       note: "Avancement global",
       view: "progress" as StudentView,
     },
-    {
-      label: "Salles",
-      value: linkedRoomsCount,
-      note: "Classes rattachees",
-      view: "institutions" as StudentView,
-    },
+    isInstitutionStudent
+      ? {
+          label: "Salles",
+          value: linkedRoomsCount,
+          note: "Classes rattachees",
+          view: "institutions" as StudentView,
+        }
+      : {
+          label: "Catalogue",
+          value: discoveryCourses.length,
+          note: "Cours disponibles",
+          view: "home" as StudentView,
+        },
   ];
   const campusStudentHighlights = [
     {
@@ -2517,10 +2524,16 @@ export default function DashboardPage() {
                           </small>
                           <div className={styles.courseActionRow}>
                             <Link
-                              href={`/courses/${String(course.id)}`}
+                              href={
+                                Number(course.progress ?? 0) >= 100
+                                  ? `/courses/${String(course.id)}#avis`
+                                  : `/courses/${String(course.id)}`
+                              }
                               className={styles.catalogDetailLink}
                             >
-                              Commencer / reprendre
+                              {Number(course.progress ?? 0) >= 100
+                                ? "Laisser un avis"
+                                : "Commencer / reprendre"}
                             </Link>
                           </div>
                         </article>

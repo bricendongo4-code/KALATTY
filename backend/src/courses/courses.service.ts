@@ -225,6 +225,7 @@ export class CoursesService {
       price_fcfa: Number(course.price_fcfa ?? 0),
       thumbnail_path: course.thumbnail_url ?? '',
       status: course.status ?? 'published',
+      learners_count: (course.enrollments ?? []).length,
       modules: (course.course_modules ?? [])
         .slice()
         .sort(
@@ -1563,6 +1564,7 @@ export class CoursesService {
           price_fcfa,
           thumbnail_url,
           status,
+          enrollments ( id ),
           course_modules (
             id,
             title,
