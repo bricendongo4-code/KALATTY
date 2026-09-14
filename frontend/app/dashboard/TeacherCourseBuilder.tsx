@@ -12,6 +12,7 @@ type LessonDraft = {
   is_preview: boolean;
   uploading: boolean;
   uploadError?: string;
+  uploadProgress?: number;
 };
 
 type ExerciseDraft = {
@@ -34,6 +35,9 @@ type CourseDraftSnapshot = {
   courseTitle: string;
   courseDescription: string;
   courseShortDescription: string;
+  courseObjectives: string;
+  coursePrerequisites: string;
+  courseLevel: string;
   coursePrice: string;
   courseStatus: "draft" | "published" | "archived";
   thumbnailPath: string;
@@ -86,6 +90,9 @@ export default function TeacherCourseBuilder({
   const [courseTitle, setCourseTitle] = useState("");
   const [courseDescription, setCourseDescription] = useState("");
   const [courseShortDescription, setCourseShortDescription] = useState("");
+  const [courseObjectives, setCourseObjectives] = useState("");
+  const [coursePrerequisites, setCoursePrerequisites] = useState("");
+  const [courseLevel, setCourseLevel] = useState("");
   const [coursePrice, setCoursePrice] = useState("");
   const [courseStatus, setCourseStatus] = useState<
     "draft" | "published" | "archived"
@@ -96,6 +103,21 @@ export default function TeacherCourseBuilder({
   >(null);
   const [thumbnailUploading, setThumbnailUploading] = useState(false);
   const [modules, setModules] = useState<ModuleDraft[]>([createModule()]);
+  const [collapsedModules, setCollapsedModules] = useState<Set<number>>(
+    new Set(),
+  );
+
+  const toggleModuleCollapsed = (index: number) => {
+    setCollapsedModules((current) => {
+      const next = new Set(current);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
+  };
   const [courseMessage, setCourseMessage] = useState("");
   const [courseLoading, setCourseLoading] = useState(false);
   const [loadingCourseDraft, setLoadingCourseDraft] = useState(false);
@@ -216,6 +238,9 @@ export default function TeacherCourseBuilder({
     setCourseTitle("");
     setCourseDescription("");
     setCourseShortDescription("");
+    setCourseObjectives("");
+    setCoursePrerequisites("");
+    setCourseLevel("");
     setCoursePrice("");
     setCourseStatus("draft");
     setThumbnailPath("");
@@ -250,6 +275,9 @@ export default function TeacherCourseBuilder({
         setCourseTitle(String(draft.courseTitle ?? ""));
         setCourseDescription(String(draft.courseDescription ?? ""));
         setCourseShortDescription(String(draft.courseShortDescription ?? ""));
+        setCourseObjectives(String(draft.courseObjectives ?? ""));
+        setCoursePrerequisites(String(draft.coursePrerequisites ?? ""));
+        setCourseLevel(String(draft.courseLevel ?? ""));
         setCoursePrice(String(draft.coursePrice ?? ""));
         setCourseStatus(
           draft.courseStatus === "draft" || draft.courseStatus === "archived"
@@ -337,6 +365,9 @@ export default function TeacherCourseBuilder({
         setCourseTitle(String(data.title ?? ""));
         setCourseDescription(String(data.description ?? ""));
         setCourseShortDescription(String(data.short_description ?? ""));
+        setCourseObjectives(String(data.objectives ?? ""));
+        setCoursePrerequisites(String(data.prerequisites ?? ""));
+        setCourseLevel(String(data.level ?? ""));
         setCoursePrice(
           data.price_fcfa !== null && data.price_fcfa !== undefined
             ? String(data.price_fcfa)
@@ -403,6 +434,11 @@ export default function TeacherCourseBuilder({
             setCourseShortDescription(
               String(localDraft.courseShortDescription ?? ""),
             );
+            setCourseObjectives(String(localDraft.courseObjectives ?? ""));
+            setCoursePrerequisites(
+              String(localDraft.coursePrerequisites ?? ""),
+            );
+            setCourseLevel(String(localDraft.courseLevel ?? ""));
             setCoursePrice(String(localDraft.coursePrice ?? ""));
             setCourseStatus(
               localDraft.courseStatus === "draft" ||
@@ -478,6 +514,9 @@ export default function TeacherCourseBuilder({
         courseTitle,
         courseDescription,
         courseShortDescription,
+        courseObjectives,
+        coursePrerequisites,
+        courseLevel,
         coursePrice,
         courseStatus,
         thumbnailPath,
@@ -504,6 +543,9 @@ export default function TeacherCourseBuilder({
     courseDescription,
     coursePrice,
     courseShortDescription,
+    courseObjectives,
+    coursePrerequisites,
+    courseLevel,
     courseStatus,
     courseTitle,
     editingCourseId,
@@ -558,35 +600,97 @@ export default function TeacherCourseBuilder({
     );
   };
 
-  const uploadFile = async (file: File, kind: "thumbnail" | "video") => {
-    const token = localStorage.getItem("kalatty_token");
-    if (!token) {
-      throw new Error("Session introuvable. Reconnecte-toi.");
-    }
-
-    const formData = new FormData();
-    formData.append("file", file);
-
-    const endpoint = kind === "thumbnail" ? "upload-thumbnail" : "upload-video";
-
-    const res = await fetch(`${apiBaseUrl}/courses/${endpoint}`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      body: formData,
+  const duplicateModule = (index: number) => {
+    setModules((current) => {
+      const source = current[index];
+      const copy: ModuleDraft = {
+        title: `${source.title} (copie)`,
+        description: source.description,
+        lessons: source.lessons.map((lesson) => ({
+          ...lesson,
+          id: undefined,
+        })),
+        exercises: source.exercises.map((exercise) => ({ ...exercise })),
+      };
+      const next = current.slice();
+      next.splice(index + 1, 0, copy);
+      return next;
     });
+  };
 
-    const data = (await res.json()) as { path?: string; message?: string };
+  const duplicateLesson = (moduleIndex: number, lessonIndex: number) => {
+    setModules((current) =>
+      current.map((currentModule, index) => {
+        if (index !== moduleIndex) return currentModule;
 
-    if (!res.ok || !data.path) {
-      throw new Error(
-        data.message ??
-          "L'upload a echoue. Verifie Storage et la cle service role du backend.",
-      );
-    }
+        const source = currentModule.lessons[lessonIndex];
+        const copy: LessonDraft = {
+          ...source,
+          id: undefined,
+          title: `${source.title} (copie)`,
+        };
+        const nextLessons = currentModule.lessons.slice();
+        nextLessons.splice(lessonIndex + 1, 0, copy);
+        return { ...currentModule, lessons: nextLessons };
+      }),
+    );
+  };
 
-    return data.path;
+  const uploadFile = (
+    file: File,
+    kind: "thumbnail" | "video",
+    onProgress?: (percent: number) => void,
+  ): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const token = localStorage.getItem("kalatty_token");
+      if (!token) {
+        reject(new Error("Session introuvable. Reconnecte-toi."));
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const endpoint =
+        kind === "thumbnail" ? "upload-thumbnail" : "upload-video";
+
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", `${apiBaseUrl}/courses/${endpoint}`);
+      xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable && onProgress) {
+          onProgress(Math.round((event.loaded / event.total) * 100));
+        }
+      };
+
+      xhr.onload = () => {
+        let data: { path?: string; message?: string } = {};
+        try {
+          data = JSON.parse(xhr.responseText || "{}");
+        } catch {
+          reject(new Error("Reponse invalide du serveur pendant l'upload."));
+          return;
+        }
+
+        if (xhr.status >= 200 && xhr.status < 300 && data.path) {
+          resolve(data.path);
+        } else {
+          reject(
+            new Error(
+              data.message ??
+                "L'upload a echoue. Verifie Storage et la cle service role du backend.",
+            ),
+          );
+        }
+      };
+
+      xhr.onerror = () => {
+        reject(new Error("L'upload a echoue (erreur reseau)."));
+      };
+
+      xhr.send(formData);
+    });
   };
 
   const handleThumbnailUpload = async (
@@ -629,13 +733,35 @@ export default function TeacherCourseBuilder({
       ...modules[moduleIndex],
       lessons: modules[moduleIndex].lessons.map((lesson, index) =>
         index === lessonIndex
-          ? { ...lesson, uploading: true, uploadError: undefined }
+          ? {
+              ...lesson,
+              uploading: true,
+              uploadError: undefined,
+              uploadProgress: 0,
+            }
           : lesson,
       ),
     });
 
+    const setLessonProgress = (percent: number) => {
+      setModules((current) =>
+        current.map((module, index) =>
+          index !== moduleIndex
+            ? module
+            : {
+                ...module,
+                lessons: module.lessons.map((lesson, lIndex) =>
+                  lIndex === lessonIndex
+                    ? { ...lesson, uploadProgress: percent }
+                    : lesson,
+                ),
+              },
+        ),
+      );
+    };
+
     try {
-      const path = await uploadFile(file, "video");
+      const path = await uploadFile(file, "video", setLessonProgress);
       const currentModule = modules[moduleIndex];
 
       updateModule(moduleIndex, {
@@ -647,6 +773,7 @@ export default function TeacherCourseBuilder({
                 video_path: path,
                 uploading: false,
                 uploadError: undefined,
+                uploadProgress: undefined,
               }
             : lesson,
         ),
@@ -659,7 +786,12 @@ export default function TeacherCourseBuilder({
         ...currentModule,
         lessons: currentModule.lessons.map((lesson, index) =>
           index === lessonIndex
-            ? { ...lesson, uploading: false, uploadError: errorMessage }
+            ? {
+                ...lesson,
+                uploading: false,
+                uploadError: errorMessage,
+                uploadProgress: undefined,
+              }
             : lesson,
         ),
       });
@@ -701,6 +833,9 @@ export default function TeacherCourseBuilder({
           title: courseTitle,
           description: courseDescription,
           short_description: courseShortDescription,
+          objectives: courseObjectives,
+          prerequisites: coursePrerequisites,
+          level: courseLevel,
           price_fcfa: Number(coursePrice || 0),
           status: courseStatus,
           thumbnail_path: thumbnailPath,
@@ -1125,6 +1260,46 @@ export default function TeacherCourseBuilder({
                     />
                   </label>
 
+                  <label className={styles.formField}>
+                    <span>Objectifs pedagogiques (optionnel)</span>
+                    <textarea
+                      className={styles.formTextarea}
+                      rows={3}
+                      value={courseObjectives}
+                      onChange={(event) =>
+                        setCourseObjectives(event.target.value)
+                      }
+                      placeholder="Ce que l'apprenant saura faire a la fin du cours"
+                    />
+                  </label>
+
+                  <label className={styles.formField}>
+                    <span>Prerequis (optionnel)</span>
+                    <textarea
+                      className={styles.formTextarea}
+                      rows={3}
+                      value={coursePrerequisites}
+                      onChange={(event) =>
+                        setCoursePrerequisites(event.target.value)
+                      }
+                      placeholder="Connaissances ou materiel necessaires avant de commencer"
+                    />
+                  </label>
+
+                  <label className={styles.formField}>
+                    <span>Niveau (optionnel)</span>
+                    <select
+                      className={styles.selectField}
+                      value={courseLevel}
+                      onChange={(event) => setCourseLevel(event.target.value)}
+                    >
+                      <option value="">Non precise</option>
+                      <option value="debutant">Debutant</option>
+                      <option value="intermediaire">Intermediaire</option>
+                      <option value="avance">Avance</option>
+                    </select>
+                  </label>
+
                   <div className={styles.metaFields}>
                     <label className={styles.formField}>
                       <span>Prix (FCFA)</span>
@@ -1262,6 +1437,15 @@ export default function TeacherCourseBuilder({
                           <button
                             type="button"
                             className={styles.secondaryButton}
+                            onClick={() => toggleModuleCollapsed(moduleIndex)}
+                          >
+                            {collapsedModules.has(moduleIndex)
+                              ? "Deplier"
+                              : "Reduire"}
+                          </button>
+                          <button
+                            type="button"
+                            className={styles.secondaryButton}
                             disabled={moduleIndex === 0}
                             onClick={() => moveModule(moduleIndex, -1)}
                             aria-label="Deplacer le module vers le haut"
@@ -1276,6 +1460,13 @@ export default function TeacherCourseBuilder({
                             aria-label="Deplacer le module vers le bas"
                           >
                             ↓
+                          </button>
+                          <button
+                            type="button"
+                            className={styles.secondaryButton}
+                            onClick={() => duplicateModule(moduleIndex)}
+                          >
+                            Dupliquer
                           </button>
                           {modules.length > 1 ? (
                             <button
@@ -1301,6 +1492,8 @@ export default function TeacherCourseBuilder({
                           ) : null}
                         </div>
 
+                        {!collapsedModules.has(moduleIndex) ? (
+                        <>
                         <label className={styles.formField}>
                           <span>Titre du module</span>
                           <input
@@ -1388,6 +1581,15 @@ export default function TeacherCourseBuilder({
                                   aria-label="Deplacer la lecon vers le bas"
                                 >
                                   ↓
+                                </button>
+                                <button
+                                  type="button"
+                                  className={styles.secondaryButton}
+                                  onClick={() =>
+                                    duplicateLesson(moduleIndex, lessonIndex)
+                                  }
+                                >
+                                  Dupliquer
                                 </button>
                                 <button
                                   type="button"
@@ -1532,7 +1734,18 @@ export default function TeacherCourseBuilder({
 
                               {lesson.uploading ? (
                                 <div className={styles.inlineAssetStatus}>
-                                  Upload de la video en cours...
+                                  Upload de la video en cours...{" "}
+                                  {typeof lesson.uploadProgress === "number"
+                                    ? `${lesson.uploadProgress}%`
+                                    : ""}
+                                  <div className={styles.uploadProgressTrack}>
+                                    <div
+                                      className={styles.uploadProgressFill}
+                                      style={{
+                                        width: `${lesson.uploadProgress ?? 0}%`,
+                                      }}
+                                    />
+                                  </div>
                                 </div>
                               ) : null}
 
@@ -1671,6 +1884,8 @@ export default function TeacherCourseBuilder({
                             </div>
                           ),
                         )}
+                        </>
+                        ) : null}
                       </section>
                     ))}
                   </div>

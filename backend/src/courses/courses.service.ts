@@ -48,6 +48,9 @@ type CreateCoursePayload = {
   price_fcfa?: number;
   thumbnail_path?: string;
   status?: 'draft' | 'published' | 'archived';
+  objectives?: string;
+  prerequisites?: string;
+  level?: string;
   modules?: ModulePayload[];
 };
 
@@ -225,6 +228,9 @@ export class CoursesService {
       price_fcfa: Number(course.price_fcfa ?? 0),
       thumbnail_path: course.thumbnail_url ?? '',
       status: course.status ?? 'published',
+      objectives: course.objectives ?? '',
+      prerequisites: course.prerequisites ?? '',
+      level: course.level ?? '',
       learners_count: (course.enrollments ?? []).length,
       modules: (course.course_modules ?? [])
         .slice()
@@ -425,6 +431,9 @@ export class CoursesService {
           thumbnail_url,
           teacher_id,
           status,
+          objectives,
+          prerequisites,
+          level,
           profiles:teacher_id (
             fullname,
             expertise
@@ -576,6 +585,9 @@ export class CoursesService {
       title: course.title ?? 'Cours sans titre',
       description: course.description ?? '',
       shortDescription: course.short_description ?? '',
+      objectives: course.objectives ?? '',
+      prerequisites: course.prerequisites ?? '',
+      level: course.level ?? '',
       priceFcfa: Number(course.price_fcfa ?? 0),
       thumbnailUrl: await this.resolveStorageUrl(
         'course-thumbnails',
@@ -1125,6 +1137,9 @@ export class CoursesService {
       payload.thumbnail_path?.trim() || this.getDefaultCourseThumbnailUrl();
     const priceFcfa = Number(payload.price_fcfa ?? 0);
     const status = this.normalizeCourseStatus(payload.status, 'draft');
+    const objectives = payload.objectives?.trim() || null;
+    const prerequisites = payload.prerequisites?.trim() || null;
+    const level = payload.level?.trim() || null;
     const modules = (payload.modules ?? []).filter((module) =>
       module?.title?.trim(),
     );
@@ -1152,9 +1167,12 @@ export class CoursesService {
           thumbnail_url: thumbnailPath,
           teacher_id: user.id,
           status,
+          objectives,
+          prerequisites,
+          level,
         })
         .select(
-          'id, title, description, short_description, price_fcfa, thumbnail_url, status, created_at',
+          'id, title, description, short_description, price_fcfa, thumbnail_url, status, created_at, objectives, prerequisites, level',
         )
         .single();
 
@@ -1175,6 +1193,9 @@ export class CoursesService {
       priceFcfa: Number(course.price_fcfa ?? 0),
       thumbnailPath: course.thumbnail_url ?? '',
       status: course.status ?? 'published',
+      objectives: course.objectives ?? '',
+      prerequisites: course.prerequisites ?? '',
+      level: course.level ?? '',
       createdAt: course.created_at,
       modulesCount: modules.length,
       lessonsCount: modules.reduce(
@@ -1204,6 +1225,9 @@ export class CoursesService {
       this.getDefaultCourseThumbnailUrl();
     const priceFcfa = Number(payload.price_fcfa ?? 0);
     const status = this.normalizeCourseStatus(payload.status, course.status);
+    const objectives = payload.objectives?.trim() || null;
+    const prerequisites = payload.prerequisites?.trim() || null;
+    const level = payload.level?.trim() || null;
     const publicationUpdate =
       status === 'published' && course.status !== 'published'
         ? { created_at: new Date().toISOString() }
@@ -1234,11 +1258,14 @@ export class CoursesService {
           price_fcfa: priceFcfa,
           thumbnail_url: thumbnailPath,
           status,
+          objectives,
+          prerequisites,
+          level,
           ...publicationUpdate,
         })
         .eq('id', course.id)
         .select(
-          'id, title, description, short_description, price_fcfa, thumbnail_url, status, created_at',
+          'id, title, description, short_description, price_fcfa, thumbnail_url, status, created_at, objectives, prerequisites, level',
         )
         .single();
 
@@ -1258,6 +1285,9 @@ export class CoursesService {
       priceFcfa: Number(updatedCourse.price_fcfa ?? 0),
       thumbnailPath: updatedCourse.thumbnail_url ?? '',
       status: updatedCourse.status ?? 'published',
+      objectives: updatedCourse.objectives ?? '',
+      prerequisites: updatedCourse.prerequisites ?? '',
+      level: updatedCourse.level ?? '',
       createdAt: updatedCourse.created_at,
       modulesCount: modules.length,
       lessonsCount: modules.reduce(
@@ -1564,6 +1594,9 @@ export class CoursesService {
           price_fcfa,
           thumbnail_url,
           status,
+          objectives,
+          prerequisites,
+          level,
           enrollments ( id ),
           course_modules (
             id,

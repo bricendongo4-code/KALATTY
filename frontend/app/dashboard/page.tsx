@@ -644,6 +644,7 @@ export default function DashboardPage() {
           lessonsCount: Number(course.lessonsCount ?? 0),
           thumbnailUrl: String(course.thumbnailUrl ?? ""),
           enrolled: Boolean(course.enrolled),
+          level: String(course.level ?? ""),
         }))
       : fallbackDiscovery;
   const weeklySchedule = isInstitutionStudent
@@ -2230,6 +2231,9 @@ export default function DashboardPage() {
                             {course.badge}
                           </span>
                           <small>{course.category}</small>
+                          {"level" in course && course.level ? (
+                            <small>{String(course.level)}</small>
+                          ) : null}
                         </div>
                         <h3>{course.title}</h3>
                         <p>{course.description}</p>

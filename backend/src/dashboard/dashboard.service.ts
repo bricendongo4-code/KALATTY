@@ -246,6 +246,7 @@ export class DashboardService {
           price_fcfa,
           thumbnail_url,
           teacher_id,
+          level,
           profiles:teacher_id (
             fullname
           ),
@@ -490,6 +491,7 @@ export class DashboardService {
       teacherName: course.profiles?.fullname ?? 'Formateur Kalatty',
       badge: 'Disponible',
       category: 'Catalogue',
+      level: course.level ?? '',
       lessonsCount: course.lessons?.length ?? 0,
       ratingAverage: this.getAverageRating(
         (catalogReviewRows ?? [])

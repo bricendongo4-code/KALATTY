@@ -14,6 +14,9 @@ type CourseDetail = {
   title: string;
   description: string;
   shortDescription: string;
+  objectives?: string;
+  prerequisites?: string;
+  level?: string;
   priceFcfa: number;
   thumbnailUrl: string;
   teacherName: string;
@@ -962,6 +965,27 @@ export default function CourseDetailPage({
               {course.description ||
                 "Description detaillee indisponible pour le moment."}
             </p>
+
+            {course.level ? (
+              <p className={styles.description}>
+                <strong>Niveau : </strong>
+                {course.level}
+              </p>
+            ) : null}
+
+            {course.objectives ? (
+              <div className={styles.description}>
+                <strong>Objectifs :</strong>
+                <p>{course.objectives}</p>
+              </div>
+            ) : null}
+
+            {course.prerequisites ? (
+              <div className={styles.description}>
+                <strong>Prerequis :</strong>
+                <p>{course.prerequisites}</p>
+              </div>
+            ) : null}
 
             <div className={styles.actions}>
               <button

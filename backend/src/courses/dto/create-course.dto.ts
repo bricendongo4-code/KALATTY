@@ -34,6 +34,18 @@ export class CreateCourseDto {
   status?: 'draft' | 'published' | 'archived';
 
   @IsOptional()
+  @IsString()
+  objectives?: string;
+
+  @IsOptional()
+  @IsString()
+  prerequisites?: string;
+
+  @IsOptional()
+  @IsString()
+  level?: string;
+
+  @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => ModuleDto)

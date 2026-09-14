@@ -1936,6 +1936,21 @@
   background: var(--secondary);
 }
 
+.uploadProgressTrack {
+  margin-top: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--radius-sm);
+  background: rgba(29, 111, 95, 0.15);
+  overflow: hidden;
+}
+
+.uploadProgressFill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--secondary);
+  transition: width 0.15s ease-out;
+}
+
 .courseCard small,
 .timelineItem span,
 .teacherMeta span {

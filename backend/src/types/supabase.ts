@@ -341,6 +341,10 @@ export interface Database {
           thumbnail_url: string | null;
           status: string;
           short_description: string | null;
+          // Pending: run database/2026-09-15_add_course_pedagogical_fields.sql on this project.
+          objectives: string | null;
+          prerequisites: string | null;
+          level: string | null;
         };
         Insert: {
           id?: string;
@@ -352,6 +356,9 @@ export interface Database {
           thumbnail_url?: string | null;
           status?: string;
           short_description?: string | null;
+          objectives?: string | null;
+          prerequisites?: string | null;
+          level?: string | null;
         };
         Update: {
           id?: string;
@@ -363,6 +370,9 @@ export interface Database {
           thumbnail_url?: string | null;
           status?: string;
           short_description?: string | null;
+          objectives?: string | null;
+          prerequisites?: string | null;
+          level?: string | null;
         };
         Relationships: [
           {
