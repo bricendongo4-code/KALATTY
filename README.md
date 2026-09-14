@@ -1,120 +1,86 @@
-# Kalatty
+# KALATTY
 
-Kalatty est une plateforme d'apprentissage avec trois espaces principaux:
+KALATTY est une plateforme d’apprentissage multi-acteurs qui réunit étudiants, enseignants et établissements dans un même environnement numérique.
 
-- etudiants
-- enseignants
-- etablissements
+## Vision
 
-Le projet contient:
+Simplifier la création, la diffusion et le suivi des apprentissages, tout en donnant à chaque acteur un espace adapté à ses responsabilités.
 
-- `frontend`: application Next.js
-- `backend`: API NestJS
-- `database`: scripts SQL d'evolution
-- `mobile`: future application Flutter
+## Fonctionnalités présentes
 
-## Demarrage local
+- pages publiques, catalogue et consultation des cours ;
+- inscription et authentification avec récupération de mot de passe ;
+- espaces étudiant, enseignant et établissement ;
+- création, modification et suivi des cours ;
+- progression, avis et reprise de lecture ;
+- comptes et classes gérés par les établissements ;
+- notifications et premières fonctions de paiement ;
+- API mobile en préparation.
 
-### Frontend
+Le périmètre détaillé et les priorités sont documentés dans le [cahier des charges](./docs/CAHIER-DES-CHARGES.md) et la [feuille de route](./ROADMAP.md).
+
+## Architecture
+
+```text
+frontend/   Application Next.js / React
+backend/    API NestJS
+database/   Migrations et évolutions SQL Supabase
+```
+
+Consulter [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) pour les responsabilités, les flux et les règles de sécurité.
+
+## Stack
+
+- Next.js 16, React 19 et TypeScript
+- NestJS 11 et API REST
+- Supabase / PostgreSQL
+- GitHub Actions
+- Vercel pour le frontend
+- Railway ou Render pour le backend
+
+## Installation locale
+
+### 1. Frontend
 
 ```bash
 cd frontend
-npm install
+cp .env.example .env.local
+npm ci
 npm run dev
 ```
 
-### Backend
+### 2. Backend
 
 ```bash
 cd backend
-npm install
+cp .env.example .env
+npm ci
 npm run start:dev
 ```
 
-## Variables d'environnement
+Le frontend utilise par défaut `http://localhost:3000` et l’API `http://localhost:4000`.
 
-### Frontend
+## Variables d’environnement
 
-Copier `frontend/.env.example` vers `frontend/.env.local` puis definir:
+Les modèles sont disponibles dans :
 
-- `NEXT_PUBLIC_API_BASE_URL`
+- `frontend/.env.example`
+- `backend/.env.example`
 
-### Backend
+Ne jamais versionner une clé Supabase privée, un jeton de déploiement ou un mot de passe.
 
-Copier `backend/.env.example` vers `backend/.env` puis definir:
+## Qualité et contributions
 
-- `SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY`
+Chaque modification doit passer par une branche dédiée et une pull request. Les conventions de branches, commits et revues sont décrites dans [CONTRIBUTING.md](./CONTRIBUTING.md).
 
-## Point critique actuel
+La CI vérifie séparément le frontend et le backend à chaque push et pull request vers `master`.
 
-Pour la creation des cours et les uploads video, le backend doit utiliser
-`SUPABASE_SERVICE_ROLE_KEY`.
+## Déploiement
 
-Si le backend tourne avec une cle publishable seulement, Supabase bloque les
-insertions avec une erreur de type:
+Le workflow `.github/workflows/deploy-kalatty.yml` gère le déploiement du backend Railway. Le fichier `render.yaml` permet une alternative Render.
 
-`new row violates row-level security policy for table "courses"`
+Les déploiements nécessitent des secrets configurés dans GitHub ou dans la plateforme d’hébergement. Aucun secret ne doit apparaître dans ce dépôt public.
 
-## Deploiement conseille pour les tests
+## État du projet
 
-### Frontend
-
-- deployer `frontend` sur Vercel
-
-Variables:
-
-- `NEXT_PUBLIC_API_BASE_URL=https://...backend...`
-
-### Backend
-
-- deployer `backend` sur Render ou Railway
-
-Variables:
-
-- `PORT`
-- `CORS_ORIGINS`
-- `SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY`
-
-Exemple:
-
-- `CORS_ORIGINS=https://ton-frontend.vercel.app,http://localhost:3000`
-
-### Render
-
-Le depot contient un fichier `render.yaml` a la racine pour accelerer le
-deploiement du backend.
-
-### Auto-deploiement GitHub
-
-Le depot contient aussi un workflow GitHub Actions:
-
-- `.github/workflows/deploy-kalatty.yml`
-
-Secrets GitHub a ajouter:
-
-- `VERCEL_TOKEN`
-- `VERCEL_ORG_ID`
-- `VERCEL_PROJECT_ID`
-- `RAILWAY_TOKEN`
-
-Variable GitHub Actions a ajouter:
-
-- `NEXT_PUBLIC_API_BASE_URL=https://kalatty-backend-production.up.railway.app`
-
-Valeurs actuelles:
-
-- `VERCEL_ORG_ID=team_Wmyz0wXrmiU8ixgD0I5ZRa9R`
-- `VERCEL_PROJECT_ID=prj_mqISpEkgmDqcwwr1nSQTREuIoB91`
-
-## Base de donnees
-
-Les scripts SQL lies aux etablissements et aux invitations sont dans:
-
-- `database/2026-04-14_add_institutions.sql`
-- `database/2026-04-14_add_room_invites.sql`
+Le produit est fonctionnel mais reste en phase de stabilisation. Les priorités immédiates sont la sécurisation, les tests, la clarification des parcours et la fiabilisation du déploiement.
