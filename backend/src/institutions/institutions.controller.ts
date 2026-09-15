@@ -28,6 +28,7 @@ import { CreateAttendanceSessionDto } from './dto/create-attendance-session.dto'
 import { SetRoomMemberStatusDto } from './dto/set-room-member-status.dto';
 import { CreateRoomInviteDto } from './dto/create-room-invite.dto';
 import { ReviewSubmissionDto } from './dto/review-submission.dto';
+import { UpdateInstitutionDto } from './dto/update-institution.dto';
 
 type RequestUser = {
   user: {
@@ -66,6 +67,19 @@ export class InstitutionsController {
     return this.institutionsService.getInstitutionDetails(
       req.user,
       institutionId,
+    );
+  }
+
+  @Patch(':institutionId')
+  update(
+    @Req() req: RequestUser,
+    @Param('institutionId') institutionId: string,
+    @Body() body: UpdateInstitutionDto,
+  ) {
+    return this.institutionsService.updateInstitution(
+      req.user,
+      institutionId,
+      body,
     );
   }
 
@@ -199,10 +213,7 @@ export class InstitutionsController {
   }
 
   @Post('rooms/:roomId/attendance/check-in')
-  checkInAttendance(
-    @Req() req: RequestUser,
-    @Param('roomId') roomId: string,
-  ) {
+  checkInAttendance(@Req() req: RequestUser, @Param('roomId') roomId: string) {
     return this.institutionsService.checkInAttendance(req.user, roomId);
   }
 

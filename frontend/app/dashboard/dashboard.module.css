@@ -4341,6 +4341,20 @@ button.roadmapItem {
     flex: 0 0 min(14rem, 78vw);
     scroll-snap-align: start;
   }
+
+  /* These grids use a fixed column count (repeat(N, ...)) rather than
+     auto-fit, so unlike the carousel rows above they need an explicit
+     single-column override to avoid squeezing form fields and cards
+     into unreadably narrow slices on a phone screen. */
+  .institutionRoomBoard,
+  .accountRoleMatrix,
+  .classManagementStrip,
+  .institutionStudioGrid,
+  .institutionActionGrid,
+  .institutionFeedGrid,
+  .institutionGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .adminControlTower {

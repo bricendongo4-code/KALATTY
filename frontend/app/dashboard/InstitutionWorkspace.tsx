@@ -20,6 +20,7 @@ type InstitutionDetail = {
   slug: string;
   institution_type?: string | null;
   description?: string | null;
+  contact_email?: string | null;
   plan_name?: string | null;
   subscription_status?: string | null;
   max_students?: number;
@@ -303,6 +304,14 @@ export default function InstitutionWorkspace({
   const [institutionName, setInstitutionName] = useState("");
   const [institutionType, setInstitutionType] = useState("");
   const [showCreateInstitutionForm, setShowCreateInstitutionForm] =
+    useState(false);
+  const [profileForm, setProfileForm] = useState({
+    name: "",
+    institution_type: "",
+    description: "",
+    contact_email: "",
+  });
+  const [savingInstitutionProfile, setSavingInstitutionProfile] =
     useState(false);
   const [creatingInstitution, setCreatingInstitution] = useState(false);
   const [creatingRoom, setCreatingRoom] = useState(false);
@@ -922,6 +931,16 @@ export default function InstitutionWorkspace({
   }, [apiBaseUrl, selectedRoomId, token]);
 
   useEffect(() => {
+    if (!detail) return;
+    setProfileForm({
+      name: detail.name ?? "",
+      institution_type: detail.institution_type ?? "",
+      description: detail.description ?? "",
+      contact_email: detail.contact_email ?? "",
+    });
+  }, [detail]);
+
+  useEffect(() => {
     const loadCatalog = async () => {
       try {
         const res = await fetch(`${apiBaseUrl}/courses/discover`);
@@ -977,6 +996,54 @@ export default function InstitutionWorkspace({
       setMessage("La création de l'établissement a échoué.");
     } finally {
       setCreatingInstitution(false);
+    }
+  };
+
+  const handleUpdateInstitutionProfile = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!token || !selectedInstitutionId) return;
+
+    if (!profileForm.name.trim()) {
+      setMessage("Le nom de l'etablissement est obligatoire.");
+      return;
+    }
+
+    setSavingInstitutionProfile(true);
+    try {
+      const res = await fetch(
+        `${apiBaseUrl}/institutions/${selectedInstitutionId}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            name: profileForm.name,
+            institution_type: profileForm.institution_type,
+            description: profileForm.description,
+            contact_email: profileForm.contact_email,
+          }),
+        },
+      );
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMessage(
+          typeof data.message === "string"
+            ? data.message
+            : "Mise a jour du profil impossible.",
+        );
+        return;
+      }
+
+      setMessage("Profil de l'etablissement mis a jour.");
+      await loadInstitutionDetails(selectedInstitutionId);
+      await loadInstitutions();
+    } catch {
+      setMessage("La mise a jour du profil a echoue.");
+    } finally {
+      setSavingInstitutionProfile(false);
     }
   };
 
@@ -1545,6 +1612,91 @@ export default function InstitutionWorkspace({
 
         {activeView === "settings" ? (
           <section className={`${styles.grid} ${styles.singleColumn}`}>
+            <section className={styles.card}>
+              <div className={styles.sectionHeader}>
+                <div>
+                  <p className={styles.sectionLabel}>Etablissement</p>
+                  <h2>Profil du campus</h2>
+                </div>
+                <span className={styles.sectionHint}>
+                  Ces informations apparaissent aux professeurs et eleves
+                  rattaches a ton etablissement.
+                </span>
+              </div>
+              <form
+                onSubmit={(event) =>
+                  void handleUpdateInstitutionProfile(event)
+                }
+                className={styles.teacherForm}
+              >
+                <label className={styles.formField}>
+                  <span>Nom de l&apos;etablissement</span>
+                  <input
+                    type="text"
+                    value={profileForm.name}
+                    onChange={(event) =>
+                      setProfileForm((current) => ({
+                        ...current,
+                        name: event.target.value,
+                      }))
+                    }
+                    placeholder="Lycee Bilingue de Deido"
+                  />
+                </label>
+                <label className={styles.formField}>
+                  <span>Type d&apos;etablissement</span>
+                  <input
+                    type="text"
+                    value={profileForm.institution_type}
+                    onChange={(event) =>
+                      setProfileForm((current) => ({
+                        ...current,
+                        institution_type: event.target.value,
+                      }))
+                    }
+                    placeholder="Lycee, universite, centre de formation..."
+                  />
+                </label>
+                <label className={styles.formField}>
+                  <span>Email de contact</span>
+                  <input
+                    type="email"
+                    value={profileForm.contact_email}
+                    onChange={(event) =>
+                      setProfileForm((current) => ({
+                        ...current,
+                        contact_email: event.target.value,
+                      }))
+                    }
+                    placeholder="contact@etablissement.cm"
+                  />
+                </label>
+                <label className={styles.formField}>
+                  <span>Description</span>
+                  <textarea
+                    className={styles.formTextarea}
+                    rows={4}
+                    value={profileForm.description}
+                    onChange={(event) =>
+                      setProfileForm((current) => ({
+                        ...current,
+                        description: event.target.value,
+                      }))
+                    }
+                    placeholder="Presente ton etablissement en quelques phrases."
+                  />
+                </label>
+                <button
+                  type="submit"
+                  className={styles.submitButton}
+                  disabled={savingInstitutionProfile}
+                >
+                  {savingInstitutionProfile
+                    ? "Enregistrement..."
+                    : "Enregistrer le profil"}
+                </button>
+              </form>
+            </section>
             <PasswordSettings apiBaseUrl={apiBaseUrl} />
           </section>
         ) : null}

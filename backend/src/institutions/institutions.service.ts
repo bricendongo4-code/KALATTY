@@ -174,6 +174,63 @@ export class InstitutionsService {
     return institution;
   }
 
+  async updateInstitution(
+    user: AuthUser,
+    institutionId: string,
+    payload: {
+      name?: string;
+      contact_email?: string;
+      institution_type?: string;
+      description?: string;
+    },
+  ) {
+    await this.assertInstitutionStaff(user.id, institutionId, [
+      'owner',
+      'admin',
+    ]);
+
+    const updates: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (payload.name !== undefined) {
+      const name = payload.name.trim();
+      if (!name) {
+        throw new BadRequestException(
+          "Le nom de l'etablissement est obligatoire.",
+        );
+      }
+      updates.name = name;
+    }
+
+    if (payload.contact_email !== undefined) {
+      updates.contact_email = payload.contact_email.trim() || null;
+    }
+
+    if (payload.institution_type !== undefined) {
+      updates.institution_type = payload.institution_type.trim() || null;
+    }
+
+    if (payload.description !== undefined) {
+      updates.description = payload.description.trim() || null;
+    }
+
+    const { data, error } = await this.supabaseService.client
+      .from('institutions')
+      .update(updates)
+      .eq('id', institutionId)
+      .select('*')
+      .single();
+
+    if (error || !data) {
+      throw new BadRequestException(
+        error?.message ?? "Impossible de mettre a jour l'etablissement.",
+      );
+    }
+
+    return data;
+  }
+
   async getInstitutionDetails(user: AuthUser, institutionId: string) {
     await this.assertInstitutionAccess(user.id, institutionId);
     const roomIds = await this.getInstitutionRoomIds(institutionId);
@@ -1071,8 +1128,11 @@ export class InstitutionsService {
     await this.assertRoomStudent(user.id, roomId);
 
     const now = new Date();
-    const { isoWeekday, minutes: nowMinutes, dateString: today } =
-      this.getAppTimeParts(now);
+    const {
+      isoWeekday,
+      minutes: nowMinutes,
+      dateString: today,
+    } = this.getAppTimeParts(now);
 
     const { data: scheduleItems, error: scheduleError } =
       await this.supabaseService.client
@@ -1099,7 +1159,7 @@ export class InstitutionsService {
 
     if (!activeItem) {
       throw new BadRequestException(
-        "Aucun cours en direct pour cette classe en ce moment. La presence ne peut etre signalee que pendant un creneau programme.",
+        'Aucun cours en direct pour cette classe en ce moment. La presence ne peut etre signalee que pendant un creneau programme.',
       );
     }
 
@@ -1115,7 +1175,7 @@ export class InstitutionsService {
       throw new BadRequestException(existingSessionError.message);
     }
 
-    let sessionId = existingSession?.id as string | undefined;
+    let sessionId = existingSession?.id;
 
     if (!sessionId) {
       const { data: newSession, error: newSessionError } =
@@ -1134,10 +1194,10 @@ export class InstitutionsService {
       if (newSessionError || !newSession) {
         throw new BadRequestException(
           newSessionError?.message ??
-            "Impossible de creer la session de presence.",
+            'Impossible de creer la session de presence.',
         );
       }
-      sessionId = newSession.id as string;
+      sessionId = newSession.id;
     }
 
     const { data: record, error: recordError } =
@@ -1214,7 +1274,8 @@ export class InstitutionsService {
     const isoWeekday = weekdayMap[weekdayLabel] ?? 1;
     const hours = Number(hourLabel) % 24;
     const minutesOnly = Number(minuteLabel);
-    const minutes = hours * 60 + (Number.isFinite(minutesOnly) ? minutesOnly : 0);
+    const minutes =
+      hours * 60 + (Number.isFinite(minutesOnly) ? minutesOnly : 0);
 
     const dateString = new Intl.DateTimeFormat('en-CA', {
       timeZone: APP_TIMEZONE,
