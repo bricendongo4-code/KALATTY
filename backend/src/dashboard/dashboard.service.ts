@@ -652,13 +652,16 @@ export class DashboardService {
       };
     });
 
-    const studentInstitutionTasks = studentRooms
-      .slice(0, 3)
-      .map((room: any) =>
-        room.latestAssignmentTitle
-          ? `Verifier ${room.latestAssignmentTitle} dans ${room.name}.`
-          : `Consulter les annonces de ${room.name}.`,
-      );
+    const studentInstitutionTasks: Array<{
+      label: string;
+      courseId?: string;
+      roomId?: string;
+    }> = studentRooms.slice(0, 3).map((room: any) => ({
+      label: room.latestAssignmentTitle
+        ? `Verifier ${room.latestAssignmentTitle} dans ${room.name}.`
+        : `Consulter les annonces de ${room.name}.`,
+      roomId: room.id,
+    }));
 
     const campusClassSchedule = (roomScheduleRows ?? []).map((item: any) => {
       const room = studentRooms.find(
@@ -741,13 +744,15 @@ export class DashboardService {
       campusSchedule,
       studentInstitutions,
       studentRooms,
-      tasks: enrollmentsList
-        .slice(0, 3)
-        .map((course: any) =>
-          course.progress >= 100
-            ? `Revoir les points cles du cours ${course.title}.`
-            : `Continuer ${course.title} et travailler ${course.nextLesson}.`,
-        )
+      tasks: (
+        enrollmentsList.slice(0, 3).map((course: any) => ({
+          label:
+            course.progress >= 100
+              ? `Revoir les points cles du cours ${course.title}.`
+              : `Continuer ${course.title} et travailler ${course.nextLesson}.`,
+          courseId: course.id as string | undefined,
+        })) as Array<{ label: string; courseId?: string; roomId?: string }>
+      )
         .concat(studentInstitutionTasks)
         .slice(0, 5),
     };
@@ -831,9 +836,9 @@ export class DashboardService {
       courses: coursesList,
       teacherRooms,
       tasks: [
-        'Publier une nouvelle lecon video.',
-        'Ajouter un exercice corrige pour le prochain module.',
-        'Suivre les inscriptions des derniers apprenants.',
+        { label: 'Publier une nouvelle lecon video.' },
+        { label: 'Ajouter un exercice corrige pour le prochain module.' },
+        { label: 'Suivre les inscriptions des derniers apprenants.' },
       ],
     };
   }
@@ -1309,15 +1314,24 @@ export class DashboardService {
       courses: [],
       institutions,
       tasks: [
-        (roomsRes.data ?? []).length === 0
-          ? `Configurer les premieres salles de ${institutionName}.`
-          : `Verifier les classes actives de ${institutionName}.`,
-        studentCount === 0
-          ? 'Inviter des etudiants ou eleves avec des liens de groupe.'
-          : 'Suivre les inscriptions et affectations dans les classes.',
-        assignedCourses === 0
-          ? 'Associer des cours aux classes pour lancer le campus.'
-          : 'Programmer les prochains devoirs et corrections.',
+        {
+          label:
+            (roomsRes.data ?? []).length === 0
+              ? `Configurer les premieres salles de ${institutionName}.`
+              : `Verifier les classes actives de ${institutionName}.`,
+        },
+        {
+          label:
+            studentCount === 0
+              ? 'Inviter des etudiants ou eleves avec des liens de groupe.'
+              : 'Suivre les inscriptions et affectations dans les classes.',
+        },
+        {
+          label:
+            assignedCourses === 0
+              ? 'Associer des cours aux classes pour lancer le campus.'
+              : 'Programmer les prochains devoirs et corrections.',
+        },
       ],
     };
   }

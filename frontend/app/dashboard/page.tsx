@@ -49,7 +49,7 @@ type DashboardResponse = {
   studentInstitutions?: Array<Record<string, unknown>>;
   studentRooms?: Array<Record<string, unknown>>;
   institutions?: Array<Record<string, unknown>>;
-  tasks: string[];
+  tasks: Array<{ label: string; courseId?: string; roomId?: string }>;
 };
 
 type NotificationItem = {
@@ -808,9 +808,9 @@ export default function DashboardPage() {
     (dashboardData?.tasks ?? []).length > 0
       ? (dashboardData?.tasks ?? [])
       : [
-          "Completer le profil pour recevoir des recommandations adaptees.",
-          "Reprendre le dernier cours commence.",
-          "Verifier les exercices transmis par ton etablissement.",
+          { label: "Completer le profil pour recevoir des recommandations adaptees." },
+          { label: "Reprendre le dernier cours commence." },
+          { label: "Verifier les exercices transmis par ton etablissement." },
         ];
   const studentQuickStats = [
     {
@@ -883,9 +883,9 @@ export default function DashboardPage() {
     (dashboardData?.tasks ?? []).length > 0
       ? (dashboardData?.tasks ?? [])
       : [
-          "Verifier les remises en attente dans les classes.",
-          "Finaliser la prochaine video de cours.",
-          "Mettre a jour le profil formateur et l'expertise.",
+          { label: "Verifier les remises en attente dans les classes." },
+          { label: "Finaliser la prochaine video de cours." },
+          { label: "Mettre a jour le profil formateur et l'expertise." },
         ];
   const teacherQuickStats = [
     {
@@ -965,13 +965,22 @@ export default function DashboardPage() {
           },
           {
             label: "Priorité",
-            value: String(studentTasks[0] ?? "Continuer"),
+            value: studentTasks[0]?.label ?? "Continuer",
             note: "Action recommandée pour avancer aujourd'hui.",
-            action: isInstitutionStudent ? "Voir le campus" : "Voir le profil",
-            onClick: () =>
+            action: studentTasks[0]?.courseId
+              ? "Voir le cours"
+              : studentTasks[0]?.roomId
+                ? "Voir le campus"
+                : "Voir le profil",
+            onClick: () => {
+              if (studentTasks[0]?.courseId) {
+                router.push(`/courses/${studentTasks[0].courseId}`);
+                return;
+              }
               changeStudentView(
-                isInstitutionStudent ? "institutions" : "profile",
-              ),
+                studentTasks[0]?.roomId ? "institutions" : "profile",
+              );
+            },
           },
           {
             label: "Progression",
@@ -999,7 +1008,7 @@ export default function DashboardPage() {
             },
             {
               label: "Priorité",
-              value: String(teacherTasks[0] ?? "Publier un cours"),
+              value: teacherTasks[0]?.label ?? "Publier un cours",
               note: "Point d'attention formateur.",
               action: "Ouvrir le studio",
               onClick: () => changeTeacherView("studio"),
@@ -2350,7 +2359,15 @@ export default function DashboardPage() {
                   <h2>A faire maintenant</h2>
                   <ul className={styles.simpleList}>
                     {studentTasks.map((task) => (
-                      <li key={task}>{task}</li>
+                      <li key={task.label}>
+                        {task.courseId ? (
+                          <Link href={`/courses/${task.courseId}`}>
+                            {task.label}
+                          </Link>
+                        ) : (
+                          task.label
+                        )}
+                      </li>
                     ))}
                   </ul>
                 </section>
@@ -2567,7 +2584,15 @@ export default function DashboardPage() {
                   <h2>Ce qui attend ton action</h2>
                   <ul className={styles.simpleList}>
                     {studentTasks.map((task) => (
-                      <li key={task}>{task}</li>
+                      <li key={task.label}>
+                        {task.courseId ? (
+                          <Link href={`/courses/${task.courseId}`}>
+                            {task.label}
+                          </Link>
+                        ) : (
+                          task.label
+                        )}
+                      </li>
                     ))}
                   </ul>
                 </section>
@@ -3521,7 +3546,7 @@ export default function DashboardPage() {
                     </h2>
                     <ul className={styles.simpleList}>
                       {teacherTasks.map((task) => (
-                        <li key={task}>{task}</li>
+                        <li key={task.label}>{task.label}</li>
                       ))}
                     </ul>
                   </section>
