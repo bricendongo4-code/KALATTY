@@ -18,6 +18,16 @@ type WorkspaceKind =
   | "institution-admin"
   | "institution-teacher"
   | "institution-student";
+const weekdayLabels = [
+  "",
+  "Lundi",
+  "Mardi",
+  "Mercredi",
+  "Jeudi",
+  "Vendredi",
+  "Samedi",
+  "Dimanche",
+];
 type StudentView = "home" | "progress" | "institutions" | "profile";
 type TeacherView = "overview" | "courses" | "classes" | "studio" | "profile";
 type StoredUser = {
@@ -70,6 +80,22 @@ type TeacherRoomDetail = {
   name: string;
   slug?: string | null;
   description?: string | null;
+  courses?: Array<{
+    id: string;
+    assignedAt?: string | null;
+    course?: {
+      id: string;
+      title: string;
+    } | null;
+  }>;
+  scheduleItems?: Array<{
+    id: string;
+    title: string;
+    weekday: number;
+    starts_at: string;
+    ends_at?: string | null;
+    location?: string | null;
+  }>;
   assignments: Array<{
     id: string;
     title: string;
@@ -277,6 +303,8 @@ export default function DashboardPage() {
   const [institutionSearch, setInstitutionSearch] = useState("");
   const [catalogMessage, setCatalogMessage] = useState("");
   const [enrollingCourseId, setEnrollingCourseId] = useState("");
+  const [checkingInRoomId, setCheckingInRoomId] = useState("");
+  const [attendanceMessage, setAttendanceMessage] = useState("");
   const [profileMessage, setProfileMessage] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -288,6 +316,14 @@ export default function DashboardPage() {
     useState("");
   const [teacherActionMessage, setTeacherActionMessage] = useState("");
   const [editingTeacherCourseId, setEditingTeacherCourseId] = useState("");
+  const [teacherCourseToAssign, setTeacherCourseToAssign] = useState("");
+  const [teacherScheduleForm, setTeacherScheduleForm] = useState({
+    title: "",
+    weekday: "1",
+    starts_at: "",
+    ends_at: "",
+    location: "",
+  });
   const [reviewForm, setReviewForm] = useState({
     submissionId: "",
     score: "",
@@ -1234,6 +1270,47 @@ export default function DashboardPage() {
     }
   };
 
+  const handleCheckInAttendance = async (roomId: string) => {
+    const token = localStorage.getItem("kalatty_token");
+    if (!token) {
+      setAttendanceMessage("Session introuvable. Reconnecte-toi.");
+      return;
+    }
+
+    setCheckingInRoomId(roomId);
+    setAttendanceMessage("");
+
+    try {
+      const res = await fetch(
+        `${apiBaseUrl}/institutions/rooms/${roomId}/attendance/check-in`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      const data = await res.json();
+
+      if (!res.ok) {
+        setAttendanceMessage(
+          typeof data.message === "string"
+            ? data.message
+            : "Impossible de signaler ta presence.",
+        );
+        return;
+      }
+
+      setAttendanceMessage(
+        `Presence signalee pour "${String(data.sessionTitle ?? "ce cours")}".`,
+      );
+    } catch {
+      setAttendanceMessage("Le signalement de presence a echoue.");
+    } finally {
+      setCheckingInRoomId("");
+    }
+  };
+
   const handleProfileFieldChange = (
     field:
       "fullname" | "level" | "school_name" | "expertise" | "bio" | "avatar_url",
@@ -1429,6 +1506,107 @@ export default function DashboardPage() {
       await refreshTeacherRoom();
     } catch {
       setTeacherActionMessage("La publication du devoir a echoue.");
+    }
+  };
+
+  const handleTeacherAssignCourse = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    const token = localStorage.getItem("kalatty_token");
+    if (!token || !selectedTeacherRoomId || !teacherCourseToAssign) {
+      setTeacherActionMessage("Choisis un cours a affecter.");
+      return;
+    }
+
+    setTeacherActionMessage("");
+
+    try {
+      const res = await fetch(
+        `${apiBaseUrl}/institutions/rooms/${selectedTeacherRoomId}/courses`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ course_id: teacherCourseToAssign }),
+        },
+      );
+      const data = await res.json();
+
+      if (!res.ok) {
+        setTeacherActionMessage(
+          typeof data.message === "string"
+            ? data.message
+            : "Impossible d'affecter ce cours.",
+        );
+        return;
+      }
+
+      setTeacherCourseToAssign("");
+      setTeacherActionMessage("Cours affecte a la classe.");
+      await refreshTeacherRoom();
+    } catch {
+      setTeacherActionMessage("L'affectation du cours a echoue.");
+    }
+  };
+
+  const handleTeacherCreateSchedule = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    const token = localStorage.getItem("kalatty_token");
+    if (!token || !selectedTeacherRoomId) {
+      setTeacherActionMessage("Classe introuvable.");
+      return;
+    }
+
+    if (!teacherScheduleForm.title.trim() || !teacherScheduleForm.starts_at) {
+      setTeacherActionMessage("Le titre et l'heure de debut sont obligatoires.");
+      return;
+    }
+
+    setTeacherActionMessage("");
+
+    try {
+      const res = await fetch(
+        `${apiBaseUrl}/institutions/rooms/${selectedTeacherRoomId}/schedule`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            title: teacherScheduleForm.title,
+            weekday: Number(teacherScheduleForm.weekday),
+            starts_at: teacherScheduleForm.starts_at,
+            ends_at: teacherScheduleForm.ends_at || undefined,
+            location: teacherScheduleForm.location || undefined,
+          }),
+        },
+      );
+      const data = await res.json();
+
+      if (!res.ok) {
+        setTeacherActionMessage(
+          typeof data.message === "string"
+            ? data.message
+            : "Impossible de publier ce creneau.",
+        );
+        return;
+      }
+
+      setTeacherScheduleForm({
+        title: "",
+        weekday: "1",
+        starts_at: "",
+        ends_at: "",
+        location: "",
+      });
+      setTeacherActionMessage("Creneau ajoute a l'emploi du temps.");
+      await refreshTeacherRoom();
+    } catch {
+      setTeacherActionMessage("La publication du creneau a echoue.");
     }
   };
 
@@ -2709,6 +2887,22 @@ export default function DashboardPage() {
                           {room.latestAssignmentTitle ? (
                             <p>{String(room.latestAssignmentTitle)}</p>
                           ) : null}
+                          <button
+                            type="button"
+                            className={styles.catalogDetailLink}
+                            disabled={
+                              checkingInRoomId === String(room.id ?? "")
+                            }
+                            onClick={() =>
+                              void handleCheckInAttendance(
+                                String(room.id ?? ""),
+                              )
+                            }
+                          >
+                            {checkingInRoomId === String(room.id ?? "")
+                              ? "Signalement..."
+                              : "Signaler ma presence"}
+                          </button>
                         </article>
                       ))
                     ) : (
@@ -2719,6 +2913,11 @@ export default function DashboardPage() {
                       </p>
                     )}
                   </div>
+                  {attendanceMessage ? (
+                    <p className={styles.inlineMessage}>
+                      {attendanceMessage}
+                    </p>
+                  ) : null}
                 </section>
                 )}
               </div>
@@ -3473,6 +3672,203 @@ export default function DashboardPage() {
                                 className={styles.submitButton}
                               >
                                 Enregistrer la correction
+                              </button>
+                            </form>
+                          </section>
+                        </div>
+
+                        <div className={styles.institutionActionGrid}>
+                          <section className={styles.card}>
+                            <div className={styles.sectionHeader}>
+                              <div>
+                                <p className={styles.sectionLabel}>Cours</p>
+                                <h2>Cours de cette classe</h2>
+                              </div>
+                            </div>
+                            <div className={styles.roadmapList}>
+                              {(teacherRoomDetail.courses ?? []).length > 0 ? (
+                                (teacherRoomDetail.courses ?? []).map(
+                                  (entry) => (
+                                    <article
+                                      key={entry.id}
+                                      className={styles.roadmapItem}
+                                    >
+                                      <strong>
+                                        {entry.course?.title ??
+                                          "Cours indisponible"}
+                                      </strong>
+                                    </article>
+                                  ),
+                                )
+                              ) : (
+                                <p className={styles.paragraph}>
+                                  Aucun cours affecte a cette classe pour
+                                  l&apos;instant.
+                                </p>
+                              )}
+                            </div>
+                            <form
+                              onSubmit={(event) =>
+                                void handleTeacherAssignCourse(event)
+                              }
+                              className={styles.teacherForm}
+                            >
+                              <label className={styles.formField}>
+                                <span>Affecter un de mes cours</span>
+                                <select
+                                  className={styles.selectField}
+                                  value={teacherCourseToAssign}
+                                  onChange={(event) =>
+                                    setTeacherCourseToAssign(
+                                      event.target.value,
+                                    )
+                                  }
+                                >
+                                  <option value="">Choisir un cours</option>
+                                  {teacherCourses.map((course) => (
+                                    <option
+                                      key={String(course.id)}
+                                      value={String(course.id)}
+                                    >
+                                      {String(course.title ?? "Cours")}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              <button
+                                type="submit"
+                                className={styles.submitButton}
+                              >
+                                Affecter a la classe
+                              </button>
+                            </form>
+                          </section>
+
+                          <section className={styles.card}>
+                            <div className={styles.sectionHeader}>
+                              <div>
+                                <p className={styles.sectionLabel}>
+                                  Emploi du temps
+                                </p>
+                                <h2>Creneaux de cette classe</h2>
+                              </div>
+                            </div>
+                            <div className={styles.roadmapList}>
+                              {(teacherRoomDetail.scheduleItems ?? [])
+                                .length > 0 ? (
+                                (teacherRoomDetail.scheduleItems ?? []).map(
+                                  (item) => (
+                                    <article
+                                      key={item.id}
+                                      className={styles.roadmapItem}
+                                    >
+                                      <strong>{item.title}</strong>
+                                      <p>
+                                        {weekdayLabels[item.weekday] ??
+                                          "Jour"}{" "}
+                                        - {item.starts_at}
+                                        {item.ends_at
+                                          ? ` a ${item.ends_at}`
+                                          : ""}
+                                      </p>
+                                      {item.location ? (
+                                        <small>{item.location}</small>
+                                      ) : null}
+                                    </article>
+                                  ),
+                                )
+                              ) : (
+                                <p className={styles.paragraph}>
+                                  Aucun creneau publie pour cette classe.
+                                </p>
+                              )}
+                            </div>
+                            <form
+                              onSubmit={(event) =>
+                                void handleTeacherCreateSchedule(event)
+                              }
+                              className={styles.teacherForm}
+                            >
+                              <label className={styles.formField}>
+                                <span>Titre</span>
+                                <input
+                                  type="text"
+                                  value={teacherScheduleForm.title}
+                                  onChange={(event) =>
+                                    setTeacherScheduleForm((current) => ({
+                                      ...current,
+                                      title: event.target.value,
+                                    }))
+                                  }
+                                  placeholder="Cours magistral"
+                                />
+                              </label>
+                              <div className={styles.metaFields}>
+                                <label className={styles.formField}>
+                                  <span>Jour</span>
+                                  <select
+                                    className={styles.selectField}
+                                    value={teacherScheduleForm.weekday}
+                                    onChange={(event) =>
+                                      setTeacherScheduleForm((current) => ({
+                                        ...current,
+                                        weekday: event.target.value,
+                                      }))
+                                    }
+                                  >
+                                    {weekdayLabels.slice(1).map((label, index) => (
+                                      <option key={label} value={index + 1}>
+                                        {label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                                <label className={styles.formField}>
+                                  <span>Debut</span>
+                                  <input
+                                    type="time"
+                                    value={teacherScheduleForm.starts_at}
+                                    onChange={(event) =>
+                                      setTeacherScheduleForm((current) => ({
+                                        ...current,
+                                        starts_at: event.target.value,
+                                      }))
+                                    }
+                                  />
+                                </label>
+                                <label className={styles.formField}>
+                                  <span>Fin</span>
+                                  <input
+                                    type="time"
+                                    value={teacherScheduleForm.ends_at}
+                                    onChange={(event) =>
+                                      setTeacherScheduleForm((current) => ({
+                                        ...current,
+                                        ends_at: event.target.value,
+                                      }))
+                                    }
+                                  />
+                                </label>
+                              </div>
+                              <label className={styles.formField}>
+                                <span>Lieu (optionnel)</span>
+                                <input
+                                  type="text"
+                                  value={teacherScheduleForm.location}
+                                  onChange={(event) =>
+                                    setTeacherScheduleForm((current) => ({
+                                      ...current,
+                                      location: event.target.value,
+                                    }))
+                                  }
+                                  placeholder="Salle 12, visio, etc."
+                                />
+                              </label>
+                              <button
+                                type="submit"
+                                className={styles.submitButton}
+                              >
+                                Publier le creneau
                               </button>
                             </form>
                           </section>

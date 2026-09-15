@@ -198,6 +198,14 @@ export class InstitutionsController {
     );
   }
 
+  @Post('rooms/:roomId/attendance/check-in')
+  checkInAttendance(
+    @Req() req: RequestUser,
+    @Param('roomId') roomId: string,
+  ) {
+    return this.institutionsService.checkInAttendance(req.user, roomId);
+  }
+
   @Patch('rooms/:roomId/members/:memberUserId/status')
   setRoomMemberStatus(
     @Req() req: RequestUser,

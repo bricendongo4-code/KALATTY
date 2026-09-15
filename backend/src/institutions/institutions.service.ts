@@ -1061,6 +1061,127 @@ export class InstitutionsService {
     };
   }
 
+  async checkInAttendance(user: AuthUser, roomId: string) {
+    const room = await this.getRoomOrThrow(roomId);
+    await this.assertRoomStudent(user.id, roomId);
+
+    const now = new Date();
+    const isoWeekday = now.getDay() === 0 ? 7 : now.getDay();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+    const { data: scheduleItems, error: scheduleError } =
+      await this.supabaseService.client
+        .from('room_schedule_items')
+        .select('*')
+        .eq('room_id', roomId)
+        .eq('weekday', isoWeekday);
+
+    if (scheduleError) {
+      throw new BadRequestException(scheduleError.message);
+    }
+
+    const toMinutes = (value: string) => {
+      const [hours, minutes] = value.split(':').map((part) => Number(part));
+      return hours * 60 + (Number.isFinite(minutes) ? minutes : 0);
+    };
+
+    const activeItem = (scheduleItems ?? []).find((item: any) => {
+      const start = toMinutes(String(item.starts_at));
+      const end = item.ends_at ? toMinutes(String(item.ends_at)) : start + 90;
+      const graceStart = start - 10;
+      return nowMinutes >= graceStart && nowMinutes <= end;
+    });
+
+    if (!activeItem) {
+      throw new BadRequestException(
+        "Aucun cours en direct pour cette classe en ce moment. La presence ne peut etre signalee que pendant un creneau programme.",
+      );
+    }
+
+    const today = now.toISOString().slice(0, 10);
+
+    const { data: existingSession, error: existingSessionError } =
+      await this.supabaseService.client
+        .from('room_attendance_sessions')
+        .select('id')
+        .eq('room_id', roomId)
+        .eq('session_date', today)
+        .maybeSingle();
+
+    if (existingSessionError) {
+      throw new BadRequestException(existingSessionError.message);
+    }
+
+    let sessionId = existingSession?.id as string | undefined;
+
+    if (!sessionId) {
+      const { data: newSession, error: newSessionError } =
+        await this.supabaseService.client
+          .from('room_attendance_sessions')
+          .insert({
+            room_id: roomId,
+            institution_id: room.institution_id,
+            title: activeItem.title,
+            session_date: today,
+            created_by: user.id,
+          })
+          .select('id')
+          .single();
+
+      if (newSessionError || !newSession) {
+        throw new BadRequestException(
+          newSessionError?.message ??
+            "Impossible de creer la session de presence.",
+        );
+      }
+      sessionId = newSession.id as string;
+    }
+
+    const { data: record, error: recordError } =
+      await this.supabaseService.client
+        .from('room_attendance_records')
+        .upsert(
+          {
+            session_id: sessionId,
+            room_id: roomId,
+            student_id: user.id,
+            status: 'present',
+            note: 'Auto-signalement etudiant',
+            marked_by: user.id,
+          },
+          { onConflict: 'session_id,student_id' },
+        )
+        .select('*')
+        .single();
+
+    if (recordError || !record) {
+      throw new BadRequestException(
+        recordError?.message ?? "Impossible d'enregistrer ta presence.",
+      );
+    }
+
+    return { ...record, sessionTitle: activeItem.title };
+  }
+
+  private async assertRoomStudent(userId: string, roomId: string) {
+    const { data, error } = await this.supabaseService.client
+      .from('room_members')
+      .select('role')
+      .eq('room_id', roomId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error) {
+      throw new BadRequestException(error.message);
+    }
+
+    if (!data) {
+      throw new ForbiddenException("Tu n'es pas rattache a cette classe.");
+    }
+
+    return data.role;
+  }
+
   async setRoomMemberStatus(
     user: AuthUser,
     roomId: string,
