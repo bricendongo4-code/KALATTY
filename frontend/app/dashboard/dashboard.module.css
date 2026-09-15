@@ -2101,6 +2101,14 @@
   gap: 0.4rem;
 }
 
+button.roadmapItem {
+  background: none;
+  border: none;
+  padding: 0;
+  width: 100%;
+  text-align: left;
+}
+
 .roadmapItem strong {
   color: var(--primary-dark);
   font-size: 1.02rem;

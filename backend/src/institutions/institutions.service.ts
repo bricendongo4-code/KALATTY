@@ -308,6 +308,7 @@ export class InstitutionsService {
       members,
       assignments,
       invites,
+      roomCourses,
       managedUsers,
       scheduleItems,
       attendanceSessions,

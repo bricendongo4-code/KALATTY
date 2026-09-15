@@ -50,6 +50,11 @@ type InstitutionDetail = {
     description?: string | null;
     created_at?: string;
   }>;
+  roomCourses?: Array<{
+    id: string;
+    room_id: string;
+    course_id: string;
+  }>;
   members: Array<{
     id: string;
     role: string;
@@ -382,6 +387,30 @@ export default function InstitutionWorkspace({
         .includes(normalizedQuery),
     );
   }, [detail, normalizedQuery, roomLookup]);
+
+  const courseLookup = useMemo(
+    () => new Map(catalogCourses.map((course) => [course.id, course])),
+    [catalogCourses],
+  );
+
+  const assignedRoomCourses = useMemo(() => {
+    return (detail?.roomCourses ?? []).map((entry) => ({
+      id: entry.id,
+      roomId: entry.room_id,
+      roomName: roomLookup.get(entry.room_id) ?? "Classe inconnue",
+      courseTitle: courseLookup.get(entry.course_id)?.title ?? "Cours indisponible",
+      teacherName: courseLookup.get(entry.course_id)?.teacherName ?? "",
+    }));
+  }, [detail?.roomCourses, roomLookup, courseLookup]);
+
+  const filteredRoomCourses = useMemo(() => {
+    return assignedRoomCourses.filter((entry) =>
+      [entry.roomName, entry.courseTitle, entry.teacherName]
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedQuery),
+    );
+  }, [assignedRoomCourses, normalizedQuery]);
 
   const institutionCounts = useMemo(() => {
     const members = detail?.members ?? [];
@@ -2337,6 +2366,38 @@ export default function InstitutionWorkspace({
           <section className={styles.card}>
             <div className={styles.sectionHeader}>
               <div>
+                <p className={styles.sectionLabel}>Cours affectes</p>
+                <h2>Cours deja donnes aux classes</h2>
+              </div>
+              <span className={styles.sectionHint}>
+                Chaque cours affecte devient accessible gratuitement aux eleves de la classe concernee.
+              </span>
+            </div>
+            <div className={styles.roadmapList}>
+              {filteredRoomCourses.length > 0 ? (
+                filteredRoomCourses.map((entry) => (
+                  <article key={entry.id} className={styles.roadmapItem}>
+                    <strong>{entry.courseTitle}</strong>
+                    <p>
+                      {entry.roomName}
+                      {entry.teacherName ? ` - ${entry.teacherName}` : ""}
+                    </p>
+                  </article>
+                ))
+              ) : assignedRoomCourses.length === 0 ? (
+                <p className={styles.paragraph}>
+                  Aucun cours affecte pour l&apos;instant. Utilise le formulaire
+                  ci-dessous pour donner un premier cours a une classe.
+                </p>
+              ) : (
+                <p className={styles.paragraph}>Aucun cours ne correspond a cette recherche.</p>
+              )}
+            </div>
+          </section>
+
+          <section className={styles.card}>
+            <div className={styles.sectionHeader}>
+              <div>
                 <p className={styles.sectionLabel}>Affectation</p>
                 <h2>Donner un cours a la classe</h2>
               </div>
@@ -2500,15 +2561,31 @@ export default function InstitutionWorkspace({
           <div className={styles.institutionFeedGrid}>
             <section className={styles.institutionStudioPanel}>
               <h3>Devoirs recents</h3>
+              <span className={styles.sectionHint}>
+                Gere depuis Classes, en ouvrant la classe concernee.
+              </span>
               <div className={styles.roadmapList}>
                 {filteredAssignments.length > 0 ? (
                   filteredAssignments.slice(0, 6).map((assignment) => (
-                    <article key={assignment.id} className={styles.roadmapItem}>
+                    <button
+                      key={assignment.id}
+                      type="button"
+                      className={styles.roadmapItem}
+                      onClick={() => {
+                        setActiveView("classes");
+                        setSelectedRoomId(assignment.room_id);
+                      }}
+                    >
                       <strong>{assignment.title}</strong>
                       <p>{roomLookup.get(assignment.room_id) || "Classe"}</p>
                       <small>{assignment.status} | {formatDate(assignment.due_at)}</small>
-                    </article>
+                    </button>
                   ))
+                ) : (detail?.assignments.length ?? 0) === 0 ? (
+                  <p className={styles.paragraph}>
+                    Aucun devoir publie pour l&apos;instant. Ouvre une classe
+                    dans l&apos;onglet Classes pour publier le premier devoir.
+                  </p>
                 ) : (
                   <p className={styles.paragraph}>Aucun devoir ne correspond a la recherche.</p>
                 )}
@@ -2529,6 +2606,11 @@ export default function InstitutionWorkspace({
                       </small>
                     </article>
                   ))
+                ) : (detail?.invites.length ?? 0) === 0 ? (
+                  <p className={styles.paragraph}>
+                    Aucun lien d&apos;invitation cree pour l&apos;instant.
+                    Cree-en un depuis l&apos;onglet Comptes.
+                  </p>
                 ) : (
                   <p className={styles.paragraph}>Aucun lien ne correspond a la recherche.</p>
                 )}
