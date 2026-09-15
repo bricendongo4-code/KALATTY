@@ -124,6 +124,29 @@ type SignedModule = {
 export class CoursesService {
   constructor(private readonly supabaseService: SupabaseService) {}
 
+  // Set once we know whether database/2026-09-15_add_course_pedagogical_fields.sql
+  // has been applied. Cached for the process lifetime; restart after running
+  // the migration to pick up the change.
+  private pedagogicalFieldsAvailable: boolean | null = null;
+
+  private async supportsPedagogicalFields(): Promise<boolean> {
+    if (this.pedagogicalFieldsAvailable !== null) {
+      return this.pedagogicalFieldsAvailable;
+    }
+
+    const { error } = await this.supabaseService.client
+      .from('courses')
+      .select('objectives')
+      .limit(1);
+
+    this.pedagogicalFieldsAvailable = !this.isMissingColumnError(error);
+    return this.pedagogicalFieldsAvailable;
+  }
+
+  private pedagogicalSelectFragment(available: boolean): string {
+    return available ? 'objectives, prerequisites, level,' : '';
+  }
+
   async uploadCourseAsset(
     user: AuthUser,
     file: UploadedAsset,
@@ -418,10 +441,13 @@ export class CoursesService {
 
   async getCourseDetail(user: AuthUser, courseId: string) {
     const role = await this.resolveRole(user);
+    const pedagogicalFields = this.pedagogicalSelectFragment(
+      await this.supportsPedagogicalFields(),
+    );
 
     const { data: course, error } = await this.supabaseService.client
       .from('courses')
-      .select(
+      .select<string, any>(
         `
           id,
           title,
@@ -431,9 +457,7 @@ export class CoursesService {
           thumbnail_url,
           teacher_id,
           status,
-          objectives,
-          prerequisites,
-          level,
+          ${pedagogicalFields}
           profiles:teacher_id (
             fullname,
             expertise
@@ -1065,6 +1089,23 @@ export class CoursesService {
     );
   }
 
+  private isMissingColumnError(
+    error: { message?: string; code?: string } | null | undefined,
+  ) {
+    // Postgres raises 42703 (undefined_column) for a SELECT referencing a
+    // missing column; PostgREST raises PGRST204 with a "could not find the
+    // ... column ... in the schema cache" message for INSERT/UPDATE. Both
+    // mean the same thing here: the migration-gated column isn't present.
+    if (error?.code === '42703' || error?.code === 'PGRST204') {
+      return true;
+    }
+    const message = String(error?.message ?? '').toLowerCase();
+    return (
+      (message.includes('could not find the') && message.includes('column')) ||
+      (message.includes('column') && message.includes('does not exist'))
+    );
+  }
+
   private getAverageRating(reviews: Array<{ rating: number }>) {
     if (reviews.length === 0) {
       return 0;
@@ -1156,6 +1197,14 @@ export class CoursesService {
       this.assertPublishReady(shortDescription, description, modules);
     }
 
+    const hasPedagogicalFields = await this.supportsPedagogicalFields();
+    const pedagogicalPayload = hasPedagogicalFields
+      ? { objectives, prerequisites, level }
+      : {};
+    const pedagogicalSelect: string = hasPedagogicalFields
+      ? ', objectives, prerequisites, level'
+      : '';
+
     const { data: course, error: courseError } =
       await this.supabaseService.client
         .from('courses')
@@ -1167,12 +1216,10 @@ export class CoursesService {
           thumbnail_url: thumbnailPath,
           teacher_id: user.id,
           status,
-          objectives,
-          prerequisites,
-          level,
+          ...pedagogicalPayload,
         })
-        .select(
-          'id, title, description, short_description, price_fcfa, thumbnail_url, status, created_at, objectives, prerequisites, level',
+        .select<string, any>(
+          `id, title, description, short_description, price_fcfa, thumbnail_url, status, created_at${pedagogicalSelect}`,
         )
         .single();
 
@@ -1248,6 +1295,14 @@ export class CoursesService {
       this.assertPublishReady(shortDescription, description, modules);
     }
 
+    const hasPedagogicalFields = await this.supportsPedagogicalFields();
+    const pedagogicalPayload = hasPedagogicalFields
+      ? { objectives, prerequisites, level }
+      : {};
+    const pedagogicalSelect: string = hasPedagogicalFields
+      ? ', objectives, prerequisites, level'
+      : '';
+
     const { data: updatedCourse, error: updateError } =
       await this.supabaseService.client
         .from('courses')
@@ -1258,14 +1313,12 @@ export class CoursesService {
           price_fcfa: priceFcfa,
           thumbnail_url: thumbnailPath,
           status,
-          objectives,
-          prerequisites,
-          level,
+          ...pedagogicalPayload,
           ...publicationUpdate,
         })
         .eq('id', course.id)
-        .select(
-          'id, title, description, short_description, price_fcfa, thumbnail_url, status, created_at, objectives, prerequisites, level',
+        .select<string, any>(
+          `id, title, description, short_description, price_fcfa, thumbnail_url, status, created_at${pedagogicalSelect}`,
         )
         .single();
 
@@ -1582,9 +1635,13 @@ export class CoursesService {
       );
     }
 
+    const pedagogicalFields = this.pedagogicalSelectFragment(
+      await this.supportsPedagogicalFields(),
+    );
+
     const { data, error } = await this.supabaseService.client
       .from('courses')
-      .select(
+      .select<string, any>(
         `
           id,
           teacher_id,
@@ -1594,9 +1651,7 @@ export class CoursesService {
           price_fcfa,
           thumbnail_url,
           status,
-          objectives,
-          prerequisites,
-          level,
+          ${pedagogicalFields}
           enrollments ( id ),
           course_modules (
             id,

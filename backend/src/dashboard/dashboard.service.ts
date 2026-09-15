@@ -17,8 +17,9 @@ type ProfileSummary = Pick<
   | 'school_name'
   | 'expertise'
   | 'bio'
-  | 'avatar_url'
->;
+> & {
+  avatar_url?: ProfilesRow['avatar_url'];
+};
 
 type ProfileUpdatePayload = {
   fullname?: string;
@@ -61,6 +62,46 @@ type DashboardContext = {
 export class DashboardService {
   constructor(private readonly supabaseService: SupabaseService) {}
 
+  // Tracks whether optional, migration-gated columns exist on the live
+  // database (e.g. profiles.avatar_url, courses.level). Cached for the
+  // process lifetime; restart the backend after running a pending
+  // migration to pick up the change.
+  private columnAvailability = new Map<string, boolean>();
+
+  private async supportsColumn(table: string, column: string) {
+    const key = `${table}.${column}`;
+    const cached = this.columnAvailability.get(key);
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    const { error } = await this.supabaseService.client
+      .from(table)
+      .select(column)
+      .limit(1);
+
+    const available = !this.isMissingColumnError(error);
+    this.columnAvailability.set(key, available);
+    return available;
+  }
+
+  private isMissingColumnError(
+    error: { message?: string; code?: string } | null | undefined,
+  ) {
+    // Postgres raises 42703 (undefined_column) for a SELECT referencing a
+    // missing column; PostgREST raises PGRST204 with a "could not find the
+    // ... column ... in the schema cache" message for INSERT/UPDATE. Both
+    // mean the same thing here: the migration-gated column isn't present.
+    if (error?.code === '42703' || error?.code === 'PGRST204') {
+      return true;
+    }
+    const message = String(error?.message ?? '').toLowerCase();
+    return (
+      (message.includes('could not find the') && message.includes('column')) ||
+      (message.includes('column') && message.includes('does not exist'))
+    );
+  }
+
   async getDashboard(userId: string) {
     const profile = await this.getProfile(userId);
     const context = await this.resolveDashboardContext(
@@ -80,11 +121,13 @@ export class DashboardService {
   }
 
   private async getProfile(userId: string) {
+    const hasAvatarUrl = await this.supportsColumn('profiles', 'avatar_url');
+    const profileSelect: string = `id, email, fullname, role, country, level, school_name, expertise, bio${
+      hasAvatarUrl ? ', avatar_url' : ''
+    }`;
     const { data, error } = await this.supabaseService.client
       .from('profiles')
-      .select(
-        'id, email, fullname, role, country, level, school_name, expertise, bio, avatar_url',
-      )
+      .select<string, ProfileSummary>(profileSelect)
       .eq('id', userId)
       .single();
 
@@ -96,28 +139,34 @@ export class DashboardService {
   }
 
   async updateProfile(userId: string, payload: ProfileUpdatePayload) {
-    const updates = {
+    const hasAvatarUrl = await this.supportsColumn('profiles', 'avatar_url');
+
+    const updates: Record<string, unknown> = {
       fullname: payload.fullname?.trim(),
       level: payload.level?.trim() || null,
       school_name: payload.school_name?.trim() || null,
       expertise: payload.expertise?.trim() || null,
       bio: payload.bio?.trim() || null,
-      avatar_url: payload.avatar_url?.trim() || null,
       updated_at: new Date().toISOString(),
     };
+
+    if (hasAvatarUrl) {
+      updates.avatar_url = payload.avatar_url?.trim() || null;
+    }
 
     if (!updates.fullname) {
       const currentProfile = await this.getProfile(userId);
       updates.fullname = String(currentProfile.fullname ?? '').trim();
     }
 
+    const profileSelect: string = `id, email, fullname, role, country, level, school_name, expertise, bio${
+      hasAvatarUrl ? ', avatar_url' : ''
+    }`;
     const { data, error } = await this.supabaseService.client
       .from('profiles')
       .update(updates)
       .eq('id', userId)
-      .select(
-        'id, email, fullname, role, country, level, school_name, expertise, bio, avatar_url',
-      )
+      .select<string, ProfileSummary>(profileSelect)
       .single();
 
     if (error || !data) {
@@ -130,6 +179,13 @@ export class DashboardService {
   }
 
   async uploadProfileAvatar(userId: string, file: UploadedAvatar) {
+    const hasAvatarUrl = await this.supportsColumn('profiles', 'avatar_url');
+    if (!hasAvatarUrl) {
+      throw new BadRequestException(
+        "La photo de profil n'est pas encore disponible sur ce serveur.",
+      );
+    }
+
     if (!file.buffer?.length) {
       throw new BadRequestException('La photo envoyee est vide.');
     }
@@ -235,24 +291,23 @@ export class DashboardService {
       )
       .eq('user_id', profile.id);
 
-    const { data: catalogRows } = await this.supabaseService.client
-      .from('courses')
-      .select(
-        `
+    const hasCourseLevel = await this.supportsColumn('courses', 'level');
+    const catalogSelect: string = `
           id,
           title,
           description,
           short_description,
           price_fcfa,
           thumbnail_url,
-          teacher_id,
-          level,
+          teacher_id${hasCourseLevel ? ',\n          level' : ''},
           profiles:teacher_id (
             fullname
           ),
           lessons ( id )
-        `,
-      )
+        `;
+    const { data: catalogRows } = await this.supabaseService.client
+      .from('courses')
+      .select<string, any>(catalogSelect)
       .eq('status', 'published')
       .order('created_at', { ascending: false });
 
