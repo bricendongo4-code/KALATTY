@@ -1677,6 +1677,11 @@ export default function InstitutionWorkspace({
                   <p>{room.description || "Classe prete a recevoir cours, devoirs et membres."}</p>
                 </button>
               ))
+            ) : detail && detail.rooms.length === 0 ? (
+              <p className={styles.paragraph}>
+                Aucune classe creee pour l&apos;instant. Utilise le formulaire
+                ci-dessous pour creer ta premiere classe.
+              </p>
             ) : (
               <p className={styles.paragraph}>Aucune classe ne correspond a cette recherche.</p>
             )}
