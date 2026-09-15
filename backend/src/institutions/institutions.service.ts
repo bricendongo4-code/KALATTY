@@ -22,6 +22,11 @@ type InstitutionRole = 'owner' | 'admin' | 'teacher' | 'student';
 type RoomRole = 'teacher' | 'student' | 'assistant';
 type ManagedInstitutionRole = 'admin' | 'teacher' | 'student';
 
+// This project targets French/Cameroonian school schedules, so
+// weekday/time-of-day computations must use this fixed timezone rather
+// than the host's system time (Railway containers default to UTC).
+const APP_TIMEZONE = 'Europe/Paris';
+
 @Injectable()
 export class InstitutionsService {
   constructor(private readonly supabaseService: SupabaseService) {}
@@ -1066,8 +1071,8 @@ export class InstitutionsService {
     await this.assertRoomStudent(user.id, roomId);
 
     const now = new Date();
-    const isoWeekday = now.getDay() === 0 ? 7 : now.getDay();
-    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const { isoWeekday, minutes: nowMinutes, dateString: today } =
+      this.getAppTimeParts(now);
 
     const { data: scheduleItems, error: scheduleError } =
       await this.supabaseService.client
@@ -1097,8 +1102,6 @@ export class InstitutionsService {
         "Aucun cours en direct pour cette classe en ce moment. La presence ne peut etre signalee que pendant un creneau programme.",
       );
     }
-
-    const today = now.toISOString().slice(0, 10);
 
     const { data: existingSession, error: existingSessionError } =
       await this.supabaseService.client
@@ -1180,6 +1183,44 @@ export class InstitutionsService {
     }
 
     return data.role;
+  }
+
+  private getAppTimeParts(date: Date) {
+    const weekdayMap: Record<string, number> = {
+      Mon: 1,
+      Tue: 2,
+      Wed: 3,
+      Thu: 4,
+      Fri: 5,
+      Sat: 6,
+      Sun: 7,
+    };
+
+    const timeParts = new Intl.DateTimeFormat('en-US', {
+      timeZone: APP_TIMEZONE,
+      weekday: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(date);
+
+    const weekdayLabel =
+      timeParts.find((part) => part.type === 'weekday')?.value ?? 'Mon';
+    const hourLabel =
+      timeParts.find((part) => part.type === 'hour')?.value ?? '00';
+    const minuteLabel =
+      timeParts.find((part) => part.type === 'minute')?.value ?? '00';
+
+    const isoWeekday = weekdayMap[weekdayLabel] ?? 1;
+    const hours = Number(hourLabel) % 24;
+    const minutesOnly = Number(minuteLabel);
+    const minutes = hours * 60 + (Number.isFinite(minutesOnly) ? minutesOnly : 0);
+
+    const dateString = new Intl.DateTimeFormat('en-CA', {
+      timeZone: APP_TIMEZONE,
+    }).format(date);
+
+    return { isoWeekday, minutes, dateString };
   }
 
   async setRoomMemberStatus(
