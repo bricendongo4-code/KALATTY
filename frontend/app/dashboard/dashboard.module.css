@@ -2247,6 +2247,8 @@ button.roadmapItem {
   position: sticky;
   top: 0.5rem;
   z-index: 5;
+  align-self: start;
+  height: fit-content;
 }
 
 .inlineMessageSuccess {
