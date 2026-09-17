@@ -62,6 +62,7 @@ type InstitutionDetail = {
     id: string;
     role: string;
     joinedAt?: string;
+    classNames?: string[];
     profile?: {
       id?: string;
       fullname?: string | null;
@@ -1850,6 +1851,43 @@ export default function InstitutionWorkspace({
                 )}
               </div>
             </section>
+          </div>
+        </section>
+        ) : null}
+
+        {activeView === "accounts" ? (
+        <section className={styles.card}>
+          <div className={styles.sectionHeader}>
+            <div>
+              <p className={styles.sectionLabel}>Équipe pédagogique</p>
+              <h2>Professeurs existants</h2>
+            </div>
+            <span className={styles.sectionHint}>
+              Retrouve chaque professeur déjà rattaché et les classes qu&apos;il enseigne.
+            </span>
+          </div>
+          <div className={styles.roadmapList}>
+            {(detail?.members ?? []).filter((member) => member.role === "teacher")
+              .length > 0 ? (
+              (detail?.members ?? [])
+                .filter((member) => member.role === "teacher")
+                .map((member) => (
+                  <article key={member.id} className={styles.roadmapItem}>
+                    <strong>{member.profile?.fullname || "Professeur"}</strong>
+                    <p>{member.profile?.email || "Email non renseigné"}</p>
+                    <small>
+                      {member.classNames && member.classNames.length > 0
+                        ? `Enseigne : ${member.classNames.join(", ")}`
+                        : "Pas encore affecté à une classe"}
+                    </small>
+                  </article>
+                ))
+            ) : (
+              <p className={styles.paragraph}>
+                Aucun professeur rattaché pour l&apos;instant. Crée un compte
+                ou envoie un lien d&apos;invitation pour en ajouter un.
+              </p>
+            )}
           </div>
         </section>
         ) : null}

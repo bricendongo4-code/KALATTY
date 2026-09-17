@@ -292,7 +292,7 @@ export class InstitutionsService {
       roomIds.length > 0
         ? this.supabaseService.client
             .from('room_members')
-            .select('room_id, role, profiles ( fullname )')
+            .select('room_id, user_id, role, profiles ( fullname )')
             .in('room_id', roomIds)
         : Promise.resolve({ data: [], error: null }),
     ]);
@@ -378,12 +378,37 @@ export class InstitutionsService {
         roomSummaryById.get(String(room.id))?.studentsCount ?? 0,
     }));
 
-    const members = (membersRes.data ?? []).map((row: any) => ({
-      id: row.id,
-      role: row.role,
-      joinedAt: row.joined_at,
-      profile: Array.isArray(row.profiles) ? row.profiles[0] : row.profiles,
-    }));
+    const roomNameById = new Map<string, string>(
+      (roomsRes.data ?? []).map((room: any) => [
+        String(room.id),
+        String(room.name ?? 'Classe'),
+      ]),
+    );
+    const classNamesByTeacherId = new Map<string, string[]>();
+    for (const row of (roomMembersRes.data ?? []) as any[]) {
+      if (row.role !== 'teacher' || !row.user_id) continue;
+      const teacherId = String(row.user_id);
+      const roomName = roomNameById.get(String(row.room_id)) ?? 'Classe';
+      const classNames = classNamesByTeacherId.get(teacherId) ?? [];
+      classNames.push(roomName);
+      classNamesByTeacherId.set(teacherId, classNames);
+    }
+
+    const members = (membersRes.data ?? []).map((row: any) => {
+      const profile = Array.isArray(row.profiles)
+        ? row.profiles[0]
+        : row.profiles;
+      return {
+        id: row.id,
+        role: row.role,
+        joinedAt: row.joined_at,
+        profile,
+        classNames:
+          row.role === 'teacher'
+            ? (classNamesByTeacherId.get(String(profile?.id ?? '')) ?? [])
+            : undefined,
+      };
+    });
     const invites = invitesRes.data ?? [];
     const assignments = assignmentsRes.data ?? [];
     const roomCourses = roomCoursesRes.data ?? [];
