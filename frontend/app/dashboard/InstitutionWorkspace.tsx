@@ -521,26 +521,6 @@ export default function InstitutionWorkspace({
         Number(detail?.stats?.studentsCount ?? institutionCounts.students) <= plan.studentCap &&
         Number(detail?.stats?.roomsCount ?? detail?.rooms.length ?? 0) <= plan.roomCap,
     ) ?? institutionPlanCards[institutionPlanCards.length - 1];
-  const billingHighlights = [
-    `Plan actif: ${formatPlanLabel(currentPlanCode)}`,
-    `${detail?.stats?.roomsCount ?? 0} classe(s) utilisée(s) sur ${detail?.max_rooms ?? 0}`,
-    `${detail?.stats?.studentsCount ?? 0} étudiant(s) rattaché(s) sur ${detail?.max_students ?? 0}`,
-    `${detail?.stats?.pendingSubmissions ?? 0} copie(s) à corriger`,
-  ];
-  const campusActionCards = [
-    {
-      title: "Structurer les classes",
-      text: "Créer les salles par niveau, filière ou groupe de formation.",
-    },
-    {
-      title: "Inviter par rôle",
-      text: "Générer des liens distincts pour professeurs, étudiants et assistants.",
-    },
-    {
-      title: "Affecter les cours",
-      text: "Relier les contenus aux classes avant de diffuser devoirs et consignes.",
-    },
-  ];
   const adminControlCards = [
     {
       label: "Capacité classes",
@@ -1374,6 +1354,7 @@ export default function InstitutionWorkspace({
             </div>
           </div>
 
+          {activeView === "overview" ? (
           <div className={styles.executiveCampusDesk}>
             <div className={styles.executiveCampusHeader}>
               <div>
@@ -1413,6 +1394,7 @@ export default function InstitutionWorkspace({
               ))}
             </div>
           </div>
+          ) : null}
 
           <div className={styles.institutionToolbarExpanded}>
             <label className={styles.searchBar}>
@@ -1458,6 +1440,7 @@ export default function InstitutionWorkspace({
             </label>
           </div>
 
+          {activeView === "overview" ? (
           <div className={styles.institutionStatsGrid}>
             {campusQuickStats.map((stat) => (
               <article key={stat.label} className={styles.institutionStatCard}>
@@ -1467,7 +1450,9 @@ export default function InstitutionWorkspace({
               </article>
             ))}
           </div>
+          ) : null}
 
+          {activeView === "overview" ? (
           <div
             className={styles.campusOperatingMap}
             aria-label="Parcours de gestion établissement"
@@ -1495,6 +1480,7 @@ export default function InstitutionWorkspace({
               ))}
             </div>
           </div>
+          ) : null}
 
           <div className={`${styles.studentTabs} ${styles.desktopViewTabs}`}>
             <button
@@ -1699,24 +1685,7 @@ export default function InstitutionWorkspace({
             </article>
           </div>
 
-          <div className={styles.institutionActionGrid}>
-            <section className={styles.card}>
-              <div className={styles.sectionHeader}>
-                <div>
-                  <p className={styles.sectionLabel}>Lecture rapide</p>
-                  <h3>Ce que ton abonnement couvre</h3>
-                </div>
-              </div>
-              <div className={styles.roadmapList}>
-                {billingHighlights.map((item) => (
-                  <article key={item} className={styles.roadmapItem}>
-                    <strong>{item}</strong>
-                    <p>Ces chiffres t&apos;aident a voir rapidement s&apos;il faut garder le plan actuel ou passer au niveau suivant.</p>
-                  </article>
-                ))}
-              </div>
-            </section>
-
+          <div className={`${styles.grid} ${styles.singleColumn}`}>
             <section className={styles.card}>
               <div className={styles.sectionHeader}>
                 <div>
@@ -2538,30 +2507,7 @@ export default function InstitutionWorkspace({
         ) : null}
 
         {activeView === "accounts" ? (
-        <section className={styles.institutionActionGrid}>
-          <section className={styles.card}>
-            <div className={styles.sectionHeader}>
-              <div>
-                <p className={styles.sectionLabel}>Séparation des rôles</p>
-                <h2>Admin, professeurs et eleves</h2>
-              </div>
-            </div>
-            <div className={styles.roadmapList}>
-              <article className={styles.roadmapItem}>
-                <strong>Administrateur</strong>
-                <p>Créer les comptes, structurer les classes, affecter les cours, bloquer ou réactiver un élève.</p>
-              </article>
-              <article className={styles.roadmapItem}>
-                <strong>Professeur</strong>
-                <p>Publier les devoirs, faire l&apos;appel, ajuster le planning et suivre les copies de ses classes.</p>
-              </article>
-              <article className={styles.roadmapItem}>
-                <strong>Étudiant</strong>
-                <p>Accéder uniquement aux cours, devoirs, planning et annonces de son établissement.</p>
-              </article>
-            </div>
-          </section>
-
+        <section className={`${styles.grid} ${styles.singleColumn}`}>
           <section className={styles.card}>
             <div className={styles.sectionHeader}>
               <div>
@@ -2796,21 +2742,6 @@ export default function InstitutionWorkspace({
               <strong>{institutionCounts.admins + institutionCounts.owners} administrateurs</strong>
               <p>Pilotent l&apos;organisation globale du campus.</p>
             </article>
-          </div>
-        </section>
-        ) : null}
-
-        {activeView === "overview" ? (
-        <section className={styles.card}>
-          <p className={styles.sectionLabel}>Recommandations produit</p>
-          <h2>Actions prioritaires</h2>
-          <div className={styles.roadmapList}>
-            {campusActionCards.map((card) => (
-              <article key={card.title} className={styles.roadmapItem}>
-                <strong>{card.title}</strong>
-                <p>{card.text}</p>
-              </article>
-            ))}
           </div>
         </section>
         ) : null}
