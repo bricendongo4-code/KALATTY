@@ -2555,7 +2555,47 @@ export default function DashboardPage() {
       </section>
 
       {role === "student" ? (
-        <>
+        <div className={styles.institutionShellWithSidebar}>
+          <nav
+            className={styles.institutionSidebar}
+            aria-label="Navigation etudiant"
+          >
+            <div className={styles.institutionSidebarBrand}>
+              <span>Espace</span>
+              <strong>
+                {isInstitutionStudent ? "Etudiant campus" : "Etudiant"}
+              </strong>
+            </div>
+
+            <div className={styles.institutionSidebarNav}>
+              {(
+                [
+                  ["home", "Accueil"],
+                  ["progress", "Suivi des cours"],
+                  [
+                    "institutions",
+                    isInstitutionStudent ? "Mon campus" : "Etablissements",
+                  ],
+                  ["profile", "Mon profil"],
+                ] as Array<[StudentView, string]>
+              ).map(([view, label]) => (
+                <button
+                  key={view}
+                  type="button"
+                  className={
+                    studentView === view
+                      ? styles.institutionSidebarItemActive
+                      : styles.institutionSidebarItem
+                  }
+                  onClick={() => changeStudentView(view)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </nav>
+
+          <div>
           <section className={styles.studentSwitch}>
             <div className={`${styles.studentTabs} ${styles.desktopViewTabs}`}>
               <button
@@ -3531,9 +3571,65 @@ export default function DashboardPage() {
           ) : null}
 
           {studentView === "profile" ? renderProfileEditor() : null}
-        </>
+          </div>
+        </div>
       ) : role === "teacher" ? (
-        <>
+        <div className={styles.institutionShellWithSidebar}>
+          <nav
+            className={styles.institutionSidebar}
+            aria-label="Navigation formateur"
+          >
+            <div className={styles.institutionSidebarBrand}>
+              <span>Espace</span>
+              <strong>
+                {isInstitutionTeacher ? "Professeur campus" : "Formateur"}
+              </strong>
+            </div>
+
+            <button
+              type="button"
+              className={styles.institutionSidebarCreate}
+              onClick={() =>
+                changeTeacherView(isInstitutionTeacher ? "classes" : "studio")
+              }
+            >
+              {isInstitutionTeacher
+                ? "+ Publier un devoir"
+                : "+ Creer un cours"}
+            </button>
+
+            <div className={styles.institutionSidebarNav}>
+              {(
+                [
+                  ["overview", "Vue d'ensemble"],
+                  ...(isInstitutionTeacher
+                    ? ([["classes", "Mes classes"]] as Array<
+                        [TeacherView, string]
+                      >)
+                    : ([["courses", "Mes cours"]] as Array<
+                        [TeacherView, string]
+                      >)),
+                  ["studio", "Studio"],
+                  ["profile", "Mon profil"],
+                ] as Array<[TeacherView, string]>
+              ).map(([view, label]) => (
+                <button
+                  key={view}
+                  type="button"
+                  className={
+                    teacherView === view
+                      ? styles.institutionSidebarItemActive
+                      : styles.institutionSidebarItem
+                  }
+                  onClick={() => changeTeacherView(view)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </nav>
+
+          <div>
           <section className={styles.studentSwitch}>
             <div
               className={`${styles.studentTabs} ${styles.desktopViewTabs}`}
@@ -4821,7 +4917,8 @@ export default function DashboardPage() {
               ) : null}
             </section>
           )}
-        </>
+          </div>
+        </div>
       ) : (
         <InstitutionWorkspace
           apiBaseUrl={apiBaseUrl}
