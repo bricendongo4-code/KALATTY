@@ -50,6 +50,8 @@ type InstitutionDetail = {
     slug?: string | null;
     description?: string | null;
     created_at?: string;
+    teacherNames?: string[];
+    studentsCount?: number;
   }>;
   roomCourses?: Array<{
     id: string;
@@ -521,107 +523,24 @@ export default function InstitutionWorkspace({
         Number(detail?.stats?.studentsCount ?? institutionCounts.students) <= plan.studentCap &&
         Number(detail?.stats?.roomsCount ?? detail?.rooms.length ?? 0) <= plan.roomCap,
     ) ?? institutionPlanCards[institutionPlanCards.length - 1];
-  const adminControlCards = [
-    {
-      label: "Capacité classes",
-      value: `${detail?.stats?.roomUsagePercentage ?? 0}%`,
-      text: `${detail?.stats?.roomsCount ?? 0} classe(s) utilisées sur ${detail?.max_rooms ?? 0}.`,
-      view: "classes" as InstitutionView,
-    },
-    {
-      label: "Capacité élèves",
-      value: `${detail?.stats?.studentUsagePercentage ?? 0}%`,
-      text: `${detail?.stats?.studentsCount ?? 0} élève(s) rattaché(s) sur ${detail?.max_students ?? 0}.`,
-      view: "accounts" as InstitutionView,
-    },
-    {
-      label: "Comptes internes",
-      value: detail?.stats?.managedAccountsCount ?? managedUsers.length,
-      text: "Accès créés par l'établissement, sans inscription libre côté élève.",
-      view: "accounts" as InstitutionView,
-    },
-    {
-      label: "Cours affectés",
-      value: detail?.stats?.assignedCoursesCount ?? 0,
-      text: "Cours disponibles gratuitement pour les élèves des classes concernées.",
-      view: "courses" as InstitutionView,
-    },
-    {
-      label: "Copies à suivre",
-      value: detail?.stats?.pendingSubmissions ?? 0,
-      text: `${detail?.stats?.reviewedSubmissions ?? 0} copie(s) déjà corrigée(s).`,
-      view: "classes" as InstitutionView,
-    },
-    {
-      label: "Invitations",
-      value: activeInvitesCount,
-      text: "Liens actifs pour rattacher professeurs, élèves ou assistants.",
-      view: "accounts" as InstitutionView,
-    },
-  ];
-  const executivePulseCards: Array<{
+  const primaryActionCards: Array<{
     label: string;
-    value: string | number;
     text: string;
     view: InstitutionView;
   }> = [
     {
-      label: "Santé du campus",
-      value:
-        Number(detail?.stats?.roomUsagePercentage ?? 0) > 85 ||
-        Number(detail?.stats?.studentUsagePercentage ?? 0) > 85
-          ? "À surveiller"
-          : "Stable",
-      text:
-        Number(detail?.stats?.roomUsagePercentage ?? 0) > 85 ||
-        Number(detail?.stats?.studentUsagePercentage ?? 0) > 85
-          ? "Le campus approche des limites du plan. Vérifie l'abonnement."
-          : "Les capacités actuelles couvrent encore l'organisation du campus.",
-      view: "billing" as InstitutionView,
-    },
-    {
-      label: "Priorité pédagogique",
-      value:
-        Number(detail?.stats?.pendingSubmissions ?? 0) > 0
-          ? "Corrections"
-          : "Suivi classe",
-      text:
-        Number(detail?.stats?.pendingSubmissions ?? 0) > 0
-          ? `${detail?.stats?.pendingSubmissions ?? 0} copie(s) demandent une revue.`
-          : "Aucune correction urgente signalée sur les classes.",
+      label: "Créer une classe",
+      text: "Ouvre une nouvelle salle pour regrouper élèves, devoirs et planning.",
       view: "classes" as InstitutionView,
     },
     {
-      label: "Organisation",
-      value:
-        (detail?.rooms.length ?? 0) === 0
-          ? "Créer classes"
-          : activeInvitesCount === 0
-            ? "Inviter équipe"
-            : "Opérationnel",
-      text:
-        (detail?.rooms.length ?? 0) === 0
-          ? "Commence par créer les classes avant d'ajouter les comptes."
-          : activeInvitesCount === 0
-            ? "Prépare les liens ou les comptes internes pour rattacher les utilisateurs."
-            : "Les classes et accès de base sont prêts à être exploités.",
-      view:
-        (detail?.rooms.length ?? 0) === 0
-          ? ("classes" as InstitutionView)
-          : ("accounts" as InstitutionView),
-    },
-  ];
-  const executiveActions = [
-    {
-      label: "Créer un compte",
+      label: "Ajouter un compte",
+      text: "Crée un accès pour un professeur, un élève ou un assistant.",
       view: "accounts" as InstitutionView,
     },
     {
-      label: "Structurer une classe",
-      view: "classes" as InstitutionView,
-    },
-    {
       label: "Affecter un cours",
+      text: "Rends un cours accessible gratuitement aux élèves d'une classe.",
       view: "courses" as InstitutionView,
     },
   ];
@@ -663,48 +582,6 @@ export default function InstitutionWorkspace({
     latestAttendanceRecords.length > 0
       ? Math.round((presentCount / latestAttendanceRecords.length) * 100)
       : 0;
-  const campusAdminCards = [
-    {
-      title: "Direction campus",
-      text:
-        institutions.length > 0
-          ? "Ton espace campus est deja actif. Tu peux maintenant le structurer, ajouter des comptes et diffuser les cours."
-          : "Cree un premier campus Kalatty pour separer administration, classes, professeurs et etudiants.",
-    },
-    {
-      title: "Plan recommande",
-      text:
-        recommendedPlan.code === currentPlanCode
-          ? `${recommendedPlan.label} couvre deja la taille actuelle du campus.`
-        : `${recommendedPlan.label} serait plus adapté au volume actuel des classes et étudiants.`,
-    },
-  ];
-  const campusOperatingSteps = [
-    {
-      step: "01",
-      title: "Créer les accès",
-      text: "L'administration ajoute les élèves, professeurs et admins sans leur demander de créer eux-mêmes un compte.",
-      view: "accounts" as InstitutionView,
-    },
-    {
-      step: "02",
-      title: "Organiser les classes",
-      text: "Chaque salle regroupe ses étudiants, ses professeurs, son planning, ses présences et ses devoirs.",
-      view: "classes" as InstitutionView,
-    },
-    {
-      step: "03",
-      title: "Affecter les cours",
-      text: "Les cours liés à une classe deviennent accessibles aux élèves de cette classe sans paiement individuel.",
-      view: "courses" as InstitutionView,
-    },
-    {
-      step: "04",
-      title: "Piloter le suivi",
-      text: "Le responsable garde une vue globale sur devoirs, copies, blocages, invitations et utilisation du plan.",
-      view: "overview" as InstitutionView,
-    },
-  ];
   const campusRoleCards = [
     {
       role: "Administrateur",
@@ -726,23 +603,6 @@ export default function InstitutionWorkspace({
       title: "Apprentissage encadré",
       text: "Accède uniquement aux cours, devoirs, planning et annonces de son établissement.",
       view: "classes" as InstitutionView,
-    },
-  ];
-  const classManagementCards = [
-    {
-      label: "Admin",
-      title: "Superviser",
-      text: "Voir les membres, les cours affectés, les devoirs, présences et blocages sans remplacer le professeur.",
-    },
-    {
-      label: "Professeur",
-      title: "Animer",
-      text: "Publier le planning, donner les exercices, faire l'appel et corriger les remises depuis son espace.",
-    },
-    {
-      label: "Élève",
-      title: "Suivre",
-      text: "Voir seulement les contenus de sa classe, son emploi du temps, ses devoirs et ses corrections.",
     },
   ];
   const classControlCards = [
@@ -1354,48 +1214,6 @@ export default function InstitutionWorkspace({
             </div>
           </div>
 
-          {activeView === "overview" ? (
-          <div className={styles.executiveCampusDesk}>
-            <div className={styles.executiveCampusHeader}>
-              <div>
-                <span>Vue direction</span>
-                <strong>Décisions rapides du campus</strong>
-              </div>
-              <small>
-                Sépare l&apos;administration des actions professeur, tout en
-                gardant une vue complète sur l&apos;établissement.
-              </small>
-            </div>
-
-            <div className={styles.executivePulseGrid}>
-              {executivePulseCards.map((card) => (
-                <button
-                  key={card.label}
-                  type="button"
-                  className={styles.executivePulseCard}
-                  onClick={() => setActiveView(card.view)}
-                >
-                  <span>{card.label}</span>
-                  <strong>{card.value}</strong>
-                  <small>{card.text}</small>
-                </button>
-              ))}
-            </div>
-
-            <div className={styles.executiveActionRail}>
-              {executiveActions.map((action) => (
-                <button
-                  key={action.label}
-                  type="button"
-                  onClick={() => setActiveView(action.view)}
-                >
-                  {action.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          ) : null}
-
           <div className={styles.institutionToolbarExpanded}>
             <label className={styles.searchBar}>
               <span>Recherche campus</span>
@@ -1452,35 +1270,6 @@ export default function InstitutionWorkspace({
           </div>
           ) : null}
 
-          {activeView === "overview" ? (
-          <div
-            className={styles.campusOperatingMap}
-            aria-label="Parcours de gestion établissement"
-          >
-            <div className={styles.campusOperatingIntro}>
-              <span>Mode administration</span>
-              <strong>Gérer l&apos;école en ligne, étape par étape.</strong>
-              <p>
-                L&apos;administrateur pilote l&apos;organisation. Les professeurs se
-                concentrent ensuite sur leurs classes, les devoirs et le suivi.
-              </p>
-            </div>
-            <div className={styles.campusOperatingSteps}>
-              {campusOperatingSteps.map((item) => (
-                <button
-                  key={item.step}
-                  type="button"
-                  className={styles.campusOperatingStep}
-                  onClick={() => setActiveView(item.view)}
-                >
-                  <span>{item.step}</span>
-                  <strong>{item.title}</strong>
-                  <small>{item.text}</small>
-                </button>
-              ))}
-            </div>
-          </div>
-          ) : null}
 
           <div className={`${styles.studentTabs} ${styles.desktopViewTabs}`}>
             <button
@@ -1531,19 +1320,15 @@ export default function InstitutionWorkspace({
         {activeView === "overview" ? (
           <section
             className={styles.adminControlTower}
-            aria-label="Tableau de pilotage administrateur"
+            aria-label="Actions rapides"
           >
             <div className={styles.adminControlIntro}>
-              <span>Console administrateur</span>
-              <h2>Diriger le campus sans mélanger les rôles.</h2>
-              <p>
-                L&apos;admin organise, contrôle et supervise. Les professeurs
-                gardent les actions pédagogiques quotidiennes dans leurs classes.
-              </p>
+              <span>Actions rapides</span>
+              <h2>Ce que tu peux faire maintenant.</h2>
             </div>
 
             <div className={styles.adminControlGrid}>
-              {adminControlCards.map((card) => (
+              {primaryActionCards.map((card) => (
                 <button
                   key={card.label}
                   type="button"
@@ -1551,7 +1336,6 @@ export default function InstitutionWorkspace({
                   onClick={() => setActiveView(card.view)}
                 >
                   <span>{card.label}</span>
-                  <strong>{card.value}</strong>
                   <small>{card.text}</small>
                 </button>
               ))}
@@ -1748,25 +1532,54 @@ export default function InstitutionWorkspace({
         ) : null}
 
         {activeView === "classes" ? (
+        <section className={styles.cardAccent}>
+          <div className={styles.sectionHeader}>
+            <div>
+              <p className={styles.sectionLabel}>Nouvelle classe</p>
+              <h2>Créer une classe</h2>
+            </div>
+          </div>
+          <form onSubmit={handleCreateRoom} className={styles.teacherForm}>
+            <label className={styles.formField}>
+              <span>Nom de la classe</span>
+              <input
+                type="text"
+                value={roomName}
+                onChange={(event) => setRoomName(event.target.value)}
+                placeholder="Licence 1 Informatique"
+              />
+            </label>
+            <label className={styles.formField}>
+              <span>Description</span>
+              <textarea
+                className={styles.formTextarea}
+                rows={3}
+                value={roomDescription}
+                onChange={(event) => setRoomDescription(event.target.value)}
+                placeholder="Filiere, niveau, objectif pedagogique et organisation"
+              />
+            </label>
+            <button
+              type="submit"
+              className={styles.submitButton}
+              disabled={creatingRoom}
+            >
+              {creatingRoom ? "Création..." : "Créer la classe"}
+            </button>
+          </form>
+        </section>
+        ) : null}
+
+        {activeView === "classes" ? (
         <section className={styles.card}>
           <div className={styles.sectionHeader}>
             <div>
               <p className={styles.sectionLabel}>Classes du campus</p>
-              <h2>Classes et groupes</h2>
+              <h2>Mes classes</h2>
             </div>
             <span className={styles.sectionHint}>
-              Chaque classe peut recevoir des professeurs, des eleves, des cours et des devoirs.
+              Clique sur une classe pour la gérer (élèves, cours, devoirs).
             </span>
-          </div>
-
-          <div className={styles.classManagementStrip}>
-            {classManagementCards.map((card) => (
-              <article key={card.label} className={styles.classManagementCard}>
-                <span>{card.label}</span>
-                <strong>{card.title}</strong>
-                <p>{card.text}</p>
-              </article>
-            ))}
           </div>
 
           <div className={styles.institutionRoomBoard}>
@@ -1787,59 +1600,23 @@ export default function InstitutionWorkspace({
                     <small>#{room.slug || "sans-slug"}</small>
                   </div>
                   <h3>{room.name}</h3>
-                  <p>{room.description || "Classe prete a recevoir cours, devoirs et membres."}</p>
+                  <p>
+                    {room.teacherNames && room.teacherNames.length > 0
+                      ? room.teacherNames.join(", ")
+                      : "Aucun professeur rattaché"}
+                  </p>
+                  <small>{room.studentsCount ?? 0} élève(s)</small>
                 </button>
               ))
             ) : detail && detail.rooms.length === 0 ? (
               <p className={styles.paragraph}>
                 Aucune classe creee pour l&apos;instant. Utilise le formulaire
-                ci-dessous pour creer ta premiere classe.
+                ci-dessus pour creer ta premiere classe.
               </p>
             ) : (
               <p className={styles.paragraph}>Aucune classe ne correspond a cette recherche.</p>
             )}
           </div>
-        </section>
-        ) : null}
-
-        {activeView === "classes" ? (
-        <section className={styles.institutionActionGrid}>
-          <section className={styles.card}>
-            <div className={styles.sectionHeader}>
-              <div>
-                <p className={styles.sectionLabel}>Nouvelle classe</p>
-                <h2>Créer une classe</h2>
-              </div>
-            </div>
-            <form onSubmit={handleCreateRoom} className={styles.teacherForm}>
-              <label className={styles.formField}>
-                <span>Nom de la classe</span>
-                <input
-                  type="text"
-                  value={roomName}
-                  onChange={(event) => setRoomName(event.target.value)}
-                  placeholder="Licence 1 Informatique"
-                />
-              </label>
-              <label className={styles.formField}>
-                <span>Description</span>
-                <textarea
-                  className={styles.formTextarea}
-                  rows={4}
-                  value={roomDescription}
-                  onChange={(event) => setRoomDescription(event.target.value)}
-                  placeholder="Filiere, niveau, objectif pedagogique et organisation"
-                />
-              </label>
-              <button
-                type="submit"
-                className={styles.submitButton}
-                disabled={creatingRoom}
-              >
-                {creatingRoom ? "Création..." : "Créer la classe"}
-              </button>
-            </form>
-          </section>
         </section>
         ) : null}
 
@@ -2665,20 +2442,17 @@ export default function InstitutionWorkspace({
           <p className={styles.sectionLabel}>Campus</p>
           <h2>
             {institutions.length > 0 && !showCreateInstitutionForm
-              ? "Pilotage administrateur"
+              ? "Ajouter un établissement"
               : "Créer un établissement"}
           </h2>
           {institutions.length > 0 && !showCreateInstitutionForm ? (
             <div className={styles.roadmapList}>
-              {campusAdminCards.map((card) => (
-                <article key={card.title} className={styles.roadmapItem}>
-                  <strong>{card.title}</strong>
-                  <p>{card.text}</p>
-                </article>
-              ))}
+              <p className={styles.paragraph}>
+                Gère plusieurs campus depuis le même compte administrateur.
+              </p>
               <button
                 type="button"
-                className={styles.secondaryButton}
+                className={styles.submitButton}
                 onClick={() => setShowCreateInstitutionForm(true)}
               >
                 Créer un nouvel établissement
@@ -2725,7 +2499,7 @@ export default function InstitutionWorkspace({
         </section>
         ) : null}
 
-        {(activeView === "overview" || activeView === "accounts") ? (
+        {activeView === "accounts" ? (
         <section className={styles.card}>
           <p className={styles.sectionLabel}>Annuaire campus</p>
           <h2>Répartition des rôles</h2>

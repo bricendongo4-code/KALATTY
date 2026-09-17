@@ -247,6 +247,7 @@ export class InstitutionsService {
       managedUsersRes,
       scheduleRes,
       attendanceRes,
+      roomMembersRes,
     ] = await Promise.all([
       this.supabaseService.client
         .from('institutions')
@@ -288,6 +289,12 @@ export class InstitutionsService {
       this.loadManagedUsers(institutionId),
       this.loadScheduleItemsForRooms(roomIds),
       this.loadAttendanceSessionsForRooms(roomIds),
+      roomIds.length > 0
+        ? this.supabaseService.client
+            .from('room_members')
+            .select('room_id, role, profiles ( fullname )')
+            .in('room_id', roomIds)
+        : Promise.resolve({ data: [], error: null }),
     ]);
 
     if (institutionRes.error || !institutionRes.data) {
@@ -336,6 +343,41 @@ export class InstitutionsService {
       throw new BadRequestException(attendanceRes.error.message);
     }
 
+    if (
+      roomMembersRes.error &&
+      !this.isMissingCampusLifeTableError(roomMembersRes.error)
+    ) {
+      throw new BadRequestException(roomMembersRes.error.message);
+    }
+
+    const roomSummaryById = new Map<
+      string,
+      { teacherNames: string[]; studentsCount: number }
+    >();
+    for (const row of (roomMembersRes.data ?? []) as any[]) {
+      const roomId = String(row.room_id);
+      const summary = roomSummaryById.get(roomId) ?? {
+        teacherNames: [],
+        studentsCount: 0,
+      };
+      const profile = Array.isArray(row.profiles)
+        ? row.profiles[0]
+        : row.profiles;
+      if (row.role === 'teacher' && profile?.fullname) {
+        summary.teacherNames.push(String(profile.fullname));
+      } else if (row.role === 'student') {
+        summary.studentsCount += 1;
+      }
+      roomSummaryById.set(roomId, summary);
+    }
+    const roomsWithSummary = (roomsRes.data ?? []).map((room: any) => ({
+      ...room,
+      teacherNames:
+        roomSummaryById.get(String(room.id))?.teacherNames ?? [],
+      studentsCount:
+        roomSummaryById.get(String(room.id))?.studentsCount ?? 0,
+    }));
+
     const members = (membersRes.data ?? []).map((row: any) => ({
       id: row.id,
       role: row.role,
@@ -366,7 +408,7 @@ export class InstitutionsService {
 
     return {
       ...institutionRes.data,
-      rooms: roomsRes.data ?? [],
+      rooms: roomsWithSummary,
       members,
       assignments,
       invites,
