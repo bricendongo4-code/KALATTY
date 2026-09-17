@@ -890,11 +890,16 @@
 }
 
 .institutionToolbarExpanded {
-  display: grid;
-  grid-template-columns: minmax(0, 1.5fr) repeat(2, minmax(14rem, 0.75fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
   align-items: end;
   margin-bottom: 1rem;
+}
+
+.institutionToolbarExpanded > * {
+  flex: 1 1 14rem;
+  min-width: 0;
 }
 
 .institutionGridWide {
