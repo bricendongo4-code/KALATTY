@@ -127,6 +127,21 @@ type TeacherRoomDetail = {
     reviewed: number;
     pending: number;
   };
+  members?: Array<{
+    id: string;
+    role: string;
+    joinedAt?: string | null;
+    access?: { status: string; reason: string };
+    profile?: { id: string; fullname?: string | null; email?: string | null } | null;
+  }>;
+  invites?: Array<{
+    id: string;
+    token: string;
+    invite_role: string;
+    used_count: number;
+    max_uses: number;
+    is_active: boolean;
+  }>;
 };
 
 type DiscoveryCourse = {
@@ -305,6 +320,10 @@ export default function DashboardPage() {
   >({});
   const [submittingAssignmentId, setSubmittingAssignmentId] = useState("");
   const [submissionMessage, setSubmissionMessage] = useState("");
+  const [myGrades, setMyGrades] = useState<Array<Record<string, unknown>>>(
+    [],
+  );
+  const [loadingMyGrades, setLoadingMyGrades] = useState(false);
   const [profileMessage, setProfileMessage] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -326,6 +345,17 @@ export default function DashboardPage() {
     ends_at: "",
     location: "",
   });
+  const [teacherInviteRole, setTeacherInviteRole] = useState<
+    "student" | "assistant"
+  >("student");
+  const [teacherInviteMaxUses, setTeacherInviteMaxUses] = useState("40");
+  const [teacherGeneratedInviteLink, setTeacherGeneratedInviteLink] =
+    useState("");
+  const [creatingTeacherInvite, setCreatingTeacherInvite] = useState(false);
+  const [savingTeacherMemberStatus, setSavingTeacherMemberStatus] =
+    useState(false);
+  const [teacherMemberStatusReason, setTeacherMemberStatusReason] =
+    useState("");
   const [reviewForm, setReviewForm] = useState({
     submissionId: "",
     score: "",
@@ -1289,6 +1319,36 @@ export default function DashboardPage() {
     void loadAssignments();
   }, [apiBaseUrl, role, selectedStudentRoomId]);
 
+  useEffect(() => {
+    const token = localStorage.getItem("kalatty_token");
+    if (!token || role !== "student" || !isInstitutionStudent) {
+      setMyGrades([]);
+      return;
+    }
+
+    const loadGrades = async () => {
+      setLoadingMyGrades(true);
+      try {
+        const res = await fetch(`${apiBaseUrl}/institutions/my-grades`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+          setMyGrades(Array.isArray(data) ? data : []);
+        }
+      } catch {
+        setMyGrades([]);
+      } finally {
+        setLoadingMyGrades(false);
+      }
+    };
+
+    void loadGrades();
+  }, [apiBaseUrl, role, isInstitutionStudent]);
+
   const handleSubmitAssignment = async (assignmentId: string) => {
     const token = localStorage.getItem("kalatty_token");
     if (!token || !selectedStudentRoomId) {
@@ -1643,6 +1703,107 @@ export default function DashboardPage() {
 
     if (res.ok) {
       setTeacherRoomDetail(data as TeacherRoomDetail);
+    }
+  };
+
+  const handleTeacherSetMemberStatus = async (
+    memberUserId: string,
+    status: "active" | "blocked",
+  ) => {
+    const token = localStorage.getItem("kalatty_token");
+    if (!token || !selectedTeacherRoomId || !memberUserId) {
+      return;
+    }
+
+    setSavingTeacherMemberStatus(true);
+    try {
+      const res = await fetch(
+        `${apiBaseUrl}/institutions/rooms/${selectedTeacherRoomId}/members/${memberUserId}/status`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            status,
+            reason: status === "blocked" ? teacherMemberStatusReason : "",
+          }),
+        },
+      );
+      const data = await res.json();
+
+      if (!res.ok) {
+        setTeacherActionMessage(
+          typeof data.message === "string"
+            ? data.message
+            : "Modification du statut impossible.",
+        );
+        return;
+      }
+
+      setTeacherMemberStatusReason("");
+      setTeacherActionMessage(
+        status === "blocked"
+          ? "Etudiant bloque dans cette classe."
+          : "Etudiant reactive dans cette classe.",
+      );
+      await refreshTeacherRoom();
+    } catch {
+      setTeacherActionMessage("Le statut de l'etudiant n'a pas pu etre modifie.");
+    } finally {
+      setSavingTeacherMemberStatus(false);
+    }
+  };
+
+  const handleTeacherCreateInvite = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const token = localStorage.getItem("kalatty_token");
+    if (!token || !selectedTeacherRoomId) {
+      return;
+    }
+
+    setCreatingTeacherInvite(true);
+    setTeacherActionMessage("");
+    try {
+      const maxUses = Number(teacherInviteMaxUses) || 1;
+      const res = await fetch(
+        `${apiBaseUrl}/institutions/rooms/${selectedTeacherRoomId}/invites`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            invite_role: teacherInviteRole,
+            max_uses: maxUses,
+          }),
+        },
+      );
+      const data = await res.json();
+
+      if (!res.ok) {
+        setTeacherActionMessage(
+          typeof data.message === "string"
+            ? data.message
+            : "Creation du lien impossible.",
+        );
+        return;
+      }
+
+      const inviteUrl =
+        typeof window !== "undefined"
+          ? `${window.location.origin}/invite/${data.token}`
+          : String(data.token ?? "");
+
+      setTeacherGeneratedInviteLink(inviteUrl);
+      setTeacherActionMessage("Lien d'invitation genere.");
+      await refreshTeacherRoom();
+    } catch {
+      setTeacherActionMessage("La creation du lien a echoue.");
+    } finally {
+      setCreatingTeacherInvite(false);
     }
   };
 
@@ -2943,6 +3104,41 @@ export default function DashboardPage() {
                 </section>
               </div>
               <div className={styles.sideColumn}>
+                {isInstitutionStudent ? (
+                  <section className={styles.card}>
+                    <p className={styles.sectionLabel}>Notes</p>
+                    <h2>Mes notes</h2>
+                    <div className={styles.roadmapList}>
+                      {loadingMyGrades ? (
+                        <p className={styles.paragraph}>Chargement...</p>
+                      ) : myGrades.length === 0 ? (
+                        <p className={styles.paragraph}>
+                          Aucun devoir corrige pour l&apos;instant.
+                        </p>
+                      ) : (
+                        myGrades.map((grade) => (
+                          <article
+                            key={String(grade.id)}
+                            className={styles.roadmapItem}
+                          >
+                            <strong>
+                              {String(grade.assignmentTitle ?? "Devoir")}
+                            </strong>
+                            <small>{String(grade.roomName ?? "Salle")}</small>
+                            <p>
+                              {grade.status === "reviewed"
+                                ? `Note : ${String(grade.score ?? "?")}/${String(grade.maxScore ?? "?")}`
+                                : "En attente de correction"}
+                            </p>
+                            {grade.feedback ? (
+                              <small>{String(grade.feedback)}</small>
+                            ) : null}
+                          </article>
+                        ))
+                      )}
+                    </div>
+                  </section>
+                ) : null}
                 <section className={styles.card}>
                   <p className={styles.sectionLabel}>Routine</p>
                   <h2>Conseil d&apos;organisation</h2>
@@ -4280,6 +4476,211 @@ export default function DashboardPage() {
                                 Affecter a la classe
                               </button>
                             </form>
+                          </section>
+                        </div>
+
+                        <div className={styles.institutionActionGrid}>
+                          <section className={styles.card}>
+                            <div className={styles.sectionHeader}>
+                              <div>
+                                <p className={styles.sectionLabel}>Eleves</p>
+                                <h2>Eleves de la classe</h2>
+                              </div>
+                            </div>
+                            <label className={styles.formField}>
+                              <span>Motif de blocage (optionnel)</span>
+                              <input
+                                type="text"
+                                value={teacherMemberStatusReason}
+                                onChange={(event) =>
+                                  setTeacherMemberStatusReason(
+                                    event.target.value,
+                                  )
+                                }
+                                placeholder="Ex: absences repetees, a verifier avec l'administration"
+                              />
+                            </label>
+                            <div className={styles.roadmapList}>
+                              {(teacherRoomDetail.members ?? []).filter(
+                                (member) => member.role === "student",
+                              ).length > 0 ? (
+                                (teacherRoomDetail.members ?? [])
+                                  .filter((member) => member.role === "student")
+                                  .map((member) => (
+                                    <article
+                                      key={member.id}
+                                      className={styles.roadmapItem}
+                                    >
+                                      <strong>
+                                        {member.profile?.fullname ||
+                                          member.profile?.email ||
+                                          "Eleve"}
+                                      </strong>
+                                      <small>
+                                        {member.profile?.email ||
+                                          "Email non visible"}{" "}
+                                        | Statut:{" "}
+                                        {member.access?.status === "blocked"
+                                          ? "bloque"
+                                          : "actif"}
+                                        {member.access?.reason
+                                          ? ` (${member.access.reason})`
+                                          : ""}
+                                      </small>
+                                      {member.access?.status === "blocked" ? (
+                                        <button
+                                          type="button"
+                                          className={styles.secondaryButton}
+                                          disabled={savingTeacherMemberStatus}
+                                          onClick={() =>
+                                            void handleTeacherSetMemberStatus(
+                                              String(member.profile?.id ?? ""),
+                                              "active",
+                                            )
+                                          }
+                                        >
+                                          Reactiver
+                                        </button>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          className={styles.secondaryButton}
+                                          disabled={savingTeacherMemberStatus}
+                                          onClick={() =>
+                                            void handleTeacherSetMemberStatus(
+                                              String(member.profile?.id ?? ""),
+                                              "blocked",
+                                            )
+                                          }
+                                        >
+                                          Bloquer
+                                        </button>
+                                      )}
+                                    </article>
+                                  ))
+                              ) : (
+                                <p className={styles.paragraph}>
+                                  Aucun eleve encore rattache a cette classe.
+                                </p>
+                              )}
+                            </div>
+                          </section>
+
+                          <section className={styles.card}>
+                            <div className={styles.sectionHeader}>
+                              <div>
+                                <p className={styles.sectionLabel}>
+                                  Invitation
+                                </p>
+                                <h2>Inviter des eleves</h2>
+                              </div>
+                            </div>
+                            <form
+                              onSubmit={(event) =>
+                                void handleTeacherCreateInvite(event)
+                              }
+                              className={styles.teacherForm}
+                            >
+                              <label className={styles.formField}>
+                                <span>Role invite</span>
+                                <select
+                                  className={styles.selectField}
+                                  value={teacherInviteRole}
+                                  onChange={(event) =>
+                                    setTeacherInviteRole(
+                                      event.target.value as
+                                        | "student"
+                                        | "assistant",
+                                    )
+                                  }
+                                >
+                                  <option value="student">Eleve</option>
+                                  <option value="assistant">Assistant</option>
+                                </select>
+                              </label>
+                              <label className={styles.formField}>
+                                <span>Nombre d&apos;utilisations</span>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={teacherInviteMaxUses}
+                                  onChange={(event) =>
+                                    setTeacherInviteMaxUses(
+                                      event.target.value,
+                                    )
+                                  }
+                                />
+                              </label>
+                              <button
+                                type="submit"
+                                className={styles.submitButton}
+                                disabled={creatingTeacherInvite}
+                              >
+                                {creatingTeacherInvite
+                                  ? "Generation..."
+                                  : "Generer un lien d'invitation"}
+                              </button>
+                            </form>
+                            {teacherGeneratedInviteLink ? (
+                              <div className={styles.roadmapItem}>
+                                <p>{teacherGeneratedInviteLink}</p>
+                                <button
+                                  type="button"
+                                  className={styles.linkButton}
+                                  onClick={() => {
+                                    void navigator.clipboard
+                                      ?.writeText(teacherGeneratedInviteLink)
+                                      .then(() =>
+                                        setTeacherActionMessage(
+                                          "Lien copie.",
+                                        ),
+                                      )
+                                      .catch(() =>
+                                        setTeacherActionMessage(
+                                          "Impossible de copier le lien automatiquement.",
+                                        ),
+                                      );
+                                  }}
+                                >
+                                  Copier le lien
+                                </button>
+                              </div>
+                            ) : null}
+                            <div className={styles.roadmapList}>
+                              {(teacherRoomDetail.invites ?? []).length >
+                              0 ? (
+                                (teacherRoomDetail.invites ?? []).map(
+                                  (invite) => {
+                                    const inviteUrl =
+                                      typeof window !== "undefined"
+                                        ? `${window.location.origin}/invite/${invite.token}`
+                                        : invite.token;
+                                    return (
+                                      <article
+                                        key={invite.id}
+                                        className={styles.roadmapItem}
+                                      >
+                                        <strong>
+                                          {invite.invite_role === "student"
+                                            ? "Eleve"
+                                            : invite.invite_role}
+                                        </strong>
+                                        <small>{inviteUrl}</small>
+                                        <small>
+                                          {invite.used_count}/
+                                          {invite.max_uses} utilisation(s) |{" "}
+                                          {invite.is_active ? "actif" : "clos"}
+                                        </small>
+                                      </article>
+                                    );
+                                  },
+                                )
+                              ) : (
+                                <p className={styles.paragraph}>
+                                  Aucun lien encore genere pour cette classe.
+                                </p>
+                              )}
+                            </div>
                           </section>
                         </div>
 

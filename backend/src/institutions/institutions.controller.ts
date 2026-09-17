@@ -55,6 +55,11 @@ export class InstitutionsController {
     return this.institutionsService.getMyInstitutions(req.user);
   }
 
+  @Get('my-grades')
+  getMyGrades(@Req() req: RequestUser) {
+    return this.institutionsService.getMyGrades(req.user);
+  }
+
   @Post()
   create(@Req() req: RequestUser, @Body() body: CreateInstitutionDto) {
     return this.institutionsService.createInstitution(req.user, body);

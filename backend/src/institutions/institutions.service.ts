@@ -1249,6 +1249,60 @@ export class InstitutionsService {
     return data.role;
   }
 
+  async getMyGrades(user: AuthUser) {
+    const { data, error } = await this.supabaseService.client
+      .from('assignment_submissions')
+      .select(
+        `
+          id,
+          status,
+          score,
+          feedback,
+          content,
+          file_path,
+          submitted_at,
+          reviewed_at,
+          assignments (
+            id,
+            title,
+            max_score,
+            room_id,
+            rooms ( id, name )
+          )
+        `,
+      )
+      .eq('student_id', user.id)
+      .order('submitted_at', { ascending: false })
+      .limit(50);
+
+    if (error) {
+      throw new BadRequestException(error.message);
+    }
+
+    return (data ?? []).map((submission: any) => {
+      const assignment = Array.isArray(submission.assignments)
+        ? submission.assignments[0]
+        : submission.assignments;
+      const room = Array.isArray(assignment?.rooms)
+        ? assignment.rooms[0]
+        : assignment?.rooms;
+
+      return {
+        id: submission.id,
+        status: submission.status,
+        score: submission.score,
+        feedback: submission.feedback,
+        content: submission.content,
+        filePath: submission.file_path,
+        submittedAt: submission.submitted_at,
+        reviewedAt: submission.reviewed_at,
+        assignmentTitle: assignment?.title ?? 'Devoir',
+        maxScore: assignment?.max_score ?? null,
+        roomName: room?.name ?? 'Salle',
+      };
+    });
+  }
+
   async getRoomAssignmentsForStudent(user: AuthUser, roomId: string) {
     await this.getRoomOrThrow(roomId);
     await this.assertRoomStudent(user.id, roomId);
