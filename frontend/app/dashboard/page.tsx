@@ -151,48 +151,6 @@ const teacherInsights = [
   },
 ];
 
-const getLearnerExperienceSignals = (isInstitutionStudent: boolean) => [
-  {
-    label: "Reprise",
-    title: "Continuer exactement au bon endroit",
-    text: "Le prochain cours et la progression restent visibles pour eviter de chercher.",
-  },
-  isInstitutionStudent
-    ? {
-        label: "Campus",
-        title: "Cours d'etablissement separes",
-        text: "Un etudiant rattache ne voit que ses cours campus, devoirs et planning.",
-      }
-    : {
-        label: "Etablissement",
-        title: "Rejoindre une ecole ou un centre",
-        text: "Utilise le lien d'invitation envoye par ton etablissement pour acceder a tes classes et devoirs.",
-      },
-  {
-    label: "Planning",
-    title: "Semaine lisible",
-    text: "Les activites importantes sont regroupees autour du rythme d'apprentissage.",
-  },
-];
-
-const teacherExperienceSignals = [
-  {
-    label: "Studio",
-    title: "Creation guidee",
-    text: "Brouillon, miniature, video, modules, prix et publication restent centralises.",
-  },
-  {
-    label: "Qualite",
-    title: "Avis et commentaires",
-    text: "Les retours apprenants aident le formateur a ameliorer ses cours.",
-  },
-  {
-    label: "Campus",
-    title: "Classes et devoirs",
-    text: "Le professeur d'etablissement suit ses classes sans devenir administrateur.",
-  },
-];
-
 const fallbackDiscovery = [
   {
     id: "1",
@@ -639,6 +597,18 @@ export default function DashboardPage() {
   const studentInstitutions = dashboardData?.studentInstitutions ?? [];
   const studentRooms = dashboardData?.studentRooms ?? [];
   const campusSchedule = dashboardData?.campusSchedule ?? [];
+  const roomNextSessionByName = new Map<string, string>();
+  campusSchedule
+    .filter((item) => item.type === "cours")
+    .forEach((item) => {
+      const key = String(item.roomName ?? "");
+      if (key && !roomNextSessionByName.has(key)) {
+        roomNextSessionByName.set(
+          key,
+          `${String(item.day ?? "")} ${String(item.time ?? "")}`.trim(),
+        );
+      }
+    });
   const heroCourse = studentCourses[0];
   const discoveryCourses: DiscoveryCourse[] = isInstitutionStudent
     ? (dashboardData?.campusCourses ?? []).map((course, index) => ({
@@ -733,11 +703,34 @@ export default function DashboardPage() {
         : 0;
       return bMatches - aMatches;
     });
-  const filteredStudentCourses = studentCourses.filter((course) =>
-    includesSearch(
-      [course.title, course.description, course.nextLesson],
-      studentQuery,
-    ),
+  const combinedStudentCourseEntries = [
+    ...studentCourses.map((course, index) => ({
+      id: String(course.id ?? `course-${index}`),
+      title: String(course.title ?? "Cours sans titre"),
+      description: String(course.description ?? "Cours en progression"),
+      nextLesson: course.nextLesson ? String(course.nextLesson) : "",
+      progress: Number(course.progress ?? 0),
+      thumbnailUrl: course.thumbnailUrl ? String(course.thumbnailUrl) : "",
+      source: "personal" as const,
+    })),
+    ...(isInstitutionStudent
+      ? discoveryCourses.map((course) => ({
+          id: course.id,
+          title: course.title,
+          description: course.description,
+          nextLesson: "",
+          progress: course.progress,
+          thumbnailUrl: course.thumbnailUrl ?? "",
+          source: "campus" as const,
+        }))
+      : []),
+  ];
+  const filteredStudentCourses = combinedStudentCourseEntries.filter(
+    (course) =>
+      includesSearch(
+        [course.title, course.description, course.nextLesson],
+        studentQuery,
+      ),
   );
   const filteredTeacherCourses = teacherCourses.filter((course) =>
     includesSearch(
@@ -955,14 +948,24 @@ export default function DashboardPage() {
       note: "Remises a corriger en priorite",
     },
   ];
-  const teacherOperatingCards = [
-    {
-      label: "Marketplace",
-      title: "Vendre mes cours",
-      text: "Surveiller les cours publiés, les prix, les apprenants et les avis reçus.",
-      action: "Mes cours",
-      view: "courses" as TeacherView,
-    },
+  const teacherOperatingCards: {
+    label: string;
+    title: string;
+    text: string;
+    action: string;
+    view: TeacherView;
+  }[] = [
+    ...(isInstitutionTeacher
+      ? []
+      : [
+          {
+            label: "Marketplace",
+            title: "Vendre mes cours",
+            text: "Surveiller les cours publiés, les prix, les apprenants et les avis reçus.",
+            action: "Mes cours",
+            view: "courses" as TeacherView,
+          },
+        ]),
     {
       label: "Studio",
       title: "Créer ou modifier",
@@ -970,13 +973,17 @@ export default function DashboardPage() {
       action: "Ouvrir le studio",
       view: "studio" as TeacherView,
     },
-    {
-      label: "Classes",
-      title: "Enseigner au campus",
-      text: "Publier des devoirs, suivre les remises et corriger les étudiants d'une classe.",
-      action: "Mes classes",
-      view: "classes" as TeacherView,
-    },
+    ...(isInstitutionTeacher
+      ? [
+          {
+            label: "Classes",
+            title: "Enseigner au campus",
+            text: "Publier des devoirs, suivre les remises et corriger les étudiants d'une classe.",
+            action: "Mes classes",
+            view: "classes" as TeacherView,
+          },
+        ]
+      : []),
     {
       label: "Profil",
       title: "Rassurer les apprenants",
@@ -2067,9 +2074,13 @@ export default function DashboardPage() {
                     changeTeacherView(event.target.value as TeacherView)
                   }
                 >
-                  <option value="overview">Pilotage</option>
-                  <option value="courses">Mes cours</option>
-                  <option value="classes">Mes classes</option>
+                  <option value="overview">Vue d&apos;ensemble</option>
+                  {isInstitutionTeacher ? null : (
+                    <option value="courses">Mes cours</option>
+                  )}
+                  {isInstitutionTeacher ? (
+                    <option value="classes">Mes classes</option>
+                  ) : null}
                   <option value="studio">Studio de creation</option>
                   <option value="profile">Mon profil</option>
                 </select>
@@ -2338,28 +2349,6 @@ export default function DashboardPage() {
                     <small>Completer mes informations et preferences</small>
                   </button>
                 </nav>
-
-                <section className={styles.experienceSignalStrip}>
-                  {getLearnerExperienceSignals(isInstitutionStudent).map(
-                    (signal) => (
-                    <button
-                      key={signal.title}
-                      type="button"
-                      onClick={() =>
-                        changeStudentView(
-                          signal.label === "Campus" ||
-                            signal.label === "Etablissement"
-                            ? "institutions"
-                            : "progress",
-                        )
-                      }
-                    >
-                      <span>{signal.label}</span>
-                      <strong>{signal.title}</strong>
-                      <p>{signal.text}</p>
-                    </button>
-                  ))}
-                </section>
 
                 <section className={styles.card}>
                   <div className={styles.sectionHeader}>
@@ -2652,22 +2641,6 @@ export default function DashboardPage() {
                       onChange={(event) => setStudentSearch(event.target.value)}
                     />
                   </label>
-                  <div className={styles.statsRow}>
-                    {studentQuickStats.map((stat) => (
-                      <button
-                        key={stat.label}
-                        type="button"
-                        className={`${styles.statCard} ${styles.interactiveStat}`}
-                        onClick={() => changeStudentView(stat.view)}
-                        aria-label={`${stat.label}: ${stat.value}. Afficher les details`}
-                      >
-                        <span>{stat.label}</span>
-                        <strong>{stat.value}</strong>
-                        <small>{stat.note}</small>
-                        <b>Ouvrir</b>
-                      </button>
-                    ))}
-                  </div>
                   <div className={styles.courseList}>
                     {filteredStudentCourses.length > 0 ? (
                       filteredStudentCourses.map((course) => (
@@ -2699,10 +2672,18 @@ export default function DashboardPage() {
                             <div>
                               <h3>
                                 {String(course.title ?? "Cours sans titre")}
+                                {course.source === "campus" ? (
+                                  <span
+                                    className={styles.discoveryBadge}
+                                    style={{ marginLeft: "0.5rem" }}
+                                  >
+                                    Campus
+                                  </span>
+                                ) : null}
                               </h3>
                               <p>
                                 {String(
-                                  course.nextLesson ?? "Aucune lecon commencee",
+                                  course.nextLesson || "Aucune lecon commencee",
                                 )}
                               </p>
                             </div>
@@ -2739,7 +2720,7 @@ export default function DashboardPage() {
                       ))
                     ) : (
                       <p className={styles.paragraph}>
-                        {studentCourses.length > 0
+                        {combinedStudentCourseEntries.length > 0
                           ? "Aucun cours ne correspond a cette recherche."
                           : "Aucun cours n'est encore lie a ce compte."}
                       </p>
@@ -2756,23 +2737,6 @@ export default function DashboardPage() {
                     verification. C&apos;est adapte aux contraintes de connexion
                     et de disponibilite.
                   </p>
-                </section>
-                <section className={styles.cardAccent}>
-                  <p className={styles.sectionLabel}>Priorites</p>
-                  <h2>Ce qui attend ton action</h2>
-                  <ul className={styles.simpleList}>
-                    {studentTasks.map((task) => (
-                      <li key={task.label}>
-                        {task.courseId ? (
-                          <Link href={`/courses/${task.courseId}`}>
-                            {task.label}
-                          </Link>
-                        ) : (
-                          task.label
-                        )}
-                      </li>
-                    ))}
-                  </ul>
                 </section>
               </div>
             </section>
@@ -2887,6 +2851,11 @@ export default function DashboardPage() {
                           {room.latestAssignmentTitle ? (
                             <p>{String(room.latestAssignmentTitle)}</p>
                           ) : null}
+                          <small>
+                            {roomNextSessionByName.get(String(room.name ?? ""))
+                              ? `Prochain creneau : ${roomNextSessionByName.get(String(room.name ?? ""))}`
+                              : "Aucun creneau publie pour cette classe."}
+                          </small>
                           <button
                             type="button"
                             className={styles.catalogDetailLink}
@@ -2970,30 +2939,34 @@ export default function DashboardPage() {
               >
                 Vue d&apos;ensemble
               </button>
-              <button
-                type="button"
-                className={
-                  teacherView === "courses"
-                    ? styles.activeTab
-                    : styles.studentTab
-                }
-                aria-current={teacherView === "courses" ? "page" : undefined}
-                onClick={() => changeTeacherView("courses")}
-              >
-                Mes cours
-              </button>
-              <button
-                type="button"
-                className={
-                  teacherView === "classes"
-                    ? styles.activeTab
-                    : styles.studentTab
-                }
-                aria-current={teacherView === "classes" ? "page" : undefined}
-                onClick={() => changeTeacherView("classes")}
-              >
-                Mes classes
-              </button>
+              {isInstitutionTeacher ? null : (
+                <button
+                  type="button"
+                  className={
+                    teacherView === "courses"
+                      ? styles.activeTab
+                      : styles.studentTab
+                  }
+                  aria-current={teacherView === "courses" ? "page" : undefined}
+                  onClick={() => changeTeacherView("courses")}
+                >
+                  Mes cours
+                </button>
+              )}
+              {isInstitutionTeacher ? (
+                <button
+                  type="button"
+                  className={
+                    teacherView === "classes"
+                      ? styles.activeTab
+                      : styles.studentTab
+                  }
+                  aria-current={teacherView === "classes" ? "page" : undefined}
+                  onClick={() => changeTeacherView("classes")}
+                >
+                  Mes classes
+                </button>
+              ) : null}
               <button
                 type="button"
                 className={
@@ -3113,30 +3086,6 @@ export default function DashboardPage() {
                   </section>
                 ) : null}
 
-                {teacherView === "overview" ? (
-                  <section className={styles.experienceSignalStrip}>
-                    {teacherExperienceSignals.map((signal) => (
-                      <button
-                        key={signal.title}
-                        type="button"
-                        onClick={() =>
-                          changeTeacherView(
-                            signal.label === "Studio"
-                              ? "studio"
-                              : signal.label === "Campus"
-                                ? "classes"
-                                : "courses",
-                          )
-                        }
-                      >
-                        <span>{signal.label}</span>
-                        <strong>{signal.title}</strong>
-                        <p>{signal.text}</p>
-                      </button>
-                    ))}
-                  </section>
-                ) : null}
-
                 {teacherView === "courses" ? (
                   <section className={styles.card}>
                     <div className={styles.sectionHeader}>
@@ -3159,15 +3108,6 @@ export default function DashboardPage() {
                         }
                       />
                     </label>
-                    <div className={styles.statsRow}>
-                      {teacherQuickStats.map((stat) => (
-                        <article key={stat.label} className={styles.statCard}>
-                          <span>{stat.label}</span>
-                          <strong>{stat.value}</strong>
-                          <small>{stat.note}</small>
-                        </article>
-                      ))}
-                    </div>
                     <div className={styles.teacherCourseActionPanel}>
                       <article>
                         <span>Gestion du catalogue</span>
@@ -3681,72 +3621,6 @@ export default function DashboardPage() {
                           <section className={styles.card}>
                             <div className={styles.sectionHeader}>
                               <div>
-                                <p className={styles.sectionLabel}>Cours</p>
-                                <h2>Cours de cette classe</h2>
-                              </div>
-                            </div>
-                            <div className={styles.roadmapList}>
-                              {(teacherRoomDetail.courses ?? []).length > 0 ? (
-                                (teacherRoomDetail.courses ?? []).map(
-                                  (entry) => (
-                                    <article
-                                      key={entry.id}
-                                      className={styles.roadmapItem}
-                                    >
-                                      <strong>
-                                        {entry.course?.title ??
-                                          "Cours indisponible"}
-                                      </strong>
-                                    </article>
-                                  ),
-                                )
-                              ) : (
-                                <p className={styles.paragraph}>
-                                  Aucun cours affecte a cette classe pour
-                                  l&apos;instant.
-                                </p>
-                              )}
-                            </div>
-                            <form
-                              onSubmit={(event) =>
-                                void handleTeacherAssignCourse(event)
-                              }
-                              className={styles.teacherForm}
-                            >
-                              <label className={styles.formField}>
-                                <span>Affecter un de mes cours</span>
-                                <select
-                                  className={styles.selectField}
-                                  value={teacherCourseToAssign}
-                                  onChange={(event) =>
-                                    setTeacherCourseToAssign(
-                                      event.target.value,
-                                    )
-                                  }
-                                >
-                                  <option value="">Choisir un cours</option>
-                                  {teacherCourses.map((course) => (
-                                    <option
-                                      key={String(course.id)}
-                                      value={String(course.id)}
-                                    >
-                                      {String(course.title ?? "Cours")}
-                                    </option>
-                                  ))}
-                                </select>
-                              </label>
-                              <button
-                                type="submit"
-                                className={styles.submitButton}
-                              >
-                                Affecter a la classe
-                              </button>
-                            </form>
-                          </section>
-
-                          <section className={styles.card}>
-                            <div className={styles.sectionHeader}>
-                              <div>
                                 <p className={styles.sectionLabel}>
                                   Emploi du temps
                                 </p>
@@ -3872,6 +3746,72 @@ export default function DashboardPage() {
                               </button>
                             </form>
                           </section>
+
+                          <section className={styles.card}>
+                            <div className={styles.sectionHeader}>
+                              <div>
+                                <p className={styles.sectionLabel}>Cours</p>
+                                <h2>Cours de cette classe</h2>
+                              </div>
+                            </div>
+                            <div className={styles.roadmapList}>
+                              {(teacherRoomDetail.courses ?? []).length > 0 ? (
+                                (teacherRoomDetail.courses ?? []).map(
+                                  (entry) => (
+                                    <article
+                                      key={entry.id}
+                                      className={styles.roadmapItem}
+                                    >
+                                      <strong>
+                                        {entry.course?.title ??
+                                          "Cours indisponible"}
+                                      </strong>
+                                    </article>
+                                  ),
+                                )
+                              ) : (
+                                <p className={styles.paragraph}>
+                                  Aucun cours affecte a cette classe pour
+                                  l&apos;instant.
+                                </p>
+                              )}
+                            </div>
+                            <form
+                              onSubmit={(event) =>
+                                void handleTeacherAssignCourse(event)
+                              }
+                              className={styles.teacherForm}
+                            >
+                              <label className={styles.formField}>
+                                <span>Affecter un de mes cours</span>
+                                <select
+                                  className={styles.selectField}
+                                  value={teacherCourseToAssign}
+                                  onChange={(event) =>
+                                    setTeacherCourseToAssign(
+                                      event.target.value,
+                                    )
+                                  }
+                                >
+                                  <option value="">Choisir un cours</option>
+                                  {teacherCourses.map((course) => (
+                                    <option
+                                      key={String(course.id)}
+                                      value={String(course.id)}
+                                    >
+                                      {String(course.title ?? "Cours")}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              <button
+                                type="submit"
+                                className={styles.submitButton}
+                              >
+                                Affecter a la classe
+                              </button>
+                            </form>
+                          </section>
                         </div>
 
                         <section className={styles.card}>
@@ -3964,46 +3904,30 @@ export default function DashboardPage() {
                       </div>
                     </section>
                   ) : null}
-                  <section className={styles.card}>
-                    <p className={styles.sectionLabel}>
-                      {isInstitutionTeacher ? "Activite formateur" : "Revenus"}
-                    </p>
-                    <h2>
-                      {isInstitutionTeacher
-                        ? "Indicateurs de diffusion"
-                        : "Remuneration enseignant"}
-                    </h2>
-                    <div className={styles.revenueGrid}>
-                      <article className={styles.revenueCard}>
-                        <span>
-                          {isInstitutionTeacher
-                            ? "Revenus cumules"
-                            : "Montant cumule"}
-                        </span>
-                        <strong>
-                          {dashboardData?.stats.totalRevenue ?? 0} FCFA
-                        </strong>
-                        <small>
-                          {isInstitutionTeacher
-                            ? "Suivi personnel de tes cours, meme en diffusion campus"
-                            : "Somme totale generee par tes cours"}
-                        </small>
-                      </article>
-                      <article className={styles.revenueCard}>
-                        <span>
-                          {isInstitutionTeacher ? "Ce mois-ci" : "Ce mois-ci"}
-                        </span>
-                        <strong>
-                          {dashboardData?.stats.monthRevenue ?? 0} FCFA
-                        </strong>
-                        <small>
-                          {isInstitutionTeacher
-                            ? "Montant recent genere sur Kalatty"
-                            : "Revenus recents des inscriptions payantes"}
-                        </small>
-                      </article>
-                    </div>
-                  </section>
+                  {isInstitutionTeacher ? null : (
+                    <section className={styles.card}>
+                      <p className={styles.sectionLabel}>Revenus</p>
+                      <h2>Remuneration enseignant</h2>
+                      <div className={styles.revenueGrid}>
+                        <article className={styles.revenueCard}>
+                          <span>Montant cumule</span>
+                          <strong>
+                            {dashboardData?.stats.totalRevenue ?? 0} FCFA
+                          </strong>
+                          <small>Somme totale generee par tes cours</small>
+                        </article>
+                        <article className={styles.revenueCard}>
+                          <span>Ce mois-ci</span>
+                          <strong>
+                            {dashboardData?.stats.monthRevenue ?? 0} FCFA
+                          </strong>
+                          <small>
+                            Revenus recents des inscriptions payantes
+                          </small>
+                        </article>
+                      </div>
+                    </section>
+                  )}
                 </div>
               ) : null}
             </section>
