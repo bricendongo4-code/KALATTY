@@ -646,6 +646,93 @@
   gap: 1.5rem;
 }
 
+.institutionShellWithSidebar {
+  display: grid;
+  grid-template-columns: minmax(0, 15rem) minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.institutionSidebar {
+  position: sticky;
+  top: 1rem;
+  display: none;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.25rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: rgba(255, 251, 245, 0.88);
+  box-shadow: var(--shadow);
+}
+
+.institutionSidebarBrand {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.institutionSidebarBrand span {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 800;
+  color: var(--secondary);
+}
+
+.institutionSidebarBrand strong {
+  font-size: 1.05rem;
+  color: var(--primary-dark);
+}
+
+.institutionSidebarCreate {
+  min-height: 2.9rem;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: var(--secondary);
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.institutionSidebarNav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.institutionSidebarItem,
+.institutionSidebarItemActive {
+  text-align: left;
+  min-height: 2.6rem;
+  padding: 0 0.9rem;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+}
+
+.institutionSidebarItem {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--primary-dark);
+}
+
+.institutionSidebarItemActive {
+  border: none;
+  background: rgba(29, 111, 95, 0.12);
+  color: var(--secondary);
+}
+
+@media (min-width: 960px) {
+  .institutionSidebar {
+    display: flex;
+  }
+}
+
+@media (max-width: 959px) {
+  .institutionShellWithSidebar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .singleColumn {
   grid-template-columns: minmax(0, 1fr);
 }

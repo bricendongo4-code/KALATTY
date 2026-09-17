@@ -1180,7 +1180,52 @@ export default function InstitutionWorkspace({
   }
 
   return (
-    <section className={styles.grid}>
+    <div className={styles.institutionShellWithSidebar}>
+      <nav
+        className={styles.institutionSidebar}
+        aria-label="Navigation administrateur"
+      >
+        <div className={styles.institutionSidebarBrand}>
+          <span>Campus</span>
+          <strong>{selectedInstitution?.name || "Espace établissement"}</strong>
+        </div>
+
+        <button
+          type="button"
+          className={styles.institutionSidebarCreate}
+          onClick={() => setActiveView("classes")}
+        >
+          + Créer une classe
+        </button>
+
+        <div className={styles.institutionSidebarNav}>
+          {(
+            [
+              ["overview", "Vue d'ensemble"],
+              ["accounts", "Comptes"],
+              ["classes", "Classes"],
+              ["courses", "Cours"],
+              ["billing", "Abonnement"],
+              ["settings", "Mon compte"],
+            ] as Array<[InstitutionView, string]>
+          ).map(([view, label]) => (
+            <button
+              key={view}
+              type="button"
+              className={
+                activeView === view
+                  ? styles.institutionSidebarItemActive
+                  : styles.institutionSidebarItem
+              }
+              onClick={() => setActiveView(view)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </nav>
+
+      <section className={styles.grid}>
       <div className={styles.primaryColumn}>
         <section className={styles.card}>
           <div className={styles.institutionHeroV2}>
@@ -2573,6 +2618,7 @@ export default function InstitutionWorkspace({
           </p>
         ) : null}
       </div>
-    </section>
+      </section>
+    </div>
   );
 }
