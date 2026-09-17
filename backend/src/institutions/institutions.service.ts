@@ -1971,35 +1971,43 @@ export class InstitutionsService {
       );
     }
 
-    const { data: existingRoomMember } = await this.supabaseService.client
-      .from('room_members')
-      .select('role')
-      .eq('room_id', room.id)
-      .eq('user_id', user.id)
-      .maybeSingle();
-    const existingRoomRole =
-      (existingRoomMember?.role as RoomRole | undefined) ?? null;
-    const finalRoomRole =
-      this.rankRoomRole(existingRoomRole) >= this.rankRoomRole(invitedRoomRole)
-        ? existingRoomRole!
-        : invitedRoomRole;
+    const isInstitutionLeadership =
+      finalInstitutionRole === 'owner' || finalInstitutionRole === 'admin';
+    let redeemedRole: string = finalInstitutionRole;
 
-    const { error: roomMemberError } = await this.supabaseService.client
-      .from('room_members')
-      .upsert(
-        {
-          room_id: room.id,
-          user_id: user.id,
-          role: finalRoomRole,
-        },
-        { onConflict: 'room_id,user_id' },
-      );
+    if (!isInstitutionLeadership) {
+      const { data: existingRoomMember } = await this.supabaseService.client
+        .from('room_members')
+        .select('role')
+        .eq('room_id', room.id)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      const existingRoomRole =
+        (existingRoomMember?.role as RoomRole | undefined) ?? null;
+      const finalRoomRole =
+        this.rankRoomRole(existingRoomRole) >=
+        this.rankRoomRole(invitedRoomRole)
+          ? existingRoomRole!
+          : invitedRoomRole;
+      redeemedRole = finalRoomRole;
 
-    if (roomMemberError) {
-      throw new BadRequestException(
-        roomMemberError.message ??
-          "Impossible de rattacher l'utilisateur a la salle.",
-      );
+      const { error: roomMemberError } = await this.supabaseService.client
+        .from('room_members')
+        .upsert(
+          {
+            room_id: room.id,
+            user_id: user.id,
+            role: finalRoomRole,
+          },
+          { onConflict: 'room_id,user_id' },
+        );
+
+      if (roomMemberError) {
+        throw new BadRequestException(
+          roomMemberError.message ??
+            "Impossible de rattacher l'utilisateur a la salle.",
+        );
+      }
     }
 
     const { error: inviteUpdateError } = await this.supabaseService.client
@@ -2020,7 +2028,7 @@ export class InstitutionsService {
       institutionId: room.institution_id,
       roomId: room.id,
       roomName: room.name,
-      role: finalRoomRole,
+      role: redeemedRole,
     };
   }
 
