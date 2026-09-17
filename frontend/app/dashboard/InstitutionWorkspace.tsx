@@ -683,43 +683,6 @@ export default function InstitutionWorkspace({
     latestAttendanceRecords.length > 0
       ? Math.round((presentCount / latestAttendanceRecords.length) * 100)
       : 0;
-  const roomOperationalStats = [
-    {
-      label: "Professeurs",
-      value: roomCounts.teachers,
-      text: "Enseignants qui pilotent les contenus de cette classe.",
-    },
-    {
-      label: "Étudiants",
-      value: roomCounts.students,
-      text:
-        roomCounts.blockedStudents > 0
-          ? `${roomCounts.blockedStudents} compte(s) bloque(s) a surveiller.`
-          : "Apprenants actuellement relies a cette classe.",
-    },
-    {
-      label: "Assistants",
-      value: roomCounts.assistants,
-      text: "Support pedagogique ou encadrement additionnel.",
-    },
-    {
-      label: "Contenus",
-      value: roomDetail?.courses.length ?? 0,
-      text: "Cours assignes a cette classe.",
-    },
-    {
-      label: "Remises",
-      value: Number(roomDetail?.submissionSummary?.total ?? 0),
-      text: `${Number(roomDetail?.submissionSummary?.pending ?? 0)} en attente de correction.`,
-    },
-    {
-      label: "Presence",
-      value: latestAttendanceRecords.length > 0 ? `${attendanceRate}%` : "N/A",
-      text: latestAttendance
-        ? `Dernier appel: ${formatDate(latestAttendance.session_date)}.`
-        : "Aucun appel enregistre pour cette classe.",
-    },
-  ];
   const campusAdminCards = [
     {
       title: "Direction campus",
@@ -1870,6 +1833,47 @@ export default function InstitutionWorkspace({
         </section>
         ) : null}
 
+        {activeView === "classes" ? (
+        <section className={styles.institutionActionGrid}>
+          <section className={styles.card}>
+            <div className={styles.sectionHeader}>
+              <div>
+                <p className={styles.sectionLabel}>Nouvelle classe</p>
+                <h2>Créer une classe</h2>
+              </div>
+            </div>
+            <form onSubmit={handleCreateRoom} className={styles.teacherForm}>
+              <label className={styles.formField}>
+                <span>Nom de la classe</span>
+                <input
+                  type="text"
+                  value={roomName}
+                  onChange={(event) => setRoomName(event.target.value)}
+                  placeholder="Licence 1 Informatique"
+                />
+              </label>
+              <label className={styles.formField}>
+                <span>Description</span>
+                <textarea
+                  className={styles.formTextarea}
+                  rows={4}
+                  value={roomDescription}
+                  onChange={(event) => setRoomDescription(event.target.value)}
+                  placeholder="Filiere, niveau, objectif pedagogique et organisation"
+                />
+              </label>
+              <button
+                type="submit"
+                className={styles.submitButton}
+                disabled={creatingRoom}
+              >
+                {creatingRoom ? "Création..." : "Créer la classe"}
+              </button>
+            </form>
+          </section>
+        </section>
+        ) : null}
+
         {activeView === "accounts" ? (
         <section className={styles.card}>
           <div className={styles.sectionHeader}>
@@ -2132,22 +2136,6 @@ export default function InstitutionWorkspace({
               </div>
             </div>
 
-            <div className={styles.institutionOpsGrid}>
-              {roomOperationalStats.map((stat) => (
-                <article key={stat.label} className={styles.institutionOpsCard}>
-                  <span>{stat.label}</span>
-                  <strong>{stat.value}</strong>
-                  <p>{stat.text}</p>
-                </article>
-              ))}
-            </div>
-
-            <p className={styles.inlineMessage}>
-              Vue administrateur: vous gardez la supervision, les droits et la
-              securite. Les devoirs, l&apos;appel et les ajustements de planning
-              restent dans l&apos;espace des professeurs rattachés à la classe.
-            </p>
-
             <div className={styles.institutionStudioGrid}>
               <section className={styles.institutionStudioPanel}>
                 <div className={styles.sectionHeader}>
@@ -2269,12 +2257,8 @@ export default function InstitutionWorkspace({
                     <p className={styles.sectionLabel}>Emploi du temps</p>
                     <h3>Semaine publiee</h3>
                   </div>
+                  <span className={styles.sectionHint}>Gere par le professeur.</span>
                 </div>
-                <p className={styles.paragraph}>
-                  L&apos;administration supervise les creneaux. La publication et
-                  les ajustements quotidiens doivent rester dans l&apos;espace du
-                  professeur rattaché à la classe.
-                </p>
                 <div className={styles.roadmapList}>
                   {scheduleItems.length > 0 ? (
                     scheduleItems.map((item) => (
@@ -2306,11 +2290,8 @@ export default function InstitutionWorkspace({
                     <p className={styles.sectionLabel}>Presence</p>
                     <h3>Registre d&apos;appel</h3>
                   </div>
+                  <span className={styles.sectionHint}>Gere par le professeur.</span>
                 </div>
-                <p className={styles.paragraph}>
-                  Les appels sont consultables par l&apos;admin, mais doivent etre
-                  effectues par les professeurs depuis leur espace classe.
-                </p>
                 <div className={styles.roadmapList}>
                   {attendanceSessions.length > 0 ? (
                     attendanceSessions.slice(0, 4).map((session) => (
@@ -2470,47 +2451,6 @@ export default function InstitutionWorkspace({
               </section>
             </div>
           </section>
-        ) : null}
-
-        {activeView === "classes" ? (
-        <section className={styles.institutionActionGrid}>
-          <section className={styles.card}>
-            <div className={styles.sectionHeader}>
-              <div>
-                <p className={styles.sectionLabel}>Nouvelle classe</p>
-                <h2>Créer une classe</h2>
-              </div>
-            </div>
-            <form onSubmit={handleCreateRoom} className={styles.teacherForm}>
-              <label className={styles.formField}>
-                <span>Nom de la classe</span>
-                <input
-                  type="text"
-                  value={roomName}
-                  onChange={(event) => setRoomName(event.target.value)}
-                  placeholder="Licence 1 Informatique"
-                />
-              </label>
-              <label className={styles.formField}>
-                <span>Description</span>
-                <textarea
-                  className={styles.formTextarea}
-                  rows={4}
-                  value={roomDescription}
-                  onChange={(event) => setRoomDescription(event.target.value)}
-                  placeholder="Filiere, niveau, objectif pedagogique et organisation"
-                />
-              </label>
-              <button
-                type="submit"
-                className={styles.submitButton}
-                disabled={creatingRoom}
-              >
-                {creatingRoom ? "Création..." : "Créer la classe"}
-              </button>
-            </form>
-          </section>
-        </section>
         ) : null}
 
         {activeView === "courses" ? (
