@@ -105,12 +105,20 @@ type TeacherRoomDetail = {
     submissionCount?: number;
     pendingCount?: number;
     reviewedCount?: number;
+    files?: Array<{
+      id: string;
+      name: string;
+      file_path: string;
+      file_type?: string | null;
+    }>;
   }>;
   recentSubmissions?: Array<{
     id: string;
     status: string;
     submittedAt?: string | null;
     score?: number | null;
+    content?: string | null;
+    filePath?: string | null;
     assignmentTitle: string;
     studentName: string;
   }>;
@@ -237,6 +245,26 @@ export default function DashboardPage() {
       .join("/");
     return `${storageBaseUrl}/course-thumbnails/${encodedPath}`;
   };
+  const getAssignmentFileUrl = (path: unknown) => {
+    const value = String(path ?? "").trim();
+    if (!value) return "";
+    if (value.startsWith("http://") || value.startsWith("https://")) {
+      return value;
+    }
+
+    const encodedPath = value
+      .split("/")
+      .filter(Boolean)
+      .map((segment) => encodeURIComponent(segment))
+      .join("/");
+    return `${storageBaseUrl}/assignment-files/${encodedPath}`;
+  };
+  const getFileNameFromPath = (path: unknown) => {
+    const value = String(path ?? "").trim();
+    if (!value) return "";
+    const last = value.split("/").pop() ?? value;
+    return last.replace(/^\d+-/, "");
+  };
   const [user] = useState<StoredUser | null>(() => {
     if (typeof window === "undefined") return null;
     const rawUser = localStorage.getItem("kalatty_user");
@@ -263,6 +291,20 @@ export default function DashboardPage() {
   const [enrollingCourseId, setEnrollingCourseId] = useState("");
   const [checkingInRoomId, setCheckingInRoomId] = useState("");
   const [attendanceMessage, setAttendanceMessage] = useState("");
+  const [selectedStudentRoomId, setSelectedStudentRoomId] = useState("");
+  const [studentRoomAssignments, setStudentRoomAssignments] = useState<
+    Array<Record<string, unknown>>
+  >([]);
+  const [loadingStudentAssignments, setLoadingStudentAssignments] =
+    useState(false);
+  const [submissionDrafts, setSubmissionDrafts] = useState<
+    Record<string, string>
+  >({});
+  const [submissionFiles, setSubmissionFiles] = useState<
+    Record<string, File | null>
+  >({});
+  const [submittingAssignmentId, setSubmittingAssignmentId] = useState("");
+  const [submissionMessage, setSubmissionMessage] = useState("");
   const [profileMessage, setProfileMessage] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -272,6 +314,8 @@ export default function DashboardPage() {
   const [teacherAssignmentTitle, setTeacherAssignmentTitle] = useState("");
   const [teacherAssignmentInstructions, setTeacherAssignmentInstructions] =
     useState("");
+  const [teacherAssignmentFile, setTeacherAssignmentFile] =
+    useState<File | null>(null);
   const [teacherActionMessage, setTeacherActionMessage] = useState("");
   const [editingTeacherCourseId, setEditingTeacherCourseId] = useState("");
   const [teacherCourseToAssign, setTeacherCourseToAssign] = useState("");
@@ -1203,6 +1247,138 @@ export default function DashboardPage() {
     void loadTeacherRoom();
   }, [apiBaseUrl, role, selectedTeacherRoomId, teacherRooms]);
 
+  useEffect(() => {
+    const token = localStorage.getItem("kalatty_token");
+    if (!token || !selectedStudentRoomId || role !== "student") {
+      setStudentRoomAssignments([]);
+      return;
+    }
+
+    const loadAssignments = async () => {
+      setLoadingStudentAssignments(true);
+      try {
+        const res = await fetch(
+          `${apiBaseUrl}/institutions/rooms/${selectedStudentRoomId}/my-assignments`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+        const data = await res.json();
+
+        if (!res.ok) {
+          setSubmissionMessage(
+            typeof data.message === "string"
+              ? data.message
+              : "Impossible de charger les devoirs de cette classe.",
+          );
+          setStudentRoomAssignments([]);
+          return;
+        }
+
+        setStudentRoomAssignments(Array.isArray(data) ? data : []);
+      } catch {
+        setSubmissionMessage("Les devoirs de cette classe n'ont pas pu etre charges.");
+        setStudentRoomAssignments([]);
+      } finally {
+        setLoadingStudentAssignments(false);
+      }
+    };
+
+    void loadAssignments();
+  }, [apiBaseUrl, role, selectedStudentRoomId]);
+
+  const handleSubmitAssignment = async (assignmentId: string) => {
+    const token = localStorage.getItem("kalatty_token");
+    if (!token || !selectedStudentRoomId) {
+      setSubmissionMessage("Session introuvable. Reconnecte-toi.");
+      return;
+    }
+
+    const content = (submissionDrafts[assignmentId] ?? "").trim();
+    const file = submissionFiles[assignmentId] ?? null;
+
+    if (!content && !file) {
+      setSubmissionMessage("Ajoute un texte ou un fichier avant de rendre ce devoir.");
+      return;
+    }
+
+    setSubmittingAssignmentId(assignmentId);
+    setSubmissionMessage("");
+
+    try {
+      let filePath = "";
+
+      if (file) {
+        const formData = new FormData();
+        formData.append("file", file);
+        const uploadRes = await fetch(
+          `${apiBaseUrl}/institutions/rooms/${selectedStudentRoomId}/submission-files`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            body: formData,
+          },
+        );
+        const uploadData = await uploadRes.json();
+
+        if (!uploadRes.ok) {
+          setSubmissionMessage(
+            typeof uploadData.message === "string"
+              ? uploadData.message
+              : "L'envoi du fichier a echoue.",
+          );
+          return;
+        }
+
+        filePath = String(uploadData.path ?? "");
+      }
+
+      const res = await fetch(
+        `${apiBaseUrl}/institutions/rooms/${selectedStudentRoomId}/assignments/${assignmentId}/submissions`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            content: content || undefined,
+            file_path: filePath || undefined,
+          }),
+        },
+      );
+      const data = await res.json();
+
+      if (!res.ok) {
+        setSubmissionMessage(
+          typeof data.message === "string"
+            ? data.message
+            : "Impossible de rendre ce devoir.",
+        );
+        return;
+      }
+
+      setSubmissionMessage("Devoir rendu avec succes.");
+      setStudentRoomAssignments((current) =>
+        current.map((assignment) =>
+          String(assignment.id) === assignmentId
+            ? { ...assignment, mySubmission: data }
+            : assignment,
+        ),
+      );
+      setSubmissionDrafts((current) => ({ ...current, [assignmentId]: "" }));
+      setSubmissionFiles((current) => ({ ...current, [assignmentId]: null }));
+    } catch {
+      setSubmissionMessage("Le rendu du devoir a echoue.");
+    } finally {
+      setSubmittingAssignmentId("");
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem("kalatty_token");
     localStorage.removeItem("kalatty_user");
@@ -1482,6 +1658,40 @@ export default function DashboardPage() {
     setTeacherActionMessage("");
 
     try {
+      let attachment: { path: string; name: string; mimetype: string } | null =
+        null;
+
+      if (teacherAssignmentFile) {
+        const formData = new FormData();
+        formData.append("file", teacherAssignmentFile);
+        const uploadRes = await fetch(
+          `${apiBaseUrl}/institutions/rooms/${selectedTeacherRoomId}/assignment-files`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            body: formData,
+          },
+        );
+        const uploadData = await uploadRes.json();
+
+        if (!uploadRes.ok) {
+          setTeacherActionMessage(
+            typeof uploadData.message === "string"
+              ? uploadData.message
+              : "L'envoi de la piece jointe a echoue.",
+          );
+          return;
+        }
+
+        attachment = {
+          path: String(uploadData.path ?? ""),
+          name: String(uploadData.name ?? ""),
+          mimetype: String(uploadData.mimetype ?? ""),
+        };
+      }
+
       const res = await fetch(
         `${apiBaseUrl}/institutions/rooms/${selectedTeacherRoomId}/assignments`,
         {
@@ -1493,6 +1703,9 @@ export default function DashboardPage() {
           body: JSON.stringify({
             title: teacherAssignmentTitle,
             instructions: teacherAssignmentInstructions,
+            attachment_path: attachment?.path || undefined,
+            attachment_name: attachment?.name || undefined,
+            attachment_type: attachment?.mimetype || undefined,
           }),
         },
       );
@@ -1509,6 +1722,7 @@ export default function DashboardPage() {
 
       setTeacherAssignmentTitle("");
       setTeacherAssignmentInstructions("");
+      setTeacherAssignmentFile(null);
       setTeacherActionMessage("Devoir publie dans la classe.");
       await refreshTeacherRoom();
     } catch {
@@ -2856,22 +3070,219 @@ export default function DashboardPage() {
                               ? `Prochain creneau : ${roomNextSessionByName.get(String(room.name ?? ""))}`
                               : "Aucun creneau publie pour cette classe."}
                           </small>
-                          <button
-                            type="button"
-                            className={styles.catalogDetailLink}
-                            disabled={
-                              checkingInRoomId === String(room.id ?? "")
-                            }
-                            onClick={() =>
-                              void handleCheckInAttendance(
-                                String(room.id ?? ""),
-                              )
-                            }
-                          >
-                            {checkingInRoomId === String(room.id ?? "")
-                              ? "Signalement..."
-                              : "Signaler ma presence"}
-                          </button>
+                          <div className={styles.courseActionRow}>
+                            <button
+                              type="button"
+                              className={styles.catalogDetailLink}
+                              disabled={
+                                checkingInRoomId === String(room.id ?? "")
+                              }
+                              onClick={() =>
+                                void handleCheckInAttendance(
+                                  String(room.id ?? ""),
+                                )
+                              }
+                            >
+                              {checkingInRoomId === String(room.id ?? "")
+                                ? "Signalement..."
+                                : "Signaler ma presence"}
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.secondaryButton}
+                              onClick={() => {
+                                const roomId = String(room.id ?? "");
+                                setSubmissionMessage("");
+                                setSelectedStudentRoomId((current) =>
+                                  current === roomId ? "" : roomId,
+                                );
+                              }}
+                            >
+                              {selectedStudentRoomId === String(room.id ?? "")
+                                ? "Fermer mes devoirs"
+                                : "Voir mes devoirs"}
+                            </button>
+                          </div>
+
+                          {selectedStudentRoomId === String(room.id ?? "") ? (
+                            <div className={styles.roadmapList}>
+                              {loadingStudentAssignments ? (
+                                <p className={styles.paragraph}>
+                                  Chargement des devoirs...
+                                </p>
+                              ) : studentRoomAssignments.length === 0 ? (
+                                <p className={styles.paragraph}>
+                                  Aucun devoir publie dans cette classe pour
+                                  l&apos;instant.
+                                </p>
+                              ) : (
+                                studentRoomAssignments.map((assignment) => {
+                                  const assignmentId = String(
+                                    assignment.id ?? "",
+                                  );
+                                  const mySubmission = assignment.mySubmission as
+                                    | Record<string, unknown>
+                                    | null
+                                    | undefined;
+                                  const files = Array.isArray(
+                                    assignment.files,
+                                  )
+                                    ? (assignment.files as Array<
+                                        Record<string, unknown>
+                                      >)
+                                    : [];
+
+                                  return (
+                                    <article
+                                      key={assignmentId}
+                                      className={styles.roadmapItem}
+                                    >
+                                      <strong>
+                                        {String(
+                                          assignment.title ?? "Devoir",
+                                        )}
+                                      </strong>
+                                      {assignment.instructions ? (
+                                        <p>
+                                          {String(assignment.instructions)}
+                                        </p>
+                                      ) : null}
+                                      {assignment.due_at ? (
+                                        <small>
+                                          A rendre avant le{" "}
+                                          {new Date(
+                                            String(assignment.due_at),
+                                          ).toLocaleString("fr-FR")}
+                                        </small>
+                                      ) : null}
+                                      {files.length > 0 ? (
+                                        <p>
+                                          Piece(s) jointe(s) du prof :{" "}
+                                          {files.map((fileEntry, index) => (
+                                            <a
+                                              key={String(
+                                                fileEntry.id ?? index,
+                                              )}
+                                              href={getAssignmentFileUrl(
+                                                fileEntry.file_path,
+                                              )}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              className={
+                                                styles.catalogDetailLink
+                                              }
+                                            >
+                                              {String(
+                                                fileEntry.name ??
+                                                  "Fichier",
+                                              )}
+                                            </a>
+                                          ))}
+                                        </p>
+                                      ) : null}
+
+                                      {mySubmission ? (
+                                        <div>
+                                          <p>
+                                            {mySubmission.status ===
+                                            "reviewed"
+                                              ? `Corrige - Note : ${String(mySubmission.score ?? "?")}/${String(assignment.max_score ?? "?")}`
+                                              : "Rendu - en attente de correction"}
+                                          </p>
+                                          {mySubmission.feedback ? (
+                                            <p>
+                                              Retour du prof :{" "}
+                                              {String(mySubmission.feedback)}
+                                            </p>
+                                          ) : null}
+                                          {mySubmission.file_path ? (
+                                            <a
+                                              href={getAssignmentFileUrl(
+                                                mySubmission.file_path,
+                                              )}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              className={
+                                                styles.catalogDetailLink
+                                              }
+                                            >
+                                              Voir mon fichier rendu (
+                                              {getFileNameFromPath(
+                                                mySubmission.file_path,
+                                              )}
+                                              )
+                                            </a>
+                                          ) : null}
+                                        </div>
+                                      ) : null}
+
+                                      <label className={styles.formField}>
+                                        <span>
+                                          {mySubmission
+                                            ? "Modifier ma reponse"
+                                            : "Ma reponse"}
+                                        </span>
+                                        <textarea
+                                          className={styles.formTextarea}
+                                          rows={3}
+                                          value={
+                                            submissionDrafts[assignmentId] ??
+                                            String(
+                                              mySubmission?.content ?? "",
+                                            )
+                                          }
+                                          onChange={(event) =>
+                                            setSubmissionDrafts(
+                                              (current) => ({
+                                                ...current,
+                                                [assignmentId]:
+                                                  event.target.value,
+                                              }),
+                                            )
+                                          }
+                                          placeholder="Ecris ta reponse ou explique ton fichier joint."
+                                        />
+                                      </label>
+                                      <label className={styles.formField}>
+                                        <span>Fichier (optionnel)</span>
+                                        <input
+                                          type="file"
+                                          onChange={(event) =>
+                                            setSubmissionFiles((current) => ({
+                                              ...current,
+                                              [assignmentId]:
+                                                event.target.files?.[0] ??
+                                                null,
+                                            }))
+                                          }
+                                        />
+                                      </label>
+                                      <button
+                                        type="button"
+                                        className={styles.submitButton}
+                                        disabled={
+                                          submittingAssignmentId ===
+                                          assignmentId
+                                        }
+                                        onClick={() =>
+                                          void handleSubmitAssignment(
+                                            assignmentId,
+                                          )
+                                        }
+                                      >
+                                        {submittingAssignmentId ===
+                                        assignmentId
+                                          ? "Envoi..."
+                                          : mySubmission
+                                            ? "Renvoyer ce devoir"
+                                            : "Rendre ce devoir"}
+                                      </button>
+                                    </article>
+                                  );
+                                })
+                              )}
+                            </div>
+                          ) : null}
                         </article>
                       ))
                     ) : (
@@ -2885,6 +3296,11 @@ export default function DashboardPage() {
                   {attendanceMessage ? (
                     <p className={styles.inlineMessage}>
                       {attendanceMessage}
+                    </p>
+                  ) : null}
+                  {submissionMessage ? (
+                    <p className={styles.inlineMessage}>
+                      {submissionMessage}
                     </p>
                   ) : null}
                 </section>
@@ -3509,6 +3925,17 @@ export default function DashboardPage() {
                                   placeholder="Consignes de rendu, fichier attendu, date et modalites."
                                 />
                               </label>
+                              <label className={styles.formField}>
+                                <span>Piece jointe (optionnel)</span>
+                                <input
+                                  type="file"
+                                  onChange={(event) =>
+                                    setTeacherAssignmentFile(
+                                      event.target.files?.[0] ?? null,
+                                    )
+                                  }
+                                />
+                              </label>
                               <button
                                 type="submit"
                                 className={styles.submitButton}
@@ -3516,6 +3943,48 @@ export default function DashboardPage() {
                                 Publier le devoir
                               </button>
                             </form>
+                            {(teacherRoomDetail.assignments ?? []).length >
+                            0 ? (
+                              <div className={styles.roadmapList}>
+                                {(teacherRoomDetail.assignments ?? []).map(
+                                  (assignment) => (
+                                    <article
+                                      key={assignment.id}
+                                      className={styles.roadmapItem}
+                                    >
+                                      <strong>{assignment.title}</strong>
+                                      <small>
+                                        {Number(
+                                          assignment.pendingCount ?? 0,
+                                        )}{" "}
+                                        en attente sur{" "}
+                                        {Number(
+                                          assignment.submissionCount ?? 0,
+                                        )}{" "}
+                                        remise(s)
+                                      </small>
+                                      {(assignment.files ?? []).map(
+                                        (fileEntry) => (
+                                          <a
+                                            key={fileEntry.id}
+                                            href={getAssignmentFileUrl(
+                                              fileEntry.file_path,
+                                            )}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className={
+                                              styles.catalogDetailLink
+                                            }
+                                          >
+                                            {fileEntry.name}
+                                          </a>
+                                        ),
+                                      )}
+                                    </article>
+                                  ),
+                                )}
+                              </div>
+                            ) : null}
                           </section>
 
                           <section className={styles.card}>
@@ -3834,6 +4303,25 @@ export default function DashboardPage() {
                                   >
                                     <strong>{submission.studentName}</strong>
                                     <p>{submission.assignmentTitle}</p>
+                                    {submission.content ? (
+                                      <p>{submission.content}</p>
+                                    ) : null}
+                                    {submission.filePath ? (
+                                      <a
+                                        href={getAssignmentFileUrl(
+                                          submission.filePath,
+                                        )}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className={styles.catalogDetailLink}
+                                      >
+                                        Voir le fichier rendu (
+                                        {getFileNameFromPath(
+                                          submission.filePath,
+                                        )}
+                                        )
+                                      </a>
+                                    ) : null}
                                     <small>
                                       {submission.status}
                                       {submission.score !== null &&

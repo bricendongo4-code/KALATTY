@@ -787,6 +787,8 @@ export class InstitutionsService {
               status,
               submitted_at,
               score,
+              content,
+              file_path,
               assignments ( title ),
               profiles:student_id ( fullname, email )
             `,
@@ -904,6 +906,8 @@ export class InstitutionsService {
         status: submission.status,
         submittedAt: submission.submitted_at,
         score: submission.score,
+        content: submission.content ?? null,
+        filePath: submission.file_path ?? null,
         assignmentTitle:
           (Array.isArray(submission.assignments)
             ? submission.assignments[0]
@@ -1243,6 +1247,182 @@ export class InstitutionsService {
     }
 
     return data.role;
+  }
+
+  async getRoomAssignmentsForStudent(user: AuthUser, roomId: string) {
+    await this.getRoomOrThrow(roomId);
+    await this.assertRoomStudent(user.id, roomId);
+
+    const { data: assignments, error: assignmentsError } =
+      await this.supabaseService.client
+        .from('assignments')
+        .select(
+          'id, title, instructions, status, due_at, max_score, created_at, assignment_files ( id, name, file_path, file_type )',
+        )
+        .eq('room_id', roomId)
+        .order('created_at', { ascending: false });
+
+    if (assignmentsError) {
+      throw new BadRequestException(assignmentsError.message);
+    }
+
+    const assignmentIds = (assignments ?? []).map((item: any) => item.id);
+
+    const { data: mySubmissions, error: submissionsError } =
+      assignmentIds.length
+        ? await this.supabaseService.client
+            .from('assignment_submissions')
+            .select(
+              'id, assignment_id, content, file_path, status, submitted_at, score, feedback',
+            )
+            .eq('student_id', user.id)
+            .in('assignment_id', assignmentIds)
+        : { data: [], error: null };
+
+    if (submissionsError) {
+      throw new BadRequestException(submissionsError.message);
+    }
+
+    const submissionByAssignmentId = new Map<string, any>(
+      (mySubmissions ?? []).map(
+        (submission: any) =>
+          [String(submission.assignment_id), submission] as [string, any],
+      ),
+    );
+
+    return (assignments ?? []).map((assignment: any) => ({
+      ...assignment,
+      files: assignment.assignment_files ?? [],
+      mySubmission: submissionByAssignmentId.get(String(assignment.id)) ?? null,
+    }));
+  }
+
+  async submitAssignment(
+    user: AuthUser,
+    roomId: string,
+    assignmentId: string,
+    payload: { content?: string; file_path?: string },
+  ) {
+    await this.getRoomOrThrow(roomId);
+    await this.assertRoomStudent(user.id, roomId);
+
+    const { data: assignment, error: assignmentError } =
+      await this.supabaseService.client
+        .from('assignments')
+        .select('id')
+        .eq('id', assignmentId)
+        .eq('room_id', roomId)
+        .maybeSingle();
+
+    if (assignmentError) {
+      throw new BadRequestException(assignmentError.message);
+    }
+
+    if (!assignment) {
+      throw new NotFoundException('Devoir introuvable pour cette classe.');
+    }
+
+    const content = payload.content?.trim() || null;
+    const filePath = payload.file_path?.trim() || null;
+
+    if (!content && !filePath) {
+      throw new BadRequestException(
+        'Ajoute un texte ou un fichier avant de rendre ce devoir.',
+      );
+    }
+
+    const { data: existing, error: existingError } =
+      await this.supabaseService.client
+        .from('assignment_submissions')
+        .select('id')
+        .eq('assignment_id', assignmentId)
+        .eq('student_id', user.id)
+        .maybeSingle();
+
+    if (existingError) {
+      throw new BadRequestException(existingError.message);
+    }
+
+    const submissionPayload = {
+      assignment_id: assignmentId,
+      student_id: user.id,
+      content,
+      file_path: filePath,
+      status: 'submitted',
+      submitted_at: new Date().toISOString(),
+    };
+
+    const { data, error } = existing
+      ? await this.supabaseService.client
+          .from('assignment_submissions')
+          .update(submissionPayload)
+          .eq('id', existing.id)
+          .select('*')
+          .single()
+      : await this.supabaseService.client
+          .from('assignment_submissions')
+          .insert(submissionPayload)
+          .select('*')
+          .single();
+
+    if (error || !data) {
+      throw new BadRequestException(
+        error?.message ?? "Impossible d'enregistrer ta remise.",
+      );
+    }
+
+    return data;
+  }
+
+  async uploadSubmissionFile(
+    user: AuthUser,
+    roomId: string,
+    file: UploadedAsset,
+  ) {
+    const room = await this.getRoomOrThrow(roomId);
+    await this.assertRoomStudent(user.id, roomId);
+
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('Le fichier envoye est vide.');
+    }
+
+    const allowedMimeTypes = new Set([
+      'application/pdf',
+      'image/png',
+      'image/jpeg',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ]);
+
+    if (!allowedMimeTypes.has(file.mimetype)) {
+      throw new BadRequestException(
+        'La remise doit etre un PDF, une image ou un document Word.',
+      );
+    }
+
+    const safeName = this.sanitizeFilename(file.originalname || 'remise.pdf');
+    const filePath = `${room.institution_id}/${roomId}/submissions/${user.id}/${Date.now()}-${safeName}`;
+    const { error } = await this.supabaseService.client.storage
+      .from('assignment-files')
+      .upload(filePath, file.buffer, {
+        contentType: file.mimetype,
+        upsert: false,
+      });
+
+    if (error) {
+      throw new BadRequestException(
+        error.message ??
+          "L'upload de la remise a echoue. Verifie le bucket assignment-files.",
+      );
+    }
+
+    return {
+      bucket: 'assignment-files',
+      path: filePath,
+      name: file.originalname || safeName,
+      mimetype: file.mimetype,
+      size: file.size,
+    };
   }
 
   private getAppTimeParts(date: Date) {

@@ -23,4 +23,16 @@ export class CreateAssignmentDto {
   @IsOptional()
   @IsInt()
   max_score?: number;
+
+  @IsOptional()
+  @IsString()
+  attachment_path?: string;
+
+  @IsOptional()
+  @IsString()
+  attachment_name?: string;
+
+  @IsOptional()
+  @IsString()
+  attachment_type?: string;
 }

@@ -28,6 +28,7 @@ import { CreateAttendanceSessionDto } from './dto/create-attendance-session.dto'
 import { SetRoomMemberStatusDto } from './dto/set-room-member-status.dto';
 import { CreateRoomInviteDto } from './dto/create-room-invite.dto';
 import { ReviewSubmissionDto } from './dto/review-submission.dto';
+import { SubmitAssignmentDto } from './dto/submit-assignment.dto';
 import { UpdateInstitutionDto } from './dto/update-institution.dto';
 
 type RequestUser = {
@@ -171,6 +172,43 @@ export class InstitutionsController {
     @UploadedFile() file: UploadedAsset,
   ) {
     return this.institutionsService.uploadAssignmentFile(
+      req.user,
+      roomId,
+      file,
+    );
+  }
+
+  @Get('rooms/:roomId/my-assignments')
+  getMyAssignments(@Req() req: RequestUser, @Param('roomId') roomId: string) {
+    return this.institutionsService.getRoomAssignmentsForStudent(
+      req.user,
+      roomId,
+    );
+  }
+
+  @Post('rooms/:roomId/assignments/:assignmentId/submissions')
+  submitAssignment(
+    @Req() req: RequestUser,
+    @Param('roomId') roomId: string,
+    @Param('assignmentId') assignmentId: string,
+    @Body() body: SubmitAssignmentDto,
+  ) {
+    return this.institutionsService.submitAssignment(
+      req.user,
+      roomId,
+      assignmentId,
+      body,
+    );
+  }
+
+  @Post('rooms/:roomId/submission-files')
+  @UseInterceptors(FileInterceptor('file'))
+  uploadSubmissionFile(
+    @Req() req: RequestUser,
+    @Param('roomId') roomId: string,
+    @UploadedFile() file: UploadedAsset,
+  ) {
+    return this.institutionsService.uploadSubmissionFile(
       req.user,
       roomId,
       file,
