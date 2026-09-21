@@ -28,6 +28,12 @@
   }
 }
 
+@media (max-width: 639px) {
+  .dashboardMasthead {
+    padding-top: 3.9rem;
+  }
+}
+
 .dashboardMastheadBrand {
   display: flex;
   align-items: center;
