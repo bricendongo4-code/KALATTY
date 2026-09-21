@@ -28,12 +28,6 @@
   }
 }
 
-@media (max-width: 639px) {
-  .dashboardMasthead {
-    padding-top: 3.9rem;
-  }
-}
-
 .dashboardMastheadBrand {
   display: flex;
   align-items: center;
@@ -3583,7 +3577,7 @@ button.roadmapItem {
   }
 
   .dashboardMasthead {
-    padding: 0.85rem;
+    padding: 3.7rem 0.85rem 0.85rem;
   }
 
   .dashboardBrandLink {
