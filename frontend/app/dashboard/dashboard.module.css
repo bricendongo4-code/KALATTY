@@ -21,6 +21,13 @@
   box-shadow: var(--shadow);
 }
 
+/* Le bouton "Retour" global est fixe en haut a gauche : on laisse sa place. */
+@media (min-width: 640px) {
+  .dashboardMasthead {
+    padding-left: 7.4rem;
+  }
+}
+
 .dashboardMastheadBrand {
   display: flex;
   align-items: center;
@@ -965,6 +972,12 @@
   font-size: clamp(2rem, 4vw, 3rem);
   line-height: 1;
   font-family: var(--font-serif), serif;
+  color: #fff;
+}
+
+.institutionHeroLead .courseMetaGrid span {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .institutionHeroLead .paragraph {
