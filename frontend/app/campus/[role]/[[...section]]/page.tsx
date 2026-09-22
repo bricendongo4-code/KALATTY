@@ -3,15 +3,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import styles from "../../campus.module.css";
 import { ROLES, isRoleSlug } from "../../roles";
-import type { RoleSlug } from "../../roles";
 import Shell from "../../Shell";
 import { Icon } from "../../ui";
-import {
-  DirectionHome,
-  PedagogyHome,
-  StudentHome,
-  TeacherHome,
-} from "../../views";
+import CampusHome from "../../CampusHome";
 
 type Params = Promise<{ role: string; section?: string[] }>;
 
@@ -25,13 +19,6 @@ export async function generateMetadata({
   return { title: `${ROLES[role].topTitle} - Kalatty` };
 }
 
-const HOMES: Record<RoleSlug, () => React.JSX.Element> = {
-  etudiant: StudentHome,
-  professeur: TeacherHome,
-  pedagogie: PedagogyHome,
-  direction: DirectionHome,
-};
-
 export default async function CampusRolePage({ params }: { params: Params }) {
   const { role, section } = await params;
   if (!isRoleSlug(role)) notFound();
@@ -41,28 +28,26 @@ export default async function CampusRolePage({ params }: { params: Params }) {
   const item = [...cfg.nav, ...cfg.foot].find((n) => n.slug === slug);
   if (!item) notFound();
 
-  const Home = HOMES[role];
+  if (slug === "") {
+    return <CampusHome role={role} />;
+  }
 
   return (
     <Shell role={role} activeSlug={slug}>
-      {slug === "" ? (
-        <Home />
-      ) : (
-        <section className={`${styles.card} ${styles.soon}`}>
-          <Icon name={item.icon} className={styles.navIcon} />
-          <h2>{item.label}</h2>
-          <p>
-            Cet écran fait partie du plan de l&apos;Espace Établissement mais
-            n&apos;est pas encore construit. L&apos;accueil de chaque rôle est
-            disponible ; les sections détaillées arrivent par étapes, en
-            commençant par celles qui portent la chaîne « séance, appel, devoir,
-            note ».
-          </p>
-          <Link href={`/campus/${role}`} className={styles.btn}>
-            Retour à l&apos;accueil
-          </Link>
-        </section>
-      )}
+      <section className={`${styles.card} ${styles.soon}`}>
+        <Icon name={item.icon} className={styles.navIcon} />
+        <h2>{item.label}</h2>
+        <p>
+          Cet écran fait partie du plan de l&apos;Espace Établissement mais
+          n&apos;est pas encore construit. L&apos;accueil de chaque rôle est
+          disponible ; les sections détaillées arrivent par étapes, en
+          commençant par celles qui portent la chaîne « séance, appel, devoir,
+          note ».
+        </p>
+        <Link href={`/campus/${role}`} className={styles.btn}>
+          Retour à l&apos;accueil
+        </Link>
+      </section>
     </Shell>
   );
 }

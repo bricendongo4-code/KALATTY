@@ -13,12 +13,28 @@ export default function Shell({
   role,
   activeSlug,
   children,
+  displayName,
+  institutionName,
+  notifications,
+  note,
 }: {
   role: RoleSlug;
   activeSlug: string;
   children: ReactNode;
+  /** Nom reel de l'utilisateur connecte (sinon repli sur le nom de demo). */
+  displayName?: string;
+  institutionName?: string;
+  notifications?: number;
+  /** Bandeau sous la barre du haut ; null le masque. */
+  note?: string | null;
 }) {
   const cfg = ROLES[role];
+  const user = displayName
+    ? { name: displayName, sub: institutionName ?? cfg.user.sub }
+    : cfg.user;
+  const notifCount = notifications ?? cfg.notifications;
+  const noteText =
+    note === undefined ? "Connecte a vos donnees Kalatty en temps reel." : note;
   const [open, setOpen] = useState(false);
   const href = (slug: string) =>
     slug ? `/campus/${role}/${slug}` : `/campus/${role}`;
@@ -97,26 +113,27 @@ export default function Shell({
             <button
               type="button"
               className={styles.bell}
-              aria-label={`${cfg.notifications} notifications`}
+              aria-label={`${notifCount} notifications`}
             >
               <Icon name="bell" />
-              <span className={styles.bellDot}>{cfg.notifications}</span>
+              {notifCount > 0 ? (
+                <span className={styles.bellDot}>{notifCount}</span>
+              ) : null}
             </button>
             <div className={styles.userChip}>
-              <Avatar name={cfg.user.name} size={38} />
+              <Avatar name={user.name} size={38} />
               <span className={styles.userText}>
-                <strong>{cfg.user.name}</strong>
-                <small>{cfg.user.sub}</small>
+                <strong>{user.name}</strong>
+                <small>{user.sub}</small>
               </span>
             </div>
           </div>
         </header>
 
         <main className={styles.content}>
-          <span className={styles.demoNote}>
-            Maquette interactive : données de démonstration, branchement sur les
-            vraies données en cours
-          </span>
+          {noteText ? (
+            <span className={styles.demoNote}>{noteText}</span>
+          ) : null}
           {children}
         </main>
       </div>

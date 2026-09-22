@@ -1,5 +1,9 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
 import styles from "./campus.module.css";
+import { campusFetch } from "./useCampusHome";
 import {
   Avatar,
   Badge,
@@ -15,8 +19,9 @@ import {
   colorForValue,
 } from "./ui";
 
-/* Données de démonstration : reprises de la maquette validée. Elles seront remplacées
-   par les données réelles (API) lors du branchement de la logique. */
+/* Les composants ci-dessous rendent les donnees reelles renvoyees par
+   GET /campus/home (voir backend/src/campus/campus.service.ts). Chaque
+   section prevoit un etat vide honnete plutot que des valeurs inventees. */
 
 function todayLabel() {
   const d = new Date();
@@ -31,43 +36,73 @@ function todayLabel() {
   return { weekday: weekday.charAt(0).toUpperCase() + weekday.slice(1), rest };
 }
 
+function relativeTime(iso: string) {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const hours = Math.round(diffMs / 3_600_000);
+  if (hours < 1) return "À l'instant";
+  if (hours < 24) return `Il y a ${hours} h`;
+  const days = Math.round(hours / 24);
+  return days === 1 ? "Hier" : `Il y a ${days} j`;
+}
+
+function formatDueDate(iso: string | null) {
+  if (!iso) return "Sans échéance";
+  return `À rendre le ${new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" }).format(new Date(iso))}`;
+}
+
+function Empty({ children }: { children: React.ReactNode }) {
+  return (
+    <p style={{ color: "var(--muted)", fontSize: 13, padding: "8px 0" }}>
+      {children}
+    </p>
+  );
+}
+
+const STATUS_BADGE = {
+  live: <Badge kind="live">En cours</Badge>,
+  upcoming: <Badge kind="soon">À venir</Badge>,
+  done: <Badge kind="info">Terminé</Badge>,
+} as const;
+
 /* =====================================================================
-   ÉTUDIANT : « Qu'est-ce que je dois faire aujourd'hui ? »
+   ÉTUDIANT
    ===================================================================== */
-export function StudentHome() {
+export type StudentHomeData = {
+  today: Array<{
+    id: string;
+    title: string;
+    room: string;
+    location: string | null;
+    startsAt: string;
+    endsAt: string | null;
+    status: "live" | "upcoming" | "done";
+  }>;
+  todayCount: number;
+  pendingWork: Array<{
+    id: string;
+    title: string;
+    room: string;
+    dueAt: string | null;
+  }>;
+  pendingWorkCount: number;
+  upcomingEvalCount: number;
+  progressPct: number;
+  messages: Array<{
+    id: string;
+    title: string;
+    body: string;
+    createdAt: string;
+  }>;
+  announcement: { title: string; body: string } | null;
+};
+
+export function StudentHome({ data }: { data: StudentHomeData }) {
   const { weekday, rest } = todayLabel();
-  const day = [
-    {
-      time: "08:00 - 09:30",
-      title: "Marketing",
-      sub: "Salle A04 • Mme Martin",
-      badge: <Badge kind="live">En cours</Badge>,
-      live: true,
-    },
-    {
-      time: "10:00 - 11:30",
-      title: "Gestion commerciale",
-      sub: "Salle B12 • M. Diallo",
-      badge: <Badge kind="soon">À venir</Badge>,
-    },
-    {
-      time: "13:30 - 14:30",
-      title: "Anglais professionnel",
-      sub: "Salle A06 • Mme Lopez",
-      badge: <Badge kind="soon">À venir</Badge>,
-    },
-    {
-      time: "15:00 - 16:30",
-      title: "Projet tutoré",
-      sub: "Salle C01 • M. Nguema",
-      badge: <Badge kind="soon">À venir</Badge>,
-    },
-  ];
   return (
     <>
       <section className={styles.banner}>
         <div>
-          <h1 className={styles.bannerTitle}>Bonjour Joss 👋</h1>
+          <h1 className={styles.bannerTitle}>Bonjour 👋</h1>
           <p className={styles.bannerText}>
             Une nouvelle journée pour progresser !
           </p>
@@ -89,7 +124,7 @@ export function StudentHome() {
         <Kpi
           icon="calendar"
           tone="blue"
-          value="5"
+          value={String(data.todayCount)}
           label="Cours aujourd'hui"
           link={{
             label: "Voir mon emploi du temps",
@@ -99,14 +134,14 @@ export function StudentHome() {
         <Kpi
           icon="edit"
           tone="orange"
-          value="2"
+          value={String(data.pendingWorkCount)}
           label="Travaux à rendre"
           link={{ label: "Voir mes travaux", href: "/campus/etudiant/travaux" }}
         />
         <Kpi
           icon="clipboard"
           tone="violet"
-          value="1"
+          value={String(data.upcomingEvalCount)}
           label="Évaluation à venir"
           link={{
             label: "Voir mes évaluations",
@@ -116,7 +151,7 @@ export function StudentHome() {
         <Kpi
           icon="chart"
           tone="green"
-          value="78%"
+          value={`${data.progressPct}%`}
           label="Progression globale"
           link={{
             label: "Voir mes statistiques",
@@ -134,21 +169,28 @@ export function StudentHome() {
               href: "/campus/etudiant/emploi-du-temps",
             }}
           >
-            <ol className={styles.timeline}>
-              {day.map((s) => (
-                <li key={s.time} className={styles.tlItem}>
-                  <span className={styles.tlTime}>{s.time}</span>
-                  <span
-                    className={`${styles.tlDot} ${s.live ? styles.tlDotLive : ""}`}
-                  />
-                  <span className={styles.tlBody}>
-                    <strong>{s.title}</strong>
-                    <small>{s.sub}</small>
-                  </span>
-                  {s.badge}
-                </li>
-              ))}
-            </ol>
+            {data.today.length === 0 ? (
+              <Empty>Aucun cours programmé aujourd&apos;hui.</Empty>
+            ) : (
+              <ol className={styles.timeline}>
+                {data.today.map((s) => (
+                  <li key={s.id} className={styles.tlItem}>
+                    <span className={styles.tlTime}>
+                      {s.startsAt}
+                      {s.endsAt ? ` - ${s.endsAt}` : ""}
+                    </span>
+                    <span
+                      className={`${styles.tlDot} ${s.status === "live" ? styles.tlDotLive : ""}`}
+                    />
+                    <span className={styles.tlBody}>
+                      <strong>{s.title}</strong>
+                      <small>{s.room}</small>
+                    </span>
+                    {STATUS_BADGE[s.status]}
+                  </li>
+                ))}
+              </ol>
+            )}
             <Link
               href="/campus/etudiant/emploi-du-temps"
               className={`${styles.btn} ${styles.btnGhost} ${styles.btnBlock}`}
@@ -162,97 +204,312 @@ export function StudentHome() {
           title="Mes travaux"
           link={{ label: "Voir tout", href: "/campus/etudiant/travaux" }}
         >
-          <ul className={styles.list}>
-            <Row
-              lead={<RowIcon icon="edit" tone="red" />}
-              title="Étude de cas : segmentation"
-              sub="Marketing • À rendre aujourd'hui"
-              side={<Badge kind="urgent">Urgent</Badge>}
-            />
-            <Row
-              lead={<RowIcon icon="book" tone="orange" />}
-              title="Fiche de lecture"
-              sub="Gestion commerciale • À rendre le 18 sept."
-              chevron
-            />
-            <Row
-              lead={<RowIcon icon="megaphone" tone="violet" />}
-              title="Présentation orale"
-              sub="Anglais professionnel • À rendre le 22 sept."
-              chevron
-            />
-          </ul>
+          {data.pendingWork.length === 0 ? (
+            <Empty>Aucun travail en attente : tu es à jour.</Empty>
+          ) : (
+            <ul className={styles.list}>
+              {data.pendingWork.slice(0, 4).map((w) => (
+                <Row
+                  key={w.id}
+                  lead={<RowIcon icon="edit" tone="red" />}
+                  title={w.title}
+                  sub={`${w.room} • ${formatDueDate(w.dueAt)}`}
+                  chevron
+                />
+              ))}
+            </ul>
+          )}
         </Card>
 
         <Card
           title="Messages récents"
           link={{ label: "Voir tout", href: "/campus/etudiant/messagerie" }}
         >
-          <ul className={styles.list}>
-            <Row
-              lead={<Avatar name="Mme Martin" />}
-              title="Mme Martin"
-              sub="Supports du cours de demain"
-              side="Il y a 1 h"
-            />
-            <Row
-              lead={<Avatar name="M. Diallo" />}
-              title="M. Diallo"
-              sub="Correction disponible"
-              side="Il y a 3 h"
-            />
-            <Row
-              lead={<Avatar name="Classe BTS MCO 1" />}
-              title="Classe BTS MCO 1"
-              sub="Nouvelle annonce"
-              side="Hier"
-            />
-          </ul>
+          {data.messages.length === 0 ? (
+            <Empty>Aucun message pour l&apos;instant.</Empty>
+          ) : (
+            <ul className={styles.list}>
+              {data.messages.map((m) => (
+                <Row
+                  key={m.id}
+                  lead={<RowIcon icon="mail" tone="blue" />}
+                  title={m.title}
+                  sub={m.body}
+                  side={relativeTime(m.createdAt)}
+                />
+              ))}
+            </ul>
+          )}
         </Card>
 
-        <div className={styles.span2}>
-          <div className={styles.resource}>
-            <span className={styles.resourceCover}>
-              <Icon name="book" />
-            </span>
-            <span>
-              <small>Ressources recommandées</small>
-              <strong>Marketing digital : les fondamentaux</strong>
-            </span>
-            <Link
-              href="/campus/etudiant/ressources"
-              className={`${styles.btn} ${styles.btnOrange}`}
-            >
-              Accéder
-            </Link>
+        {data.announcement ? (
+          <div className={styles.span2}>
+            <div className={styles.resource}>
+              <span className={styles.resourceCover}>
+                <Icon name="megaphone" />
+              </span>
+              <span>
+                <small>Actualité de l&apos;établissement</small>
+                <strong>{data.announcement.title}</strong>
+              </span>
+            </div>
           </div>
-        </div>
+        ) : null}
       </div>
     </>
   );
 }
 
 /* =====================================================================
-   PROFESSEUR : cockpit du jour
+   PROFESSEUR
    ===================================================================== */
-export function TeacherHome() {
-  const classes = [
-    { name: "BTS MCO 1", info: "28 étudiants • Marketing", value: 72 },
-    { name: "BTS MCO 2", info: "26 étudiants • Marketing", value: 58 },
-    { name: "BTS NDRC 1", info: "30 étudiants • Stratégie", value: 65 },
-    { name: "BTS NDRC 2", info: "24 étudiants • Communication", value: 47 },
+export type TeacherHomeData = {
+  classes: Array<{
+    roomId: string;
+    roomSubjectId: string | null;
+    name: string;
+    subject: string;
+    studentsCount: number;
+    progressPct: number;
+  }>;
+  todayCount: number;
+  totalStudents: number;
+  toCorrect: number;
+  upcomingEvalCount: number;
+  nextCourse: {
+    roomId: string;
+    title: string;
+    room: string;
+    startsAt: string;
+    endsAt: string | null;
+    status: "live" | "upcoming" | "done";
+    studentsCount: number;
+    roomSubjectId: string | null;
+    sessionId: string | null;
+    sessionStatus: string | null;
+  } | null;
+  watch: Array<{
+    id: string;
+    name: string;
+    reason: string;
+    kind: "bad" | "warn" | "ok";
+  }>;
+};
+
+type RosterEntry = {
+  studentId: string;
+  name: string;
+  status: string | null;
+  note: string | null;
+};
+
+function SessionPanel({
+  roomId,
+  roomSubjectId,
+  onDone,
+}: {
+  roomId: string;
+  roomSubjectId: string;
+  onDone: () => void;
+}) {
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [roster, setRoster] = useState<RosterEntry[] | null>(null);
+  const [content, setContent] = useState("");
+  const [homework, setHomework] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const start = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const started = await campusFetch(
+        `/campus/rooms/${roomId}/sessions/start`,
+        {
+          method: "POST",
+          body: JSON.stringify({ room_subject_id: roomSubjectId }),
+        },
+      );
+      setSessionId(started.id);
+      const details = await campusFetch(
+        `/campus/sessions/${started.id}/roster`,
+      );
+      setRoster(details.roster);
+      setContent(details.contentDone ?? "");
+      setHomework(details.homework ?? "");
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Impossible de démarrer la séance.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const setStatus = (studentId: string, status: string) => {
+    setRoster(
+      (r) =>
+        r?.map((s) => (s.studentId === studentId ? { ...s, status } : s)) ?? r,
+    );
+  };
+
+  const saveAttendance = async () => {
+    if (!sessionId || !roster) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await campusFetch(`/campus/sessions/${sessionId}/attendance`, {
+        method: "POST",
+        body: JSON.stringify({
+          records: roster
+            .filter((r) => r.status)
+            .map((r) => ({ student_id: r.studentId, status: r.status })),
+        }),
+      });
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Impossible d'enregistrer les présences.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const end = async () => {
+    if (!sessionId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await saveAttendance();
+      await campusFetch(`/campus/sessions/${sessionId}/end`, {
+        method: "POST",
+        body: JSON.stringify({ content_done: content, homework }),
+      });
+      onDone();
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Impossible de clôturer la séance.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!sessionId || !roster) {
+    return (
+      <>
+        <button
+          type="button"
+          className={`${styles.btn} ${styles.btnDark} ${styles.btnBlock}`}
+          onClick={start}
+          disabled={busy}
+        >
+          <Icon name="play" className={styles.navIcon} />
+          {busy ? "Démarrage..." : "Démarrer la séance"}
+        </button>
+        {error ? <Empty>{error}</Empty> : null}
+      </>
+    );
+  }
+
+  const statusOptions: Array<{ value: string; label: string }> = [
+    { value: "present", label: "Présent" },
+    { value: "late", label: "Retard" },
+    { value: "absent", label: "Absent" },
+    { value: "excused", label: "Excusé" },
   ];
-  const watch = [
-    { name: "Sophie Mbarga", reason: "Absences répétées", kind: "bad" },
-    { name: "Lucas Kamin", reason: "Baisse de résultats", kind: "warn" },
-    { name: "Amadou Diallo", reason: "Travaux non rendus", kind: "bad" },
-    { name: "Leïla Ben Ali", reason: "Très bonne progression", kind: "ok" },
-  ];
+
+  return (
+    <div style={{ display: "grid", gap: 10 }}>
+      <strong style={{ fontSize: 13 }}>Faire l&apos;appel</strong>
+      <ul className={styles.list}>
+        {roster.map((s) => (
+          <li
+            key={s.studentId}
+            className={styles.row}
+            style={{ flexWrap: "wrap", gap: 8 }}
+          >
+            <Avatar name={s.name} />
+            <span className={styles.rowMain}>
+              <strong>{s.name}</strong>
+            </span>
+            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+              {statusOptions.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setStatus(s.studentId, opt.value)}
+                  className={styles.quickBtn}
+                  style={{
+                    padding: "4px 8px",
+                    fontSize: 11,
+                    background:
+                      s.status === opt.value ? "var(--accent)" : undefined,
+                    color: s.status === opt.value ? "#fff" : undefined,
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </li>
+        ))}
+      </ul>
+      <label style={{ fontSize: 12, fontWeight: 700 }}>
+        Cahier de texte
+        <textarea
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          placeholder="Contenu réalisé pendant la séance"
+          className={styles.select}
+          style={{ width: "100%", height: 60, marginTop: 4 }}
+        />
+      </label>
+      <label style={{ fontSize: 12, fontWeight: 700 }}>
+        Devoirs donnés
+        <textarea
+          value={homework}
+          onChange={(e) => setHomework(e.target.value)}
+          placeholder="Travail à faire pour la prochaine fois"
+          className={styles.select}
+          style={{ width: "100%", height: 50, marginTop: 4 }}
+        />
+      </label>
+      {error ? <Empty>{error}</Empty> : null}
+      <div style={{ display: "flex", gap: 8 }}>
+        <button
+          type="button"
+          className={`${styles.btn} ${styles.btnGhost}`}
+          onClick={saveAttendance}
+          disabled={busy}
+        >
+          Enregistrer les présences
+        </button>
+        <button
+          type="button"
+          className={styles.btn}
+          onClick={end}
+          disabled={busy}
+        >
+          Clôturer la séance
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export function TeacherHome({ data }: { data: TeacherHomeData }) {
+  const [sessionActive, setSessionActive] = useState(
+    Boolean(data.nextCourse?.sessionId),
+  );
+
   return (
     <>
       <section className={styles.banner}>
         <div>
-          <h1 className={styles.bannerTitle}>Bonjour Professeur Martin,</h1>
+          <h1 className={styles.bannerTitle}>Bonjour,</h1>
           <p className={styles.bannerText}>Voici votre activité du jour.</p>
         </div>
         <p
@@ -267,7 +524,7 @@ export function TeacherHome() {
         <Kpi
           icon="calendar"
           tone="blue"
-          value="3"
+          value={String(data.todayCount)}
           label="Cours aujourd'hui"
           link={{
             label: "Voir mon planning",
@@ -277,7 +534,7 @@ export function TeacherHome() {
         <Kpi
           icon="users"
           tone="green"
-          value="28"
+          value={String(data.totalStudents)}
           label="Étudiants au total"
           link={{
             label: "Toutes mes classes",
@@ -287,7 +544,7 @@ export function TeacherHome() {
         <Kpi
           icon="edit"
           tone="red"
-          value="12"
+          value={String(data.toCorrect)}
           label="Travaux à corriger"
           link={{
             label: "Voir les travaux",
@@ -297,7 +554,7 @@ export function TeacherHome() {
         <Kpi
           icon="checkCircle"
           tone="teal"
-          value="2"
+          value={String(data.upcomingEvalCount)}
           label="Évaluations à venir"
           link={{
             label: "Voir le calendrier",
@@ -308,103 +565,116 @@ export function TeacherHome() {
 
       <div className={styles.grid3wide}>
         <Card title="Mon prochain cours">
-          <div className={styles.nextCourse}>
-            <span className={styles.nextHead}>
-              <span className={styles.pulse} />
-              Dans 25 minutes
-            </span>
-            <div className={styles.nextBox}>
-              <RowIcon icon="megaphone" tone="blue" />
-              <span className={styles.rowMain}>
-                <strong>Marketing</strong>
-                <small>10:00 - 11:30 • Salle A04 • 28 étudiants</small>
+          {!data.nextCourse ? (
+            <Empty>Aucun cours programmé aujourd&apos;hui.</Empty>
+          ) : (
+            <div className={styles.nextCourse}>
+              <span className={styles.nextHead}>
+                <span className={styles.pulse} />
+                {data.nextCourse.status === "live"
+                  ? "En cours"
+                  : `À ${data.nextCourse.startsAt}`}
               </span>
+              <div className={styles.nextBox}>
+                <RowIcon icon="megaphone" tone="blue" />
+                <span className={styles.rowMain}>
+                  <strong>{data.nextCourse.title}</strong>
+                  <small>
+                    {data.nextCourse.startsAt}
+                    {data.nextCourse.endsAt
+                      ? ` - ${data.nextCourse.endsAt}`
+                      : ""}{" "}
+                    • {data.nextCourse.room} • {data.nextCourse.studentsCount}{" "}
+                    étudiants
+                  </small>
+                </span>
+              </div>
+              {data.nextCourse.roomSubjectId && !sessionActive ? (
+                <button
+                  type="button"
+                  className={`${styles.btn} ${styles.btnDark} ${styles.btnBlock}`}
+                  onClick={() => setSessionActive(true)}
+                >
+                  <Icon name="play" className={styles.navIcon} />
+                  Démarrer la séance
+                </button>
+              ) : null}
+              {sessionActive && data.nextCourse.roomSubjectId ? (
+                <SessionPanel
+                  roomId={data.nextCourse.roomId}
+                  roomSubjectId={data.nextCourse.roomSubjectId}
+                  onDone={() => setSessionActive(false)}
+                />
+              ) : null}
+              {!data.nextCourse.roomSubjectId ? (
+                <Empty>
+                  Aucune matière affectée à cette classe pour l&apos;instant.
+                </Empty>
+              ) : null}
             </div>
-            <Link
-              href="/campus/professeur/seances"
-              className={`${styles.btn} ${styles.btnDark} ${styles.btnBlock}`}
-            >
-              <Icon name="play" className={styles.navIcon} />
-              Démarrer la séance
-            </Link>
-            <div className={styles.quick}>
-              <button type="button" className={styles.quickBtn}>
-                <Icon name="book" />
-                Voir le cours
-              </button>
-              <button type="button" className={styles.quickBtn}>
-                <Icon name="checkCircle" />
-                Faire l&apos;appel
-              </button>
-              <button type="button" className={styles.quickBtn}>
-                <Icon name="share" />
-                Partager un document
-              </button>
-            </div>
-          </div>
+          )}
         </Card>
 
         <Card
           title="Mes classes"
           link={{ label: "Voir toutes", href: "/campus/professeur/classes" }}
         >
-          <ul className={styles.list}>
-            {classes.map((c) => (
-              <li key={c.name} className={styles.row}>
-                <RowIcon
-                  icon="clipboard"
-                  tone={c.value >= 60 ? "blue" : "orange"}
-                />
-                <span className={styles.rowMain}>
-                  <strong>{c.name}</strong>
-                  <small>{c.info}</small>
-                </span>
-                <span style={{ width: 96 }}>
-                  <Progress value={c.value} color={colorForValue(c.value)} />
-                </span>
-                <span className={styles.progVal}>{c.value}%</span>
-              </li>
-            ))}
-          </ul>
+          {data.classes.length === 0 ? (
+            <Empty>Aucune classe affectée pour l&apos;instant.</Empty>
+          ) : (
+            <ul className={styles.list}>
+              {data.classes.map((c) => (
+                <li key={c.roomId} className={styles.row}>
+                  <RowIcon
+                    icon="clipboard"
+                    tone={c.progressPct >= 60 ? "blue" : "orange"}
+                  />
+                  <span className={styles.rowMain}>
+                    <strong>{c.name}</strong>
+                    <small>
+                      {c.studentsCount} étudiants • {c.subject}
+                    </small>
+                  </span>
+                  <span style={{ width: 96 }}>
+                    <Progress
+                      value={c.progressPct}
+                      color={colorForValue(c.progressPct)}
+                    />
+                  </span>
+                  <span className={styles.progVal}>{c.progressPct}%</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </Card>
 
         <Card title="Tâches prioritaires">
-          <Todo
-            icon="edit"
-            tone="red"
-            action={{ label: "›", href: "/campus/professeur/travaux" }}
-          >
-            <strong>Corriger 12 copies</strong>
-            <br />
-            <small style={{ color: "#647092" }}>Étude de cas • MCO1</small>
-          </Todo>
-          <Todo
-            icon="clipboard"
-            tone="green"
-            action={{ label: "›", href: "/campus/professeur/travaux" }}
-          >
-            <strong>Saisir les notes</strong>
-            <br />
-            <small style={{ color: "#647092" }}>Contrôle continu • NDRC1</small>
-          </Todo>
-          <Todo
-            icon="pen"
-            tone="violet"
-            action={{ label: "›", href: "/campus/professeur/preparer" }}
-          >
-            <strong>Préparer le cours</strong>
-            <br />
-            <small style={{ color: "#647092" }}>Stratégie • NDRC2</small>
-          </Todo>
-          <Todo
-            icon="mail"
-            tone="blue"
-            action={{ label: "›", href: "/campus/professeur/messagerie" }}
-          >
-            <strong>Répondre à 3 messages</strong>
-            <br />
-            <small style={{ color: "#647092" }}>Étudiants</small>
-          </Todo>
+          {data.toCorrect === 0 && data.upcomingEvalCount === 0 ? (
+            <Empty>Rien d&apos;urgent pour l&apos;instant.</Empty>
+          ) : (
+            <>
+              {data.toCorrect > 0 ? (
+                <Todo
+                  icon="edit"
+                  tone="red"
+                  action={{ label: "›", href: "/campus/professeur/travaux" }}
+                >
+                  <strong>{data.toCorrect} copie(s) à corriger</strong>
+                </Todo>
+              ) : null}
+              {data.upcomingEvalCount > 0 ? (
+                <Todo
+                  icon="clipboard"
+                  tone="green"
+                  action={{ label: "›", href: "/campus/professeur/travaux" }}
+                >
+                  <strong>
+                    {data.upcomingEvalCount} évaluation(s) à venir
+                  </strong>
+                </Todo>
+              ) : null}
+            </>
+          )}
         </Card>
       </div>
 
@@ -413,36 +683,31 @@ export function TeacherHome() {
           title="Étudiants nécessitant une attention"
           link={{ label: "Voir le suivi", href: "/campus/professeur/suivi" }}
         >
-          <div className={styles.attnGrid}>
-            {watch.map((w) => (
-              <div key={w.name} className={styles.attnCard}>
-                <Avatar name={w.name} size={40} />
-                <span>
-                  <strong>{w.name}</strong>
-                  <small className={styles[`reason_${w.kind}`]}>
-                    {w.reason}
-                  </small>
-                </span>
-              </div>
-            ))}
-          </div>
+          {data.watch.length === 0 ? (
+            <Empty>
+              Aucun signal d&apos;alerte sur l&apos;assiduité récente.
+            </Empty>
+          ) : (
+            <div className={styles.attnGrid}>
+              {data.watch.map((w) => (
+                <div key={w.id} className={styles.attnCard}>
+                  <Avatar name={w.name} size={40} />
+                  <span>
+                    <strong>{w.name}</strong>
+                    <small className={styles[`reason_${w.kind}`]}>
+                      {w.reason}
+                    </small>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
         <Card
           title="Ressources récentes"
           link={{ label: "Voir tout", href: "/campus/professeur/ressources" }}
         >
-          <ul className={styles.list}>
-            <Row
-              lead={<RowIcon icon="file" tone="red" />}
-              title="Chapitre 4 - Marketing.pdf"
-              sub="Ajouté le 15 sept."
-            />
-            <Row
-              lead={<RowIcon icon="video" tone="blue" />}
-              title="Vidéo - Étude de marché"
-              sub="Ajouté le 14 sept."
-            />
-          </ul>
+          <Empty>Aucune ressource récente.</Empty>
         </Card>
       </div>
     </>
@@ -450,48 +715,53 @@ export function TeacherHome() {
 }
 
 /* =====================================================================
-   RESPONSABLE PÉDAGOGIQUE : sommes-nous dans les temps ?
+   RESPONSABLE PÉDAGOGIQUE
    ===================================================================== */
-export function PedagogyHome() {
-  const programmes = [
-    { name: "Marketing", value: 72 },
-    { name: "Communication", value: 61 },
-    { name: "Gestion commerciale", value: 48 },
-    { name: "Droit", value: 80 },
-    { name: "Anglais professionnel", value: 65 },
-  ];
-  const events = [
-    { title: "Conseil de classe - MCO1", date: "18 sept. 2025 • 14:00" },
-    { title: "Réunion enseignants", date: "22 sept. 2025 • 18:00" },
-    { title: "Début des évaluations", date: "6 oct. 2025" },
-    { title: "Semaine d'intégration", date: "13 oct. 2025" },
-  ];
+export type InstitutionAggregate = {
+  formations: Array<{ id: string; name: string }>;
+  formationsCount: number;
+  classesCount: number;
+  studentsCount: number;
+  teachersCount: number;
+  overallProgress: number;
+  progressBySubject: Array<{ subject: string; pct: number }>;
+  attendancePct: number;
+  attendance: { present: number; late: number; absent: number };
+  pendingJustifications: number;
+  rooms: Array<{
+    id: string;
+    name: string;
+    formationId: string | null;
+    studentsCount: number;
+  }>;
+};
+
+export type PedagogyHomeData = InstitutionAggregate & {
+  lowProgressClasses: number;
+  messages: Array<{
+    id: string;
+    title: string;
+    body: string;
+    createdAt: string;
+  }>;
+  documents: Array<{
+    id: string;
+    title: string;
+    category: string;
+    createdAt: string;
+  }>;
+};
+
+export function PedagogyHome({ data }: { data: PedagogyHomeData }) {
   return (
     <>
       <section className={`${styles.banner} ${styles.bannerStrip}`}>
         <div className={styles.headRow}>
           <div>
-            <h1 className={styles.headTitle}>Bonjour Laura,</h1>
+            <h1 className={styles.headTitle}>Bonjour,</h1>
             <p className={styles.headSub}>
               Voici la vue pédagogique de votre établissement.
             </p>
-          </div>
-          <div className={styles.headTools}>
-            <select
-              className={styles.select}
-              defaultValue="2025-2026"
-              aria-label="Année académique"
-            >
-              <option>Année académique 2025 - 2026</option>
-            </select>
-            <select
-              className={styles.select}
-              defaultValue="S1"
-              aria-label="Semestre"
-            >
-              <option value="S1">Semestre 1</option>
-              <option value="S2">Semestre 2</option>
-            </select>
           </div>
         </div>
       </section>
@@ -500,25 +770,32 @@ export function PedagogyHome() {
         <Kpi
           icon="users"
           tone="green"
-          value="126"
+          value={String(data.studentsCount)}
           label="Étudiants"
-          trend="+8% vs 2024"
         />
-        <Kpi icon="cap" tone="blue" value="6" label="Formations actives" />
+        <Kpi
+          icon="cap"
+          tone="blue"
+          value={String(data.formationsCount)}
+          label="Formations actives"
+        />
         <Kpi
           icon="layers"
           tone="violet"
-          value="12"
+          value={String(data.classesCount)}
           label="Classes"
-          trend="2 nouvelles"
         />
-        <Kpi icon="user" tone="blue" value="18" label="Enseignants" />
+        <Kpi
+          icon="user"
+          tone="blue"
+          value={String(data.teachersCount)}
+          label="Enseignants"
+        />
         <Kpi
           icon="chart"
           tone="green"
-          value="72%"
+          value={`${data.overallProgress}%`}
           label="Programmes avancés"
-          trend="+12%"
         />
       </div>
 
@@ -527,135 +804,142 @@ export function PedagogyHome() {
           title="Progression des programmes"
           link={{ label: "Voir le détail", href: "/campus/pedagogie/suivi" }}
         >
-          {programmes.map((p) => (
-            <div key={p.name} className={styles.progRow}>
-              <span>{p.name}</span>
-              <Progress value={p.value} color={colorForValue(p.value)} />
-              <span className={styles.progVal}>{p.value}%</span>
-            </div>
-          ))}
+          {data.progressBySubject.length === 0 ? (
+            <Empty>Aucune matière affectée pour l&apos;instant.</Empty>
+          ) : (
+            data.progressBySubject.map((p) => (
+              <div key={p.subject} className={styles.progRow}>
+                <span>{p.subject}</span>
+                <Progress value={p.pct} color={colorForValue(p.pct)} />
+                <span className={styles.progVal}>{p.pct}%</span>
+              </div>
+            ))
+          )}
         </Card>
 
         <Card title="Taux de présence (30 derniers jours)">
-          <Donut
-            segments={[
-              { label: "Présents", value: 87, color: "#22b573" },
-              { label: "Retards", value: 8, color: "#f59e0b" },
-              { label: "Absences", value: 5, color: "#ef5b5b" },
-            ]}
-            centerValue="87%"
-            centerLabel="Présence globale"
-          />
-          <Link href="/campus/pedagogie/rapports" className={styles.cardLink}>
-            Voir les statistiques
-          </Link>
-        </Card>
-
-        <Card
-          title="Événements à venir"
-          link={{
-            label: "Voir tout",
-            href: "/campus/pedagogie/emploi-du-temps",
-          }}
-        >
-          <ul className={styles.list}>
-            {events.map((e) => (
-              <Row
-                key={e.title}
-                lead={<RowIcon icon="calendar" tone="blue" />}
-                title={e.title}
-                sub={e.date}
-              />
-            ))}
-          </ul>
-        </Card>
-      </div>
-
-      <div className={styles.grid3}>
-        <Card title="Alertes & actions">
-          <Todo
-            icon="alert"
-            tone="red"
-            action={{
-              label: "Voir les détails",
-              href: "/campus/pedagogie/suivi",
-            }}
-          >
-            3 classes avec un retard de programme
-          </Todo>
-          <Todo
-            icon="users"
-            tone="orange"
-            action={{
-              label: "Voir la liste",
-              href: "/campus/pedagogie/etudiants",
-            }}
-          >
-            5 étudiants en difficulté
-          </Todo>
-          <Todo
-            icon="calendar"
-            tone="orange"
-            action={{
-              label: "Résoudre",
-              href: "/campus/pedagogie/emploi-du-temps",
-            }}
-          >
-            2 emplois du temps en conflit
-          </Todo>
-          <Todo
-            icon="shield"
-            tone="blue"
-            action={{ label: "Suivre", href: "/campus/pedagogie/vie-scolaire" }}
-          >
-            12 justificatifs d&apos;absence à traiter
-          </Todo>
-        </Card>
-
-        <Card title="Derniers messages">
-          <ul className={styles.list}>
-            <Row
-              lead={<Avatar name="Prof. Diallo" />}
-              title="Prof. Diallo"
-              sub="Question sur l'évaluation"
-              side="Il y a 1 h"
+          {data.attendance.present +
+            data.attendance.late +
+            data.attendance.absent ===
+          0 ? (
+            <Empty>Aucune séance enregistrée sur cette période.</Empty>
+          ) : (
+            <Donut
+              segments={[
+                {
+                  label: "Présents",
+                  value: data.attendance.present,
+                  color: "#22b573",
+                },
+                {
+                  label: "Retards",
+                  value: data.attendance.late,
+                  color: "#f59e0b",
+                },
+                {
+                  label: "Absences",
+                  value: data.attendance.absent,
+                  color: "#ef5b5b",
+                },
+              ]}
+              centerValue={`${data.attendancePct}%`}
+              centerLabel="Présence globale"
             />
-            <Row
-              lead={<Avatar name="Prof. Lopez" />}
-              title="Prof. Lopez"
-              sub="Emploi du temps"
-              side="Il y a 3 h"
-            />
-            <Row
-              lead={<Avatar name="Direction" />}
-              title="Direction"
-              sub="Réunion pédagogique"
-              side="Il y a 5 h"
-            />
-          </ul>
+          )}
         </Card>
 
         <Card
           title="Documents récents"
           link={{ label: "Voir tout", href: "/campus/pedagogie/documents" }}
         >
-          <ul className={styles.list}>
-            <Row
-              lead={<RowIcon icon="file" tone="red" />}
-              title="Guide d'évaluation 2025.pdf"
-              sub="Ajouté le 14 sept."
-            />
-            <Row
-              lead={<RowIcon icon="file" tone="red" />}
-              title="Règlement académique.pdf"
-              sub="Ajouté le 10 sept."
-            />
-            <Row
-              lead={<RowIcon icon="file" tone="red" />}
-              title="Calendrier 2025-2026.pdf"
-              sub="Ajouté le 5 sept."
-            />
-          </ul>
+          {data.documents.length === 0 ? (
+            <Empty>Aucun document publié pour l&apos;instant.</Empty>
+          ) : (
+            <ul className={styles.list}>
+              {data.documents.map((d) => (
+                <Row
+                  key={d.id}
+                  lead={<RowIcon icon="file" tone="red" />}
+                  title={d.title}
+                  sub={relativeTime(d.createdAt)}
+                />
+              ))}
+            </ul>
+          )}
+        </Card>
+      </div>
+
+      <div className={styles.grid3}>
+        <Card title="Alertes & actions">
+          {data.lowProgressClasses === 0 && data.pendingJustifications === 0 ? (
+            <Empty>Aucune alerte pour l&apos;instant.</Empty>
+          ) : (
+            <>
+              {data.lowProgressClasses > 0 ? (
+                <Todo
+                  icon="alert"
+                  tone="red"
+                  action={{
+                    label: "Voir les détails",
+                    href: "/campus/pedagogie/suivi",
+                  }}
+                >
+                  {data.lowProgressClasses} matière(s) en retard de programme
+                </Todo>
+              ) : null}
+              {data.pendingJustifications > 0 ? (
+                <Todo
+                  icon="shield"
+                  tone="blue"
+                  action={{
+                    label: "Suivre",
+                    href: "/campus/pedagogie/vie-scolaire",
+                  }}
+                >
+                  {data.pendingJustifications} justificatif(s) d&apos;absence à
+                  traiter
+                </Todo>
+              ) : null}
+            </>
+          )}
+        </Card>
+
+        <Card title="Derniers messages">
+          {data.messages.length === 0 ? (
+            <Empty>Aucun message pour l&apos;instant.</Empty>
+          ) : (
+            <ul className={styles.list}>
+              {data.messages.map((m) => (
+                <Row
+                  key={m.id}
+                  lead={<RowIcon icon="mail" tone="blue" />}
+                  title={m.title}
+                  sub={m.body}
+                  side={relativeTime(m.createdAt)}
+                />
+              ))}
+            </ul>
+          )}
+        </Card>
+
+        <Card
+          title="Classes de l'établissement"
+          link={{ label: "Voir tout", href: "/campus/pedagogie/classes" }}
+        >
+          {data.rooms.length === 0 ? (
+            <Empty>Aucune classe pour l&apos;instant.</Empty>
+          ) : (
+            <ul className={styles.list}>
+              {data.rooms.map((r) => (
+                <Row
+                  key={r.id}
+                  lead={<RowIcon icon="layers" tone="violet" />}
+                  title={r.name}
+                  sub={`${r.studentsCount} étudiants`}
+                />
+              ))}
+            </ul>
+          )}
         </Card>
       </div>
     </>
@@ -663,35 +947,32 @@ export function PedagogyHome() {
 }
 
 /* =====================================================================
-   ADMINISTRATEUR / DIRECTION : vue d'ensemble de l'établissement
+   ADMINISTRATEUR / DIRECTION
    ===================================================================== */
-export function DirectionHome() {
-  const inscriptions = [
-    {
-      name: "Sophie Mbarga",
-      formation: "BTS MCO",
-      status: <Badge kind="ok">Validée</Badge>,
-      date: "15 sept.",
-    },
-    {
-      name: "Lucas Kamin",
-      formation: "BTS NDRC",
-      status: <Badge kind="pending">En attente</Badge>,
-      date: "15 sept.",
-    },
-    {
-      name: "Amadou Diallo",
-      formation: "BTS MCO",
-      status: <Badge kind="ok">Validée</Badge>,
-      date: "14 sept.",
-    },
-    {
-      name: "Leïla Ben Ali",
-      formation: "BTS NDRC",
-      status: <Badge kind="pending">En attente</Badge>,
-      date: "14 sept.",
-    },
-  ];
+export type DirectionHomeData = InstitutionAggregate & {
+  lowProgressClasses: number;
+  inscriptions: Array<{
+    id: string;
+    name: string;
+    role: string;
+    status: string;
+    createdAt: string;
+  }>;
+  pendingManagedUsers: number;
+  effectifsParFormation: Array<{ name: string; value: number }>;
+  activity: { labels: string[]; values: number[] };
+};
+
+const DONUT_COLORS = ["#0f9d9a", "#1a7fa8", "#ffb020", "#ff6a1f", "#7a4df0"];
+
+const STATUS_LABEL: Record<string, string> = {
+  active: "Actif",
+  pending: "En attente",
+  suspended: "Suspendu",
+};
+
+export function DirectionHome({ data }: { data: DirectionHomeData }) {
+  const totalActivity = data.activity.values.reduce((a, b) => a + b, 0);
   return (
     <>
       <section className={`${styles.banner} ${styles.bannerStrip}`}>
@@ -702,40 +983,44 @@ export function DirectionHome() {
               Voici la vue d&apos;ensemble de votre établissement.
             </p>
           </div>
-          <div className={styles.headTools}>
-            <select
-              className={styles.select}
-              defaultValue="2025-2026"
-              aria-label="Année académique"
-            >
-              <option>Année académique 2025 - 2026</option>
-            </select>
-            <button
-              type="button"
-              className={`${styles.btn} ${styles.btnOrange}`}
-            >
-              <Icon name="plus" className={styles.navIcon} />
-              Générer un rapport
-            </button>
-          </div>
         </div>
       </section>
 
       <div className={styles.kpis}>
-        <Kpi icon="users" tone="blue" value="126" label="Étudiants" />
-        <Kpi icon="user" tone="violet" value="18" label="Enseignants" />
-        <Kpi icon="cap" tone="orange" value="6" label="Formations" />
-        <Kpi icon="layers" tone="green" value="12" label="Classes" />
+        <Kpi
+          icon="users"
+          tone="blue"
+          value={String(data.studentsCount)}
+          label="Étudiants"
+        />
+        <Kpi
+          icon="user"
+          tone="violet"
+          value={String(data.teachersCount)}
+          label="Enseignants"
+        />
+        <Kpi
+          icon="cap"
+          tone="orange"
+          value={String(data.formationsCount)}
+          label="Formations"
+        />
+        <Kpi
+          icon="layers"
+          tone="green"
+          value={String(data.classesCount)}
+          label="Classes"
+        />
         <Kpi
           icon="checkCircle"
           tone="green"
-          value="87%"
+          value={`${data.attendancePct}%`}
           label="Taux de présence"
         />
         <Kpi
           icon="chart"
           tone="violet"
-          value="72%"
+          value={`${data.overallProgress}%`}
           label="Programmes avancés"
         />
       </div>
@@ -748,33 +1033,41 @@ export function DirectionHome() {
             href: "/campus/direction/inscriptions",
           }}
         >
-          <div className={styles.tableWrap}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Nom</th>
-                  <th>Formation</th>
-                  <th>Statut</th>
-                  <th>Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {inscriptions.map((i) => (
-                  <tr key={i.name}>
-                    <td>
-                      <span className={styles.person}>
-                        <Avatar name={i.name} size={28} />
-                        {i.name}
-                      </span>
-                    </td>
-                    <td>{i.formation}</td>
-                    <td>{i.status}</td>
-                    <td>{i.date}</td>
+          {data.inscriptions.length === 0 ? (
+            <Empty>Aucune inscription récente.</Empty>
+          ) : (
+            <div className={styles.tableWrap}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>Nom</th>
+                    <th>Rôle</th>
+                    <th>Statut</th>
+                    <th>Date</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {data.inscriptions.map((i) => (
+                    <tr key={i.id}>
+                      <td>
+                        <span className={styles.person}>
+                          <Avatar name={i.name} size={28} />
+                          {i.name}
+                        </span>
+                      </td>
+                      <td>{i.role}</td>
+                      <td>
+                        <Badge kind={i.status === "active" ? "ok" : "pending"}>
+                          {STATUS_LABEL[i.status] ?? i.status}
+                        </Badge>
+                      </td>
+                      <td>{relativeTime(i.createdAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Card>
 
         <Card
@@ -784,98 +1077,111 @@ export function DirectionHome() {
             href: "/campus/direction/formations-classes",
           }}
         >
-          <Donut
-            segments={[
-              { label: "BTS MCO", value: 42, color: "#0f9d9a" },
-              { label: "BTS NDRC", value: 38, color: "#1a7fa8" },
-              { label: "BTS CG", value: 24, color: "#ffb020" },
-              { label: "BTS SIO", value: 22, color: "#ff6a1f" },
-            ]}
-            centerValue="126"
-            centerLabel="Étudiants"
-          />
+          {data.effectifsParFormation.length === 0 ? (
+            <Empty>Aucun étudiant réparti pour l&apos;instant.</Empty>
+          ) : (
+            <Donut
+              segments={data.effectifsParFormation.map((f, i) => ({
+                label: f.name,
+                value: f.value,
+                color: DONUT_COLORS[i % DONUT_COLORS.length],
+              }))}
+              centerValue={String(data.studentsCount)}
+              centerLabel="Étudiants"
+            />
+          )}
         </Card>
 
-        <Card title="Activité de la plateforme">
-          <LineChart
-            color="#0f9d9a"
-            labels={["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"]}
-            values={[110, 128, 124, 152, 148, 96, 132]}
-          />
-          <span className={styles.badge + " " + styles.b_ok}>
-            Connexions (7 derniers jours) +12%
+        <Card title="Activité pédagogique">
+          {totalActivity === 0 ? (
+            <Empty>Aucune séance tenue sur les 7 derniers jours.</Empty>
+          ) : (
+            <LineChart
+              color="#0f9d9a"
+              labels={data.activity.labels}
+              values={data.activity.values}
+            />
+          )}
+          <span className={`${styles.badge} ${styles.b_ok}`}>
+            Séances tenues (7 derniers jours) : {totalActivity}
           </span>
         </Card>
       </div>
 
       <div className={styles.grid3}>
         <Card title="Tâches administratives">
-          <Todo
-            icon="userPlus"
-            tone="blue"
-            action={{ label: "Voir", href: "/campus/direction/inscriptions" }}
-          >
-            Valider les inscriptions en attente (4)
-          </Todo>
-          <Todo
-            icon="calendar"
-            tone="orange"
-            action={{
-              label: "Voir",
-              href: "/campus/direction/emploi-du-temps",
-            }}
-          >
-            Vérifier les emplois du temps en conflit (2)
-          </Todo>
-          <Todo
-            icon="clipboard"
-            tone="violet"
-            action={{ label: "Voir", href: "/campus/direction/evaluations" }}
-          >
-            Générer les bulletins du semestre
-          </Todo>
-          <Todo
-            icon="file"
-            tone="green"
-            action={{ label: "Voir", href: "/campus/direction/documents" }}
-          >
-            Mettre à jour les documents officiels
-          </Todo>
+          {data.pendingManagedUsers === 0 &&
+          data.pendingJustifications === 0 ? (
+            <Empty>Aucune tâche en attente.</Empty>
+          ) : (
+            <>
+              {data.pendingManagedUsers > 0 ? (
+                <Todo
+                  icon="userPlus"
+                  tone="blue"
+                  action={{
+                    label: "Voir",
+                    href: "/campus/direction/inscriptions",
+                  }}
+                >
+                  Valider les inscriptions en attente (
+                  {data.pendingManagedUsers})
+                </Todo>
+              ) : null}
+              {data.pendingJustifications > 0 ? (
+                <Todo
+                  icon="shield"
+                  tone="blue"
+                  action={{ label: "Voir", href: "/campus/direction/suivi" }}
+                >
+                  Traiter les justificatifs d&apos;absence (
+                  {data.pendingJustifications})
+                </Todo>
+              ) : null}
+            </>
+          )}
         </Card>
 
         <Card title="Alertes">
-          <Todo icon="alert" tone="red">
-            5 étudiants avec plus de 10% d&apos;absences
-          </Todo>
-          <Todo icon="alert" tone="orange">
-            3 classes en retard de programme
-          </Todo>
-          <Todo icon="alert" tone="orange">
-            2 évaluations non saisies
-          </Todo>
-          <Todo icon="alert" tone="red">
-            1 salle en double réservation
-          </Todo>
+          {data.lowProgressClasses === 0 ? (
+            <Empty>Aucune alerte pour l&apos;instant.</Empty>
+          ) : (
+            <Todo icon="alert" tone="orange">
+              {data.lowProgressClasses} matière(s) en retard de programme
+            </Todo>
+          )}
         </Card>
 
         <Card title="Accès rapides">
           <div className={styles.quickGrid}>
-            <button type="button" className={styles.quickTile}>
+            <Link
+              href="/campus/direction/inscriptions"
+              className={styles.quickTile}
+            >
               <Icon name="userPlus" />
               Ajouter un étudiant
-            </button>
-            <button type="button" className={styles.quickTile}>
+            </Link>
+            <Link
+              href="/campus/direction/formations-classes"
+              className={styles.quickTile}
+            >
               <Icon name="layers" />
               Créer une classe
-            </button>
-            <button type="button" className={styles.quickTile}>
+            </Link>
+            <Link
+              href="/campus/direction/emploi-du-temps"
+              className={styles.quickTile}
+            >
               <Icon name="calendar" />
               Planifier un cours
-            </button>
-            <button type="button" className={styles.quickTile}>
+            </Link>
+            <Link
+              href="/campus/direction/communication"
+              className={styles.quickTile}
+            >
               <Icon name="send" />
               Envoyer une annonce
-            </button>
+            </Link>
           </div>
         </Card>
       </div>
