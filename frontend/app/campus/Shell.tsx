@@ -33,7 +33,7 @@ export default function Shell({
   const cfg = ROLES[role];
   const user = displayName
     ? { name: displayName, sub: institutionName ?? cfg.user.sub }
-    : cfg.user;
+    : { name: "Compte Kalatty", sub: institutionName ?? "Chargement du profil…" };
   const identity = useAccountIdentity(user.name);
   const noteText =
     note === undefined ? "Connecte a vos donnees Kalatty en temps reel." : note;
@@ -120,7 +120,7 @@ export default function Shell({
             />
           </form>
           <div className={styles.topRight}>
-            <NotificationBell allHref={`/campus/${role}/${role === "direction" ? "communication" : role === "etudiant" || role === "pedagogie" ? "messagerie" : "actualites"}`} />
+            <NotificationBell allHref={`/campus/${role}/messagerie`} />
             <details className={styles.contextMenu}>
               <summary className={styles.userChip}>
                 <Avatar name={identity.name} src={identity.avatarUrl} size={38} />

@@ -38,7 +38,7 @@ const STATUS_KIND: Record<string, "ok" | "warn" | "bad"> = {
   suspended: "bad",
 };
 
-export default function UsersPage() {
+export default function UsersPage({ section = "utilisateurs" }: { section?: "utilisateurs" | "inscriptions" } = {}) {
   const { loading, error, context, mismatch } = useCampusContext("direction");
   const [members, setMembers] = useState<Member[] | null>(null);
   const [managedUsers, setManagedUsers] = useState<ManagedUser[] | null>(null);
@@ -81,7 +81,7 @@ export default function UsersPage() {
     try {
       const result = await campusFetch(`/institutions/${context.institutionId}/provision-user`, {
         method: "POST",
-        body: JSON.stringify({ fullname, role, email: email || undefined }),
+        body: JSON.stringify({ fullname, role: section === "inscriptions" ? "student" : role, email: email || undefined }),
       });
       setCreated({ loginEmail: result.loginEmail, temporaryPassword: result.temporaryPassword });
       setFullname("");
@@ -119,7 +119,7 @@ export default function UsersPage() {
   return (
     <Shell
       role="direction"
-      activeSlug="utilisateurs"
+      activeSlug={section}
       displayName={context?.displayName}
       institutionName={context?.institutionName}
       note={error ?? null}
@@ -130,8 +130,8 @@ export default function UsersPage() {
         <>
           <div className={styles.pageHead}>
             <div>
-              <h1 className={styles.headTitle}>Utilisateurs</h1>
-              <p className={styles.headSub}>Personnel de l&apos;établissement et comptes gérés (créés sans inscription autonome).</p>
+              <h1 className={styles.headTitle}>{section === "inscriptions" ? "Comptes étudiants" : "Utilisateurs"}</h1>
+              <p className={styles.headSub}>{section === "inscriptions" ? "Comptes étudiants créés dans l’établissement et état de leur activation." : "Personnel de l’établissement et comptes gérés (créés sans inscription autonome)."}</p>
             </div>
             <button type="button" className={styles.btn} onClick={() => setShowForm((s) => !s)}>
               <Icon name="userPlus" className={styles.navIcon} />
@@ -146,14 +146,14 @@ export default function UsersPage() {
                   Nom complet
                   <input className={styles.input} value={fullname} onChange={(e) => setFullname(e.target.value)} required />
                 </label>
-                <label className={styles.field}>
+                {section === "utilisateurs" ? <label className={styles.field}>
                   Rôle
                   <select className={styles.select} value={role} onChange={(e) => setRole(e.target.value as typeof role)}>
                     <option value="student">Étudiant</option>
                     <option value="teacher">Professeur</option>
                     <option value="admin">Administrateur</option>
                   </select>
-                </label>
+                </label> : null}
                 <label className={styles.field}>
                   E-mail personnel (optionnel)
                   <input className={styles.input} type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -175,7 +175,7 @@ export default function UsersPage() {
           {listError ? <p className={styles.inlineError}>{listError}</p> : null}
 
           <div className={styles.grid2}>
-            <Card title="Personnel de l'établissement">
+            {section === "utilisateurs" ? <Card title="Personnel de l'établissement">
               {loadingList ? (
                 <p>Chargement...</p>
               ) : !members || members.length === 0 ? (
@@ -193,16 +193,16 @@ export default function UsersPage() {
                   ))}
                 </ul>
               )}
-            </Card>
+            </Card> : null}
 
             <Card title="Comptes gérés par l'établissement">
               {loadingList ? (
                 <p>Chargement...</p>
-              ) : !managedUsers || managedUsers.length === 0 ? (
+              ) : !managedUsers || !managedUsers.some((m) => section !== "inscriptions" || m.managed_role === "student") ? (
                 <p style={{ color: "var(--muted)", fontSize: 13 }}>Aucun compte géré pour l&apos;instant.</p>
               ) : (
                 <ul className={styles.list}>
-                  {managedUsers.map((m) => (
+                  {managedUsers.filter((m) => section !== "inscriptions" || m.managed_role === "student").map((m) => (
                     <li key={m.id} className={styles.row}>
                       <Avatar name={m.full_name} />
                       <span className={styles.rowMain}>

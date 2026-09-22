@@ -18,7 +18,7 @@ type UploadedAsset = {
   originalname: string;
 };
 
-type InstitutionRole = 'owner' | 'admin' | 'teacher' | 'student';
+type InstitutionRole = 'owner' | 'admin' | 'pedagogy' | 'teacher' | 'student';
 type RoomRole = 'teacher' | 'student' | 'assistant';
 type ManagedInstitutionRole = 'admin' | 'teacher' | 'student';
 
@@ -232,7 +232,10 @@ export class InstitutionsService {
   }
 
   async getInstitutionDetails(user: AuthUser, institutionId: string) {
-    await this.assertInstitutionAccess(user.id, institutionId);
+    const role = await this.assertInstitutionAccess(user.id, institutionId);
+    if (!['owner', 'admin', 'pedagogy'].includes(role)) {
+      throw new ForbiddenException('Les détails de l’établissement sont réservés à la direction et à la pédagogie.');
+    }
     const roomIds = await this.getInstitutionRoomIds(institutionId);
     const assignmentIds = await this.getAssignmentIdsForRooms(roomIds);
 
@@ -436,9 +439,9 @@ export class InstitutionsService {
       rooms: roomsWithSummary,
       members,
       assignments,
-      invites,
+      invites: role === 'pedagogy' ? [] : invites,
       roomCourses,
-      managedUsers,
+      managedUsers: role === 'pedagogy' ? [] : managedUsers,
       scheduleItems,
       attendanceSessions,
       stats: {

@@ -10,6 +10,7 @@ import { Avatar, Badge, Card, Icon, Row } from "../ui";
 type RoomDetails = {
   id: string;
   name: string;
+  courses: Array<{ id: string; course: { id: string; title: string; description?: string } | null }>;
   members: Array<{ id: string; role: string; profile: { id: string; fullname: string; email: string } | null }>;
   assignments: Array<{
     id: string;
@@ -33,7 +34,7 @@ type RoomDetails = {
   }>;
 };
 
-export default function ClassesPage({ section = "classes" }: { section?: "classes" | "travaux" | "suivi" } = {}) {
+export default function ClassesPage({ section = "classes" }: { section?: "classes" | "travaux" | "suivi" | "ressources" | "preparer" } = {}) {
   const { loading, error, context, mismatch, data } = useCampusHome<TeacherHomeData>("professeur");
   const [roomId, setRoomId] = useState<string | null>(null);
   const [room, setRoom] = useState<RoomDetails | null>(null);
@@ -141,7 +142,7 @@ export default function ClassesPage({ section = "classes" }: { section?: "classe
         <>
           <div className={styles.pageHead}>
             <div>
-              <h1 className={styles.headTitle}>{section === "travaux" ? "Travaux et corrections" : section === "suivi" ? "Suivi de mes étudiants" : "Mes classes"}</h1>
+              <h1 className={styles.headTitle}>{section === "travaux" ? "Travaux et corrections" : section === "suivi" ? "Suivi de mes étudiants" : section === "ressources" ? "Ressources de mes classes" : section === "preparer" ? "Préparer mes activités" : "Mes classes"}</h1>
               <p className={styles.headSub}>Effectif, devoirs et corrections, classe par classe.</p>
             </div>
             <select className={styles.select} value={roomId ?? ""} onChange={(e) => setRoomId(e.target.value)}>
@@ -226,6 +227,7 @@ export default function ClassesPage({ section = "classes" }: { section?: "classe
                     </ul>
                   )}
                 </Card>
+                {section === "ressources" ? <Card title="Formations affectées à la classe">{room.courses?.length ? <ul className={styles.list}>{room.courses.map((entry) => <Row key={entry.id} title={entry.course?.title ?? "Formation"} sub={entry.course?.description ?? "Support attribué à la classe"} />)}</ul> : <p>Aucune formation affectée à cette classe.</p>}</Card> : null}
               </div>
 
               <Card title="Remises récentes à corriger">

@@ -302,7 +302,7 @@ type RosterEntry = {
   note: string | null;
 };
 
-function SessionPanel({
+export function SessionPanel({
   roomId,
   roomSubjectId,
   onDone,

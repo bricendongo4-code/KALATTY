@@ -75,7 +75,7 @@ export const ROLES: Record<RoleSlug, RoleConfig> = {
       { slug: "travaux", label: "Travaux & évaluations", icon: "clipboard" },
       { slug: "suivi", label: "Suivi des étudiants", icon: "chart" },
       { slug: "ressources", label: "Ressources pédagogiques", icon: "folder" },
-      { slug: "messagerie", label: "Messagerie", icon: "mail" },
+      { slug: "messagerie", label: "Notifications", icon: "bell" },
       { slug: "actualites", label: "Actualités", icon: "megaphone" },
     ],
     foot: [
@@ -106,7 +106,7 @@ export const ROLES: Record<RoleSlug, RoleConfig> = {
       { slug: "enseignants", label: "Enseignants", icon: "user" },
       { slug: "documents", label: "Documents", icon: "file" },
       { slug: "rapports", label: "Rapports & statistiques", icon: "list" },
-      { slug: "messagerie", label: "Messagerie", icon: "mail" },
+      { slug: "messagerie", label: "Notifications", icon: "bell" },
     ],
     foot: [
       { slug: "parametres", label: "Paramètres", icon: "sliders" },
@@ -147,7 +147,7 @@ export const ROLES: Record<RoleSlug, RoleConfig> = {
       { slug: "rapports", label: "Rapports", icon: "list" },
       { slug: "parametres", label: "Paramètres", icon: "sliders" },
     ],
-    foot: [{ slug: "aide", label: "Aide", icon: "help" }],
+    foot: [{ slug: "messagerie", label: "Notifications", icon: "bell" }, { slug: "aide", label: "Aide", icon: "help" }],
   },
 };
 

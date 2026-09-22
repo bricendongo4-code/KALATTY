@@ -22,7 +22,7 @@ export default function LearningShell({
   children: ReactNode;
 }) {
   const config = LEARNING_ROLES[role];
-  const identity = useAccountIdentity(config.user);
+  const identity = useAccountIdentity("Compte Kalatty");
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const router = useRouter();

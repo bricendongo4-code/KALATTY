@@ -421,6 +421,214 @@ export class CampusService {
     })) };
   }
 
+  async getStaffSchedule(user: AuthUser) {
+    const context = await this.getContext(user);
+    if (context.campusRole !== 'pedagogie' && context.campusRole !== 'direction') {
+      throw new ForbiddenException('Planning réservé au personnel autorisé.');
+    }
+    let roomIds: string[];
+    if (context.campusRole === 'pedagogie') {
+      roomIds = await this.pedagogyScopeRoomIds(user.id, context.institutionId);
+    } else {
+      const { data: allRooms, error: listError } = await this.client.from('rooms')
+        .select('id').eq('institution_id', context.institutionId);
+      if (listError) throw new BadRequestException(listError.message);
+      roomIds = (allRooms ?? []).map((room: any) => String(room.id));
+    }
+    if (!roomIds.length) return { schedule: [] };
+    const [roomsResult, scheduleResult] = await Promise.all([
+      this.client.from('rooms').select('id, name').in('id', roomIds).eq('institution_id', context.institutionId),
+      this.client.from('room_schedule_items').select('id, room_id, title, weekday, starts_at, ends_at, location')
+        .in('room_id', roomIds).order('weekday', { ascending: true }).order('starts_at', { ascending: true }),
+    ]);
+    if (roomsResult.error) throw new BadRequestException(roomsResult.error.message);
+    if (scheduleResult.error) throw new BadRequestException(scheduleResult.error.message);
+    const names = new Map((roomsResult.data ?? []).map((room: any) => [String(room.id), String(room.name)]));
+    return { schedule: (scheduleResult.data ?? []).filter((item: any) => names.has(String(item.room_id))).map((item: any) => ({
+      id: item.id, title: item.title, roomName: names.get(String(item.room_id)), weekday: Number(item.weekday),
+      startsAt: String(item.starts_at).slice(0, 5), endsAt: item.ends_at ? String(item.ends_at).slice(0, 5) : null,
+      location: item.location ?? '',
+    })) };
+  }
+
+  async getAnnouncements(user: AuthUser) {
+    const context = await this.getContext(user);
+    const { data: memberships, error: membershipError } = await this.client.from('room_members')
+      .select('room_id').eq('user_id', user.id);
+    if (membershipError) throw new BadRequestException(membershipError.message);
+    const ownIds = new Set((memberships ?? []).map((row: any) => String(row.room_id)));
+    const { data: rooms, error: roomsError } = await this.client.from('rooms').select('id')
+      .eq('institution_id', context.institutionId);
+    if (roomsError) throw new BadRequestException(roomsError.message);
+    const institutionIds = new Set((rooms ?? []).map((row: any) => String(row.id)));
+    const { data, error } = await this.client.from('announcements')
+      .select('id, title, body, room_id, audience, created_at')
+      .eq('institution_id', context.institutionId).order('created_at', { ascending: false }).limit(100);
+    if (error) throw new BadRequestException(error.message);
+    const permittedAudience = context.campusRole === 'etudiant' ? ['all', 'students', 'room']
+      : context.campusRole === 'professeur' ? ['all', 'teachers', 'room'] : ['all', 'teachers', 'students', 'room'];
+    return { announcements: (data ?? []).filter((row: any) => permittedAudience.includes(row.audience)
+      && (row.audience !== 'room' || !!row.room_id)
+      && (!row.room_id || (institutionIds.has(String(row.room_id)) &&
+        (context.campusRole === 'direction' || context.campusRole === 'pedagogie' || ownIds.has(String(row.room_id))))))
+      .map((row: any) => ({ id: row.id, title: row.title, body: row.body, roomId: row.room_id, createdAt: row.created_at })) };
+  }
+
+  async createAnnouncement(user: AuthUser, payload: { title?: string; body?: string; audience?: string; roomId?: string }) {
+    const context = await this.getContext(user);
+    if (context.campusRole !== 'direction') throw new ForbiddenException('Publication réservée à la direction.');
+    const title = payload.title?.trim();
+    const body = payload.body?.trim();
+    const audience = payload.audience ?? 'all';
+    if (!title || !body || title.length > 160 || body.length > 5000 || !['all', 'students', 'teachers', 'room'].includes(audience) || (audience === 'room' && !payload.roomId)) {
+      throw new BadRequestException('Titre, message ou audience invalide.');
+    }
+    if (payload.roomId) {
+      const { data: room, error: roomError } = await this.client.from('rooms').select('id')
+        .eq('id', payload.roomId).eq('institution_id', context.institutionId).maybeSingle();
+      if (roomError) throw new BadRequestException(roomError.message);
+      if (!room) throw new NotFoundException('Classe introuvable dans cet établissement.');
+    }
+    const { data, error } = await this.client.from('announcements').insert({
+      institution_id: context.institutionId, author_id: user.id, title, body,
+      audience, room_id: payload.roomId ?? null,
+    }).select('id, title, body, audience, room_id, created_at').single();
+    if (error) throw new BadRequestException(error.message);
+    return data;
+  }
+
+  async getDocuments(user: AuthUser) {
+    const context = await this.getContext(user);
+    if (context.campusRole !== 'pedagogie' && context.campusRole !== 'direction') {
+      throw new ForbiddenException('Documents réservés au personnel autorisé.');
+    }
+    const { data, error } = await this.client.from('institution_documents')
+      .select('id, title, category, file_path, created_at').eq('institution_id', context.institutionId)
+      .order('created_at', { ascending: false }).limit(100);
+    if (error) throw new BadRequestException(error.message);
+    const documents = await Promise.all((data ?? []).map(async (item: any) => {
+      const path = String(item.file_path);
+      if (!path.startsWith(`${context.institutionId}/`)) return null;
+      const { data: signed, error: signError } = await this.client.storage.from('institution-documents')
+        .createSignedUrl(path, 60 * 15);
+      return { id: item.id, title: item.title, category: item.category,
+        createdAt: item.created_at, url: signError ? null : signed?.signedUrl ?? null };
+    }));
+    return { documents: documents.filter(Boolean) };
+  }
+
+  async getStaffAssignments(user: AuthUser) {
+    const context = await this.getContext(user);
+    if (context.campusRole === 'etudiant') throw new ForbiddenException('Accès réservé au personnel.');
+    const { data: rooms, error: roomError } = await this.client.from('rooms')
+      .select('id, name').eq('institution_id', context.institutionId);
+    if (roomError) throw new BadRequestException(roomError.message);
+    const eligible = new Set((rooms ?? []).map((room: any) => String(room.id)));
+    if (context.campusRole === 'professeur') {
+      const { data: memberships, error } = await this.client.from('room_members').select('room_id')
+        .eq('user_id', user.id).eq('role', 'teacher');
+      if (error) throw new BadRequestException(error.message);
+      const own = new Set((memberships ?? []).map((row: any) => String(row.room_id)));
+      for (const id of eligible) if (!own.has(id)) eligible.delete(id);
+    } else if (context.campusRole === 'pedagogie') {
+      const scope = new Set(await this.pedagogyScopeRoomIds(user.id, context.institutionId));
+      for (const id of eligible) if (!scope.has(id)) eligible.delete(id);
+    }
+    const ids = [...eligible];
+    if (!ids.length) return { assignments: [] };
+    const names = new Map((rooms ?? []).map((room: any) => [String(room.id), String(room.name)]));
+    const { data, error } = await this.client.from('assignments')
+      .select('id, title, room_id, status, due_at, max_score, created_at').in('room_id', ids)
+      .order('created_at', { ascending: false }).limit(100);
+    if (error) throw new BadRequestException(error.message);
+    return { assignments: (data ?? []).map((item: any) => ({ id: item.id, title: item.title,
+      roomName: names.get(String(item.room_id)), status: item.status, dueAt: item.due_at,
+      maxScore: item.max_score, createdAt: item.created_at })) };
+  }
+
+  async getJustifications(user: AuthUser) {
+    const context = await this.getContext(user);
+    if (context.campusRole !== 'pedagogie' && context.campusRole !== 'direction') {
+      throw new ForbiddenException('Vie scolaire réservée au personnel autorisé.');
+    }
+    const scope = context.campusRole === 'pedagogie'
+      ? await this.pedagogyScopeRoomIds(user.id, context.institutionId)
+      : (await this.client.from('rooms').select('id').eq('institution_id', context.institutionId)).data?.map((row: any) => String(row.id)) ?? [];
+    if (!scope.length) return { justifications: [] };
+    const { data: records, error: recordsError } = await this.client.from('room_attendance_records')
+      .select('id, room_id').in('room_id', scope);
+    if (recordsError) throw new BadRequestException(recordsError.message);
+    const allowed = new Set((records ?? []).map((row: any) => String(row.id)));
+    if (!allowed.size) return { justifications: [] };
+    const { data, error } = await this.client.from('absence_justifications')
+      .select('id, record_id, reason, status, review_note, created_at, profiles:student_id ( fullname )')
+      .eq('institution_id', context.institutionId).in('record_id', [...allowed])
+      .order('created_at', { ascending: false }).limit(100);
+    if (error) throw new BadRequestException(error.message);
+    return { justifications: (data ?? []).map((item: any) => ({
+      id: item.id, reason: item.reason, status: item.status, note: item.review_note,
+      createdAt: item.created_at, studentName: (Array.isArray(item.profiles) ? item.profiles[0] : item.profiles)?.fullname ?? 'Étudiant',
+    })) };
+  }
+
+  async reviewJustification(user: AuthUser, id: string, payload: { status?: string; note?: string }) {
+    const context = await this.getContext(user);
+    if (context.campusRole !== 'pedagogie' && context.campusRole !== 'direction') throw new ForbiddenException('Décision non autorisée.');
+    if (!['approved', 'rejected'].includes(payload.status ?? '')) throw new BadRequestException('Décision invalide.');
+    const { data: item, error: itemError } = await this.client.from('absence_justifications')
+      .select('id, record_id, status').eq('id', id).eq('institution_id', context.institutionId).maybeSingle();
+    if (itemError) throw new BadRequestException(itemError.message);
+    if (!item) throw new NotFoundException('Justificatif introuvable.');
+    if (item.status !== 'pending') throw new BadRequestException('Ce justificatif a déjà été traité.');
+    const { data: record, error: recordError } = await this.client.from('room_attendance_records')
+      .select('room_id').eq('id', item.record_id).maybeSingle();
+    if (recordError) throw new BadRequestException(recordError.message);
+    if (!record) throw new NotFoundException('Présence associée introuvable.');
+    const { data: room } = await this.client.from('rooms').select('institution_id')
+      .eq('id', record.room_id).maybeSingle();
+    if (!room || room.institution_id !== context.institutionId) throw new ForbiddenException('Justificatif hors établissement.');
+    if (context.campusRole === 'pedagogie') {
+      const scope = await this.pedagogyScopeRoomIds(user.id, context.institutionId);
+      if (!scope.includes(String(record.room_id))) throw new ForbiddenException('Justificatif hors périmètre.');
+    }
+    const { data, error } = await this.client.from('absence_justifications').update({
+      status: payload.status, review_note: payload.note?.trim() || null,
+      reviewed_by: user.id, reviewed_at: new Date().toISOString(),
+    }).eq('id', id).eq('status', 'pending').select('id, status').maybeSingle();
+    if (error) throw new BadRequestException(error.message);
+    if (!data) throw new BadRequestException('Ce justificatif vient d’être traité.');
+    return data;
+  }
+
+  async uploadDocument(user: AuthUser, file: { buffer: Buffer; mimetype: string; originalname: string; size: number }, payload: { title?: string; category?: string }) {
+    const context = await this.getContext(user);
+    if (context.campusRole !== 'direction') throw new ForbiddenException('Publication réservée à la direction.');
+    const title = payload.title?.trim();
+    if (!title || title.length > 160 || !file?.buffer?.length || file.size > 10 * 1024 * 1024) {
+      throw new BadRequestException('Titre ou fichier invalide (10 Mo maximum).');
+    }
+    const extensions: Record<string, string> = {
+      'application/pdf': 'pdf', 'image/png': 'png', 'image/jpeg': 'jpg',
+      'application/msword': 'doc',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+    };
+    const ext = extensions[file.mimetype];
+    if (!ext) throw new BadRequestException('Format accepté : PDF, image ou Word.');
+    const path = `${context.institutionId}/${crypto.randomUUID()}.${ext}`;
+    const { error: uploadError } = await this.client.storage.from('institution-documents')
+      .upload(path, file.buffer, { contentType: file.mimetype, upsert: false });
+    if (uploadError) throw new BadRequestException(uploadError.message);
+    const { data, error } = await this.client.from('institution_documents').insert({
+      institution_id: context.institutionId, title, category: payload.category?.trim() || 'general',
+      file_path: path, uploaded_by: user.id,
+    }).select('id, title, category, created_at').single();
+    if (error) {
+      await this.client.storage.from('institution-documents').remove([path]);
+      throw new BadRequestException(error.message);
+    }
+    return data;
+  }
+
   private async getTeacherHome(ctx: { userId: string; institutionId: string }) {
     const { data: teacherRooms } = await this.client
       .from('room_members')
@@ -644,7 +852,8 @@ export class CampusService {
     const { data: scopes } = await this.client
       .from('institution_pedagogy_scopes')
       .select('formation_id')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .eq('institution_id', institutionId);
 
     if (!scopes || scopes.length === 0) {
       // Perimetre par defaut V1 : etablissement entier (voir migration).
@@ -659,7 +868,8 @@ export class CampusService {
     const { data: rooms } = await this.client
       .from('rooms')
       .select('id')
-      .in('formation_id', formationIds);
+      .in('formation_id', formationIds)
+      .eq('institution_id', institutionId);
     return (rooms ?? []).map((r: any) => String(r.id));
   }
 

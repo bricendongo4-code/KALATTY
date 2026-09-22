@@ -6,9 +6,12 @@ import {
   Patch,
   Post,
   Req,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { CampusService } from './campus.service';
 import {
   EndSessionDto,
@@ -56,6 +59,47 @@ export class CampusController {
   @Get('teacher/schedule')
   getTeacherSchedule(@Req() req: RequestUser) {
     return this.campusService.getTeacherSchedule(req.user);
+  }
+
+  @Get('staff/schedule')
+  getStaffSchedule(@Req() req: RequestUser) {
+    return this.campusService.getStaffSchedule(req.user);
+  }
+
+  @Get('announcements')
+  getAnnouncements(@Req() req: RequestUser) {
+    return this.campusService.getAnnouncements(req.user);
+  }
+
+  @Post('announcements')
+  createAnnouncement(@Req() req: RequestUser, @Body() body: { title?: string; body?: string; audience?: string; roomId?: string }) {
+    return this.campusService.createAnnouncement(req.user, body);
+  }
+
+  @Get('documents')
+  getDocuments(@Req() req: RequestUser) {
+    return this.campusService.getDocuments(req.user);
+  }
+
+  @Get('staff/assignments')
+  getStaffAssignments(@Req() req: RequestUser) {
+    return this.campusService.getStaffAssignments(req.user);
+  }
+
+  @Get('staff/justifications')
+  getJustifications(@Req() req: RequestUser) {
+    return this.campusService.getJustifications(req.user);
+  }
+
+  @Patch('staff/justifications/:id')
+  reviewJustification(@Req() req: RequestUser, @Param('id') id: string, @Body() body: { status?: string; note?: string }) {
+    return this.campusService.reviewJustification(req.user, id, body);
+  }
+
+  @Post('documents')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
+  uploadDocument(@Req() req: RequestUser, @UploadedFile() file: { buffer: Buffer; mimetype: string; originalname: string; size: number }, @Body() body: { title?: string; category?: string }) {
+    return this.campusService.uploadDocument(req.user, file, body);
   }
 
   @Post('rooms/:roomId/sessions/start')
