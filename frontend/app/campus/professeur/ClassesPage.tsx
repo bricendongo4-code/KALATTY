@@ -162,7 +162,6 @@ export default function ClassesPage() {
               <div className={styles.stack}>
                 <Card
                   title={`Devoirs — ${room.name}`}
-                  link={{ label: showAssignmentForm ? "Fermer" : "+ Publier un devoir", href: "#" }}
                 >
                   {showAssignmentForm ? (
                     <form onSubmit={createAssignment} className={styles.stack} style={{ marginBottom: 12 }}>
@@ -188,6 +187,7 @@ export default function ClassesPage() {
                         </button>
                       </div>
                       {formError ? <p className={styles.inlineError}>{formError}</p> : null}
+                      <button type="button" className={`${styles.btn} ${styles.btnGhost}`} onClick={() => setShowAssignmentForm(false)}>Fermer le formulaire</button>
                     </form>
                   ) : (
                     <button type="button" className={`${styles.btn} ${styles.btnGhost}`} style={{ marginBottom: 12 }} onClick={() => setShowAssignmentForm(true)}>
@@ -242,7 +242,7 @@ export default function ClassesPage() {
                             <Badge kind={s.status === "reviewed" ? "ok" : "pending"}>{s.status === "reviewed" ? `Corrigé (${s.score ?? "?"})` : "À corriger"}</Badge>
                           </small>
                         </span>
-                        {s.status !== "reviewed" ? (
+                        {s.status === "submitted" ? (
                           reviewFor === s.id ? (
                             <div style={{ display: "grid", gap: 6, width: "100%", marginTop: 6 }}>
                               {s.content ? <p style={{ fontSize: 12, color: "var(--muted)" }}>« {s.content} »</p> : null}

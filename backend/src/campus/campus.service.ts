@@ -400,18 +400,21 @@ export class CampusService {
       .select('room_id')
       .eq('user_id', ctx.userId)
       .eq('role', 'teacher');
-    const roomIds = [
+    const memberRoomIds = [
       ...new Set((teacherRooms ?? []).map((r: any) => String(r.room_id))),
     ];
 
-    if (roomIds.length === 0) {
+    if (memberRoomIds.length === 0) {
       return this.emptyTeacherHome();
     }
 
     const { data: rooms } = await this.client
       .from('rooms')
       .select('id, name')
-      .in('id', roomIds);
+      .in('id', memberRoomIds)
+      .eq('institution_id', ctx.institutionId);
+    const roomIds = (rooms ?? []).map((room: any) => String(room.id));
+    if (!roomIds.length) return this.emptyTeacherHome();
     const roomName = new Map(
       (rooms ?? []).map((r: any) => [String(r.id), String(r.name)]),
     );
