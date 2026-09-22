@@ -28,6 +28,16 @@ export class PaymentsController {
     return this.paymentsService.getPlans();
   }
 
+  @Get('mine')
+  getMyPayments(@Req() req: RequestUser) {
+    return this.paymentsService.getMyPayments(req.user);
+  }
+
+  @Get('teacher/revenue-summary')
+  getTeacherRevenueSummary(@Req() req: RequestUser) {
+    return this.paymentsService.getTeacherRevenueSummary(req.user);
+  }
+
   @Post('course-checkout')
   createCourseCheckout(
     @Req() req: RequestUser,

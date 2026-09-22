@@ -85,16 +85,6 @@ export default function Shell({
           <nav className={styles.nav}>{cfg.nav.map(renderItem)}</nav>
           <div className={styles.sideFoot}>
             {cfg.foot.map(renderItem)}
-            {role !== "pedagogie" ? (
-              <Link
-                href="/dashboard"
-                className={styles.navItem}
-                onClick={() => setOpen(false)}
-              >
-                <Icon name="chevron" className={styles.navIcon} />
-                Ancien tableau de bord
-              </Link>
-            ) : null}
           </div>
         </div>
       </aside>
@@ -132,13 +122,22 @@ export default function Shell({
                 <span className={styles.bellDot}>{notifCount}</span>
               ) : null}
             </button>
-            <div className={styles.userChip}>
-              <Avatar name={user.name} size={38} />
-              <span className={styles.userText}>
-                <strong>{user.name}</strong>
-                <small>{user.sub}</small>
-              </span>
-            </div>
+            <details className={styles.contextMenu}>
+              <summary className={styles.userChip}>
+                <Avatar name={user.name} size={38} />
+                <span className={styles.userText}>
+                  <strong>{user.name}</strong>
+                  <small>{user.sub}</small>
+                </span>
+                <Icon name="chevron" className={styles.contextChevron} />
+              </summary>
+              <div className={styles.contextPopover}>
+                <span>Changer d&apos;espace</span>
+                <Link href="/campus">Espace Établissement</Link>
+                <Link href="/learning/apprenant">Apprenant indépendant</Link>
+                <Link href="/learning/formateur">Formateur / Créateur</Link>
+              </div>
+            </details>
           </div>
         </header>
 

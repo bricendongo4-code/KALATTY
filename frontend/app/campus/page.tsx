@@ -33,10 +33,9 @@ export default function CampusPicker() {
             </Link>
           ))}
         </div>
-        <p style={{ fontSize: 13 }}>
-          Version en construction : maquette interactive avec données de
-          démonstration.
-        </p>
+        <Link href="/learning" className={styles.btn} style={{ marginTop: 22 }}>
+          Ouvrir l&apos;univers Formation en ligne
+        </Link>
       </div>
     </main>
   );

@@ -1,16 +1,13 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import styles from "../../campus.module.css";
 import { ROLES, isRoleSlug } from "../../roles";
-import Shell from "../../Shell";
-import { Icon } from "../../ui";
 import CampusHome from "../../CampusHome";
 import DirectionUsersPage from "../../direction/UsersPage";
 import DirectionFormationsPage from "../../direction/FormationsPage";
 import StudentAssignmentsPage from "../../etudiant/AssignmentsPage";
 import TeacherClassesPage from "../../professeur/ClassesPage";
 import PedagogyClassesPage from "../../pedagogie/ClassesPage";
+import CampusSectionPage from "../../SectionPage";
 
 type Params = Promise<{ role: string; section?: string[] }>;
 
@@ -50,22 +47,5 @@ export default async function CampusRolePage({ params }: { params: Params }) {
     return <Built />;
   }
 
-  return (
-    <Shell role={role} activeSlug={slug}>
-      <section className={`${styles.card} ${styles.soon}`}>
-        <Icon name={item.icon} className={styles.navIcon} />
-        <h2>{item.label}</h2>
-        <p>
-          Cet écran fait partie du plan de l&apos;Espace Établissement mais
-          n&apos;est pas encore construit. L&apos;accueil de chaque rôle est
-          disponible ; les sections détaillées arrivent par étapes, en
-          commençant par celles qui portent la chaîne « séance, appel, devoir,
-          note ».
-        </p>
-        <Link href={`/campus/${role}`} className={styles.btn}>
-          Retour à l&apos;accueil
-        </Link>
-      </section>
-    </Shell>
-  );
+  return <CampusSectionPage role={role} slug={slug} />;
 }

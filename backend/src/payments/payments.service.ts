@@ -69,6 +69,102 @@ export class PaymentsService {
     };
   }
 
+  async getMyPayments(user: AuthUser) {
+    const { data, error } = await this.supabaseService.client
+      .from('payments')
+      .select(
+        'id, course_id, amount_fcfa, status, created_at, courses ( id, title )',
+      )
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new BadRequestException(
+        error.message ?? "Impossible de charger l'historique des paiements.",
+      );
+    }
+
+    return {
+      transactions: (data ?? []).map((payment: any) => {
+        const course = Array.isArray(payment.courses)
+          ? payment.courses[0]
+          : payment.courses;
+        return {
+          id: String(payment.id),
+          courseId: String(payment.course_id),
+          courseTitle: String(course?.title ?? 'Formation Kalatty'),
+          amountFcfa: Number(payment.amount_fcfa ?? 0),
+          status: String(payment.status ?? 'pending'),
+          createdAt: payment.created_at,
+          receiptAvailable: payment.status === 'paid',
+        };
+      }),
+    };
+  }
+
+  async getTeacherRevenueSummary(user: AuthUser) {
+    const role = await this.resolveRole(user);
+    if (role !== 'teacher' && role !== 'admin') {
+      throw new ForbiddenException(
+        'Cet espace de revenus est reserve aux formateurs.',
+      );
+    }
+
+    let query = this.supabaseService.client
+      .from('payments')
+      .select(
+        'id, user_id, course_id, amount_fcfa, platform_fee_fcfa, teacher_earning_fcfa, status, created_at, courses ( id, title )',
+      )
+      .order('created_at', { ascending: false });
+
+    if (role !== 'admin') {
+      query = query.eq('teacher_id', user.id);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      throw new BadRequestException(
+        error.message ?? 'Impossible de charger les revenus du formateur.',
+      );
+    }
+
+    const transactions = (data ?? []).map((payment: any) => {
+      const course = Array.isArray(payment.courses)
+        ? payment.courses[0]
+        : payment.courses;
+      return {
+        id: String(payment.id),
+        courseId: String(payment.course_id),
+        courseTitle: String(course?.title ?? 'Formation Kalatty'),
+        amountGrossFcfa: Number(payment.amount_fcfa ?? 0),
+        platformFeeFcfa: Number(payment.platform_fee_fcfa ?? 0),
+        trainerNetFcfa: Number(payment.teacher_earning_fcfa ?? 0),
+        status: String(payment.status ?? 'pending'),
+        createdAt: payment.created_at,
+      };
+    });
+
+    const paid = transactions.filter((item) => item.status === 'paid');
+    const pending = transactions.filter((item) =>
+      ['pending', 'processing'].includes(item.status),
+    );
+    const sum = (
+      items: typeof transactions,
+      key: 'amountGrossFcfa' | 'platformFeeFcfa' | 'trainerNetFcfa',
+    ) => items.reduce((total, item) => total + item[key], 0);
+
+    return {
+      currency: 'XAF',
+      grossPaidFcfa: sum(paid, 'amountGrossFcfa'),
+      feesPaidFcfa: sum(paid, 'platformFeeFcfa'),
+      netPaidFcfa: sum(paid, 'trainerNetFcfa'),
+      pendingNetFcfa: sum(pending, 'trainerNetFcfa'),
+      refundsFcfa: 0,
+      paidSalesCount: paid.length,
+      transactions,
+    };
+  }
+
   async createCourseCheckout(user: AuthUser, courseId?: string) {
     if (!courseId) {
       throw new BadRequestException('Le cours a payer est introuvable.');

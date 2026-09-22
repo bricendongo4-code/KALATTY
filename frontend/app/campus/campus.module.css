@@ -282,6 +282,62 @@
   gap: 14px;
 }
 
+.contextMenu {
+  position: relative;
+}
+
+.contextMenu summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.contextMenu summary::-webkit-details-marker {
+  display: none;
+}
+
+.contextChevron {
+  width: 15px;
+  height: 15px;
+  margin-left: 4px;
+  transform: rotate(90deg);
+}
+
+.contextPopover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 12px);
+  width: 245px;
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 18px 48px rgba(5, 49, 57, 0.2);
+}
+
+.contextPopover > span {
+  padding: 5px 8px;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.contextPopover a {
+  padding: 10px;
+  border-radius: 9px;
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.contextPopover a:hover {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
 .bell {
   position: relative;
   width: 38px;
