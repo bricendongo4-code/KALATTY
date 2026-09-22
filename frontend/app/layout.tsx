@@ -5,6 +5,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "./globals.css";
 import NavigationBackButton from "./NavigationBackButton";
 import SessionAwareHomeLink from "./SessionAwareHomeLink";
+import SiteChrome from "./SiteChrome";
 
 export const metadata: Metadata = {
   title: "Kalatty",
@@ -36,6 +37,7 @@ export default function RootLayout({
       <body>
         <NavigationBackButton />
         {children}
+        <SiteChrome>
         <footer className="siteFooter">
           <div className="siteFooterGlow" aria-hidden="true" />
           <div className="siteFooterInner">
@@ -131,6 +133,7 @@ export default function RootLayout({
             </span>
           </div>
         </footer>
+        </SiteChrome>
       </body>
     </html>
   );
