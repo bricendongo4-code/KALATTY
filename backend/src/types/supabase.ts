@@ -79,6 +79,8 @@ export interface Database {
           feedback: string | null;
           created_at: string;
           updated_at: string;
+          published: boolean;
+          published_at: string | null;
         };
         Insert: {
           id?: string;
@@ -94,6 +96,8 @@ export interface Database {
           feedback?: string | null;
           created_at?: string;
           updated_at?: string;
+          published?: boolean;
+          published_at?: string | null;
         };
         Update: {
           id?: string;
@@ -109,6 +113,8 @@ export interface Database {
           feedback?: string | null;
           created_at?: string;
           updated_at?: string;
+          published?: boolean;
+          published_at?: string | null;
         };
         Relationships: [
           {
@@ -145,6 +151,10 @@ export interface Database {
           status: string;
           created_at: string;
           updated_at: string;
+          room_subject_id: string | null;
+          eval_type: string;
+          coefficient: number;
+          competencies: string[];
         };
         Insert: {
           id?: string;
@@ -159,6 +169,10 @@ export interface Database {
           status?: string;
           created_at?: string;
           updated_at?: string;
+          room_subject_id?: string | null;
+          eval_type?: string;
+          coefficient?: number;
+          competencies?: string[];
         };
         Update: {
           id?: string;
@@ -173,8 +187,18 @@ export interface Database {
           status?: string;
           created_at?: string;
           updated_at?: string;
+          room_subject_id?: string | null;
+          eval_type?: string;
+          coefficient?: number;
+          competencies?: string[];
         };
         Relationships: [
+          {
+            foreignKeyName: 'assignments_room_subject_id_fkey';
+            columns: ['room_subject_id'];
+            referencedRelation: 'room_subjects';
+            referencedColumns: ['id'];
+          },
           {
             foreignKeyName: 'assignments_room_id_fkey';
             columns: ['room_id'];
@@ -1029,6 +1053,14 @@ export interface Database {
           created_by: string | null;
           created_at: string;
           updated_at: string;
+          room_subject_id: string | null;
+          schedule_item_id: string | null;
+          teacher_id: string | null;
+          status: string;
+          started_at: string | null;
+          ended_at: string | null;
+          content_done: string | null;
+          homework: string | null;
         };
         Insert: {
           id?: string;
@@ -1039,6 +1071,14 @@ export interface Database {
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
+          room_subject_id?: string | null;
+          schedule_item_id?: string | null;
+          teacher_id?: string | null;
+          status?: string;
+          started_at?: string | null;
+          ended_at?: string | null;
+          content_done?: string | null;
+          homework?: string | null;
         };
         Update: {
           id?: string;
@@ -1049,6 +1089,14 @@ export interface Database {
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
+          room_subject_id?: string | null;
+          schedule_item_id?: string | null;
+          teacher_id?: string | null;
+          status?: string;
+          started_at?: string | null;
+          ended_at?: string | null;
+          content_done?: string | null;
+          homework?: string | null;
         };
         Relationships: [
           {
@@ -1066,6 +1114,24 @@ export interface Database {
           {
             foreignKeyName: 'room_attendance_sessions_created_by_fkey';
             columns: ['created_by'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'room_attendance_sessions_room_subject_id_fkey';
+            columns: ['room_subject_id'];
+            referencedRelation: 'room_subjects';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'room_attendance_sessions_schedule_item_id_fkey';
+            columns: ['schedule_item_id'];
+            referencedRelation: 'room_schedule_items';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'room_attendance_sessions_teacher_id_fkey';
+            columns: ['teacher_id'];
             referencedRelation: 'profiles';
             referencedColumns: ['id'];
           },
@@ -1438,6 +1504,331 @@ export interface Database {
           },
         ];
       };
+      formations: {
+        Row: {
+          id: string;
+          institution_id: string;
+          name: string;
+          level: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          institution_id: string;
+          name: string;
+          level?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          institution_id?: string;
+          name?: string;
+          level?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'formations_institution_id_fkey';
+            columns: ['institution_id'];
+            referencedRelation: 'institutions';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      institution_pedagogy_scopes: {
+        Row: {
+          id: string;
+          institution_id: string;
+          user_id: string;
+          formation_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          institution_id: string;
+          user_id: string;
+          formation_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          institution_id?: string;
+          user_id?: string;
+          formation_id?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'institution_pedagogy_scopes_institution_id_fkey';
+            columns: ['institution_id'];
+            referencedRelation: 'institutions';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'institution_pedagogy_scopes_user_id_fkey';
+            columns: ['user_id'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'institution_pedagogy_scopes_formation_id_fkey';
+            columns: ['formation_id'];
+            referencedRelation: 'formations';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      subjects: {
+        Row: {
+          id: string;
+          institution_id: string;
+          name: string;
+          course_id: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          institution_id: string;
+          name: string;
+          course_id?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          institution_id?: string;
+          name?: string;
+          course_id?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'subjects_institution_id_fkey';
+            columns: ['institution_id'];
+            referencedRelation: 'institutions';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'subjects_course_id_fkey';
+            columns: ['course_id'];
+            referencedRelation: 'courses';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      room_subjects: {
+        Row: {
+          id: string;
+          room_id: string;
+          subject_id: string;
+          teacher_id: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          room_id: string;
+          subject_id: string;
+          teacher_id?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          room_id?: string;
+          subject_id?: string;
+          teacher_id?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'room_subjects_room_id_fkey';
+            columns: ['room_id'];
+            referencedRelation: 'rooms';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'room_subjects_subject_id_fkey';
+            columns: ['subject_id'];
+            referencedRelation: 'subjects';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'room_subjects_teacher_id_fkey';
+            columns: ['teacher_id'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      absence_justifications: {
+        Row: {
+          id: string;
+          record_id: string;
+          institution_id: string;
+          student_id: string;
+          reason: string;
+          file_path: string | null;
+          status: string;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          review_note: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          record_id: string;
+          institution_id: string;
+          student_id: string;
+          reason: string;
+          file_path?: string | null;
+          status?: string;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          review_note?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          record_id?: string;
+          institution_id?: string;
+          student_id?: string;
+          reason?: string;
+          file_path?: string | null;
+          status?: string;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          review_note?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'absence_justifications_record_id_fkey';
+            columns: ['record_id'];
+            referencedRelation: 'room_attendance_records';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'absence_justifications_institution_id_fkey';
+            columns: ['institution_id'];
+            referencedRelation: 'institutions';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'absence_justifications_student_id_fkey';
+            columns: ['student_id'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      institution_documents: {
+        Row: {
+          id: string;
+          institution_id: string;
+          title: string;
+          category: string;
+          file_path: string;
+          uploaded_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          institution_id: string;
+          title: string;
+          category?: string;
+          file_path: string;
+          uploaded_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          institution_id?: string;
+          title?: string;
+          category?: string;
+          file_path?: string;
+          uploaded_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'institution_documents_institution_id_fkey';
+            columns: ['institution_id'];
+            referencedRelation: 'institutions';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      announcements: {
+        Row: {
+          id: string;
+          institution_id: string;
+          room_id: string | null;
+          author_id: string | null;
+          title: string;
+          body: string;
+          audience: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          institution_id: string;
+          room_id?: string | null;
+          author_id?: string | null;
+          title: string;
+          body: string;
+          audience?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          institution_id?: string;
+          room_id?: string | null;
+          author_id?: string | null;
+          title?: string;
+          body?: string;
+          audience?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'announcements_institution_id_fkey';
+            columns: ['institution_id'];
+            referencedRelation: 'institutions';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'announcements_room_id_fkey';
+            columns: ['room_id'];
+            referencedRelation: 'rooms';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'announcements_author_id_fkey';
+            columns: ['author_id'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -1587,3 +1978,41 @@ export type TeacherReviewsInsert =
   Database['public']['Tables']['teacher_reviews']['Insert'];
 export type TeacherReviewsUpdate =
   Database['public']['Tables']['teacher_reviews']['Update'];
+export type FormationsRow = Database['public']['Tables']['formations']['Row'];
+export type FormationsInsert =
+  Database['public']['Tables']['formations']['Insert'];
+export type FormationsUpdate =
+  Database['public']['Tables']['formations']['Update'];
+export type SubjectsRow = Database['public']['Tables']['subjects']['Row'];
+export type SubjectsInsert = Database['public']['Tables']['subjects']['Insert'];
+export type SubjectsUpdate = Database['public']['Tables']['subjects']['Update'];
+export type RoomSubjectsRow =
+  Database['public']['Tables']['room_subjects']['Row'];
+export type RoomSubjectsInsert =
+  Database['public']['Tables']['room_subjects']['Insert'];
+export type RoomSubjectsUpdate =
+  Database['public']['Tables']['room_subjects']['Update'];
+export type InstitutionPedagogyScopesRow =
+  Database['public']['Tables']['institution_pedagogy_scopes']['Row'];
+export type InstitutionPedagogyScopesInsert =
+  Database['public']['Tables']['institution_pedagogy_scopes']['Insert'];
+export type InstitutionPedagogyScopesUpdate =
+  Database['public']['Tables']['institution_pedagogy_scopes']['Update'];
+export type AbsenceJustificationsRow =
+  Database['public']['Tables']['absence_justifications']['Row'];
+export type AbsenceJustificationsInsert =
+  Database['public']['Tables']['absence_justifications']['Insert'];
+export type AbsenceJustificationsUpdate =
+  Database['public']['Tables']['absence_justifications']['Update'];
+export type InstitutionDocumentsRow =
+  Database['public']['Tables']['institution_documents']['Row'];
+export type InstitutionDocumentsInsert =
+  Database['public']['Tables']['institution_documents']['Insert'];
+export type InstitutionDocumentsUpdate =
+  Database['public']['Tables']['institution_documents']['Update'];
+export type AnnouncementsRow =
+  Database['public']['Tables']['announcements']['Row'];
+export type AnnouncementsInsert =
+  Database['public']['Tables']['announcements']['Insert'];
+export type AnnouncementsUpdate =
+  Database['public']['Tables']['announcements']['Update'];

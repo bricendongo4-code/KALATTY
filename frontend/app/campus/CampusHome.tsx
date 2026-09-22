@@ -1,0 +1,64 @@
+"use client";
+
+import Shell from "./Shell";
+import type { RoleSlug } from "./roles";
+import { useCampusHome } from "./useCampusHome";
+import {
+  DirectionHome,
+  PedagogyHome,
+  StudentHome,
+  TeacherHome,
+  type DirectionHomeData,
+  type PedagogyHomeData,
+  type StudentHomeData,
+  type TeacherHomeData,
+} from "./views";
+import styles from "./campus.module.css";
+
+/** Accueil connecte a l'API pour un role donne : charge /campus/home puis
+ * rend le bon tableau de bord avec les vraies donnees de l'utilisateur. */
+export default function CampusHome({ role }: { role: RoleSlug }) {
+  const { loading, error, context, data } = useCampusHome<unknown>(role);
+
+  const messagesCount =
+    data && typeof data === "object" && "messages" in data
+      ? (data as { messages: unknown[] }).messages.length
+      : 0;
+
+  return (
+    <Shell
+      role={role}
+      activeSlug=""
+      displayName={context?.displayName}
+      institutionName={context?.institutionName}
+      notifications={messagesCount}
+      note={
+        error
+          ? null
+          : context
+            ? `Connecte a ${context.institutionName}.`
+            : "Chargement de vos donnees..."
+      }
+    >
+      {loading ? (
+        <section className={`${styles.card} ${styles.soon}`}>
+          <h2>Chargement...</h2>
+          <p>Recuperation de vos donnees en cours.</p>
+        </section>
+      ) : error ? (
+        <section className={`${styles.card} ${styles.soon}`}>
+          <h2>Impossible de charger l&apos;Espace Etablissement</h2>
+          <p>{error}</p>
+        </section>
+      ) : !data ? null : role === "etudiant" ? (
+        <StudentHome data={data as StudentHomeData} />
+      ) : role === "professeur" ? (
+        <TeacherHome data={data as TeacherHomeData} />
+      ) : role === "pedagogie" ? (
+        <PedagogyHome data={data as PedagogyHomeData} />
+      ) : (
+        <DirectionHome data={data as DirectionHomeData} />
+      )}
+    </Shell>
+  );
+}
