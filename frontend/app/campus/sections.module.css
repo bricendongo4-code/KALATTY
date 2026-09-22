@@ -2,3 +2,4 @@
 @media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:650px){.pageHead{align-items:flex-start;flex-direction:column}.secondaryButton{width:100%}.kpis{grid-template-columns:1fr 1fr}.kpis article{min-height:78px;padding:11px}.rows article{grid-template-columns:38px 1fr auto}.rowMeta{display:none}.progressCard{grid-template-columns:1fr}.cardHead{align-items:flex-start}.cardHead button{flex:none}}
 @media(max-width:420px){.kpis{grid-template-columns:1fr}.tabs{margin-right:-12px}.rows article{grid-template-columns:34px 1fr}.rows article>b{grid-column:2;justify-self:start}.cardHead{display:grid}.cardHead button{width:100%}}
+.searchNotice{margin:0 0 12px;padding:10px 13px;border:1px solid #cde5e2;border-radius:10px;background:#edf8f6;color:#176e68;font-size:12px;font-weight:750}

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Shell from "./Shell";
 import { ROLES, type RoleSlug } from "./roles";
 import { Icon, Progress } from "./ui";
@@ -143,12 +144,15 @@ export default function CampusSectionPage({ role, slug }: { role: RoleSlug; slug
   const item = [...ROLES[role].nav, ...ROLES[role].foot].find((entry) => entry.slug === slug)!;
   const detail = SECTION_DETAILS[role]?.[slug] ?? { description: `Consultez et gérez ${item.label.toLowerCase()} dans votre périmètre.`, tabs: ["Vue d’ensemble", "Activité"], permission: "Les données affichées respectent votre rôle et vos affectations." };
   const [activeTab, setActiveTab] = useState(detail.tabs[0]);
+  const searchParams = useSearchParams();
+  const searchQuery = (searchParams.get("q") ?? "").trim().toLocaleLowerCase("fr");
 
   if (mismatch) {
     return <section className={styles.standalone}><h1>Espace non autorisé</h1><p>Votre compte correspond au rôle {ROLES[mismatch.campusRole].name}.</p><Link href={`/campus/${mismatch.campusRole}`}>Ouvrir mon espace</Link></section>;
   }
 
-  const rows = data ? rowsFor(role, slug, data) : [];
+  const allRows = data ? rowsFor(role, slug, data) : [];
+  const rows = searchQuery ? allRows.filter((row) => `${row.title} ${row.subtitle} ${row.meta ?? ""} ${row.status ?? ""}`.toLocaleLowerCase("fr").includes(searchQuery)) : allRows;
   const kpis = data ? kpisFor(role, data) : [];
 
   return <Shell role={role} activeSlug={slug} displayName={context?.displayName} institutionName={context?.institutionName} note={error ? null : context ? `Connecté à ${context.institutionName}.` : "Chargement de vos données…"}>
@@ -156,6 +160,7 @@ export default function CampusSectionPage({ role, slug }: { role: RoleSlug; slug
       <div><span>{ROLES[role].name}</span><h1>{item.label}</h1><p>{detail.description}</p></div>
       <Link href={`/campus/${role}`} className={styles.secondaryButton}>Retour à l’accueil</Link>
     </header>
+    {searchQuery ? <p className={styles.searchNotice}>Résultats pour « {searchParams.get("q")} »</p> : null}
 
     <nav className={styles.tabs} aria-label={`Sections de ${item.label}`}>
       {detail.tabs.map((tab) => <button type="button" className={activeTab === tab ? styles.tabActive : ""} onClick={() => setActiveTab(tab)} key={tab}>{tab}</button>)}

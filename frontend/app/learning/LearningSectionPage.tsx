@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Icon, Progress } from "../campus/ui";
 import { LEARNING_ROLES, type LearningRole } from "./config";
@@ -67,6 +67,8 @@ function CourseCard({ course, trainer }: { course: CourseData; trainer: boolean 
 
 export default function LearningSectionPage({ role, slug }: { role: LearningRole; slug: string }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const searchQuery = (searchParams.get("q") ?? "").trim().toLocaleLowerCase("fr");
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -116,12 +118,14 @@ export default function LearningSectionPage({ role, slug }: { role: LearningRole
 
   const isCourseScreen = ["explorer", "formations", "certificats", "favoris", "mediatheque", "apprenants", "evaluations", "analytics", "ressources"].includes(slug);
   const completedCourses = courses.filter((course) => Number(course.progress ?? 0) >= 100);
-  const visibleCourses = slug === "certificats" ? completedCourses : ["favoris"].includes(slug) ? [] : slug === "explorer" && activeTab === "Gratuites" ? courses.filter((course) => !Number(course.priceFcfa ?? 0)) : slug === "explorer" && activeTab === "Payantes" ? courses.filter((course) => Number(course.priceFcfa ?? 0) > 0) : slug === "formations" && activeTab === "Terminées" ? completedCourses : slug === "formations" && activeTab === "En cours" ? courses.filter((course) => Number(course.progress ?? 0) < 100) : role === "formateur" && activeTab === "Publiées" ? courses.filter((course) => course.status === "published") : role === "formateur" && activeTab === "Brouillons" ? courses.filter((course) => course.status !== "published") : courses;
+  const tabCourses = slug === "certificats" ? completedCourses : ["favoris"].includes(slug) ? [] : slug === "explorer" && activeTab === "Gratuites" ? courses.filter((course) => !Number(course.priceFcfa ?? 0)) : slug === "explorer" && activeTab === "Payantes" ? courses.filter((course) => Number(course.priceFcfa ?? 0) > 0) : slug === "formations" && activeTab === "Terminées" ? completedCourses : slug === "formations" && activeTab === "En cours" ? courses.filter((course) => Number(course.progress ?? 0) < 100) : role === "formateur" && activeTab === "Publiées" ? courses.filter((course) => course.status === "published") : role === "formateur" && activeTab === "Brouillons" ? courses.filter((course) => course.status !== "published") : courses;
+  const visibleCourses = searchQuery ? tabCourses.filter((course) => `${course.title ?? ""} ${course.description ?? ""} ${course.teacherName ?? ""}`.toLocaleLowerCase("fr").includes(searchQuery)) : tabCourses;
   const visibleNotifications = activeTab === "Non lues" ? notifications.filter((item) => !item.read) : activeTab === "Cours" ? notifications.filter((item) => item.type === "course") : activeTab === "Paiements" ? notifications.filter((item) => item.type === "payment") : notifications;
   const openNotification = async (item: Notification) => { const token = localStorage.getItem("kalatty_token"); setNotifications((current) => current.map((entry) => entry.id === item.id ? { ...entry, read: true } : entry)); if (token && !item.read) await fetch(`${API_BASE}/notifications/${encodeURIComponent(item.id)}/read`, { method: "PATCH", headers: { Authorization: `Bearer ${token}` } }); if (item.href) router.push(item.href); };
 
   return <>
     <header className={styles.pageHead}><div><h1>{details.title}</h1><p>{details.text}</p></div>{role === "formateur" && slug === "formations" ? <Link href="/learning/formateur/formations/builder" className={styles.primaryButton}><Icon name="plus" /> Créer une formation</Link> : null}</header>
+    {searchQuery ? <p className={styles.builderMessage}>Résultats pour « {searchParams.get("q")} »</p> : null}
     <nav className={styles.tabs}>{details.tabs.map((tab) => <button key={tab} className={activeTab === tab ? styles.tabActive : ""} onClick={() => setActiveTab(tab)}>{tab}</button>)}</nav>
 
     {slug === "profil" ? <AccountSettings /> : null}

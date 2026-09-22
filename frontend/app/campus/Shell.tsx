@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { FormEvent, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import styles from "./campus.module.css";
 import { ROLES } from "./roles";
@@ -37,6 +38,10 @@ export default function Shell({
   const noteText =
     note === undefined ? "Connecte a vos donnees Kalatty en temps reel." : note;
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const router = useRouter();
+  const pathname = usePathname();
+  const search = (event: FormEvent) => { event.preventDefault(); const value = query.trim(); router.push(value ? `${pathname}?q=${encodeURIComponent(value)}` : pathname); };
   const href = (slug: string) =>
     slug ? `/campus/${role}/${slug}` : `/campus/${role}`;
 
@@ -104,14 +109,16 @@ export default function Shell({
             <span className={styles.topTitle}>{cfg.topTitle}</span>
             <span className={styles.topSub}>{cfg.brandSub}</span>
           </span>
-          <label className={styles.search}>
+          <form className={styles.search} onSubmit={search} role="search">
             <Icon name="search" className={styles.searchIcon} />
             <input
               type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
               placeholder={cfg.searchPlaceholder}
               aria-label="Recherche"
             />
-          </label>
+          </form>
           <div className={styles.topRight}>
             <NotificationBell allHref={`/campus/${role}/${role === "direction" ? "communication" : role === "pedagogie" ? "messagerie" : "actualites"}`} />
             <details className={styles.contextMenu}>

@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { FormEvent, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { Avatar, Icon } from "../campus/ui";
 import { logoutKalatty } from "../sessionSecurity";
@@ -23,6 +24,10 @@ export default function LearningShell({
   const config = LEARNING_ROLES[role];
   const identity = useAccountIdentity(config.user);
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const router = useRouter();
+  const pathname = usePathname();
+  const search = (event: FormEvent) => { event.preventDefault(); const value = query.trim(); router.push(value ? `${pathname}?q=${encodeURIComponent(value)}` : pathname); };
 
   return (
     <div className={styles.app} data-role={role}>
@@ -41,7 +46,6 @@ export default function LearningShell({
             >
               <Icon name={item.icon} />
               <span>{item.label}</span>
-              {item.slug === "messages" ? <b>3</b> : null}
             </Link>
           ))}
         </nav>
@@ -59,10 +63,10 @@ export default function LearningShell({
           <button type="button" className={styles.menuButton} onClick={() => setOpen(true)} aria-label="Ouvrir le menu">
             <Icon name="menu" />
           </button>
-          <label className={styles.search}>
+          <form className={styles.search} onSubmit={search} role="search">
             <Icon name="search" />
-            <input type="search" placeholder={config.search} aria-label="Recherche" />
-          </label>
+            <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={config.search} aria-label="Recherche" />
+          </form>
           <NotificationBell allHref={role === "apprenant" ? "/learning/apprenant/notifications" : "/learning/formateur/messages"} />
           <details className={styles.profileMenu}>
             <summary>
