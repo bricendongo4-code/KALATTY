@@ -800,7 +800,17 @@ export class InstitutionsService {
 
   async getRoomDetails(user: AuthUser, roomId: string) {
     const room = await this.getRoomOrThrow(roomId);
-    await this.assertInstitutionAccess(user.id, room.institution_id);
+    const institutionRole = await this.assertInstitutionAccess(user.id, room.institution_id);
+    if (institutionRole === 'student') {
+      throw new ForbiddenException('Les détails de cette classe sont réservés au personnel.');
+    }
+    if (institutionRole === 'teacher') {
+      const { data: membership, error: membershipError } = await this.supabaseService.client
+        .from('room_members').select('id').eq('room_id', roomId).eq('user_id', user.id)
+        .eq('role', 'teacher').maybeSingle();
+      if (membershipError) throw new BadRequestException(membershipError.message);
+      if (!membership) throw new ForbiddenException('Vous n’êtes pas affecté à cette classe.');
+    }
 
     const assignmentIds = await this.getRoomAssignmentIds(roomId);
 
@@ -1323,6 +1333,7 @@ export class InstitutionsService {
         `
           id,
           status,
+          published,
           score,
           feedback,
           content,
@@ -1357,8 +1368,8 @@ export class InstitutionsService {
       return {
         id: submission.id,
         status: submission.status,
-        score: submission.score,
-        feedback: submission.feedback,
+        score: submission.published ? submission.score : null,
+        feedback: submission.published ? submission.feedback : null,
         content: submission.content,
         filePath: submission.file_path,
         submittedAt: submission.submitted_at,

@@ -53,6 +53,11 @@ export class CampusController {
     return this.campusService.getStudentAnnouncements(req.user);
   }
 
+  @Get('teacher/schedule')
+  getTeacherSchedule(@Req() req: RequestUser) {
+    return this.campusService.getTeacherSchedule(req.user);
+  }
+
   @Post('rooms/:roomId/sessions/start')
   startSession(
     @Req() req: RequestUser,

@@ -33,7 +33,7 @@ type RoomDetails = {
   }>;
 };
 
-export default function ClassesPage() {
+export default function ClassesPage({ section = "classes" }: { section?: "classes" | "travaux" | "suivi" } = {}) {
   const { loading, error, context, mismatch, data } = useCampusHome<TeacherHomeData>("professeur");
   const [roomId, setRoomId] = useState<string | null>(null);
   const [room, setRoom] = useState<RoomDetails | null>(null);
@@ -130,7 +130,7 @@ export default function ClassesPage() {
   }
 
   return (
-    <Shell role="professeur" activeSlug="classes" displayName={context?.displayName} institutionName={context?.institutionName} note={error ?? null}>
+    <Shell role="professeur" activeSlug={section} displayName={context?.displayName} institutionName={context?.institutionName} note={error ?? null}>
       {loading ? (
         <p>Chargement...</p>
       ) : !data || data.classes.length === 0 ? (
@@ -141,7 +141,7 @@ export default function ClassesPage() {
         <>
           <div className={styles.pageHead}>
             <div>
-              <h1 className={styles.headTitle}>Mes classes</h1>
+              <h1 className={styles.headTitle}>{section === "travaux" ? "Travaux et corrections" : section === "suivi" ? "Suivi de mes étudiants" : "Mes classes"}</h1>
               <p className={styles.headSub}>Effectif, devoirs et corrections, classe par classe.</p>
             </div>
             <select className={styles.select} value={roomId ?? ""} onChange={(e) => setRoomId(e.target.value)}>

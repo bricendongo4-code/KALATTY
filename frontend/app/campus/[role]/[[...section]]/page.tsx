@@ -10,6 +10,7 @@ import PedagogyClassesPage from "../../pedagogie/ClassesPage";
 import CampusSectionPage from "../../SectionPage";
 import StudentPages from "../../etudiant/StudentPages";
 import StudentActivityPage from "../../etudiant/ActivityPage";
+import TeacherSchedulePage from "../../professeur/SchedulePage";
 
 type Params = Promise<{ role: string; section?: string[] }>;
 
@@ -18,6 +19,9 @@ const BUILT_SECTIONS: Partial<Record<string, () => React.JSX.Element>> = {
   "direction/formations-classes": DirectionFormationsPage,
   "etudiant/travaux": StudentAssignmentsPage,
   "professeur/classes": TeacherClassesPage,
+  "professeur/travaux": () => <TeacherClassesPage section="travaux" />,
+  "professeur/suivi": () => <TeacherClassesPage section="suivi" />,
+  "professeur/emploi-du-temps": TeacherSchedulePage,
   "pedagogie/classes": PedagogyClassesPage,
 };
 

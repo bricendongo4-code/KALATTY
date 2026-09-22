@@ -357,7 +357,17 @@ function SessionPanel({
     setBusy(true);
     setError(null);
     try {
-      await campusFetch(`/campus/sessions/${sessionId}/attendance`, {
+      await persistAttendance();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Impossible d'enregistrer les présences.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const persistAttendance = async () => {
+    if (!sessionId || !roster) return;
+    await campusFetch(`/campus/sessions/${sessionId}/attendance`, {
         method: "POST",
         body: JSON.stringify({
           records: roster
@@ -365,15 +375,6 @@ function SessionPanel({
             .map((r) => ({ student_id: r.studentId, status: r.status })),
         }),
       });
-    } catch (e) {
-      setError(
-        e instanceof Error
-          ? e.message
-          : "Impossible d'enregistrer les présences.",
-      );
-    } finally {
-      setBusy(false);
-    }
   };
 
   const end = async () => {
@@ -381,7 +382,7 @@ function SessionPanel({
     setBusy(true);
     setError(null);
     try {
-      await saveAttendance();
+      await persistAttendance();
       await campusFetch(`/campus/sessions/${sessionId}/end`, {
         method: "POST",
         body: JSON.stringify({ content_done: content, homework }),
@@ -526,7 +527,7 @@ export function TeacherHome({ data }: { data: TeacherHomeData }) {
           value={String(data.todayCount)}
           label="Cours aujourd'hui"
           link={{
-            label: "Voir mon planning",
+            label: "Voir le planning de mes classes",
             href: "/campus/professeur/emploi-du-temps",
           }}
         />

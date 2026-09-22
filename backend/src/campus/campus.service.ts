@@ -394,6 +394,33 @@ export class CampusService {
   }
 
   // ------------------------------------------------------------ professeur
+  async getTeacherSchedule(user: AuthUser) {
+    const context = await this.getContext(user);
+    if (context.campusRole !== 'professeur') {
+      throw new ForbiddenException('Espace réservé aux professeurs.');
+    }
+    const { data: memberships, error: membershipError } = await this.client
+      .from('room_members').select('room_id').eq('user_id', user.id).eq('role', 'teacher');
+    if (membershipError) throw new BadRequestException(membershipError.message);
+    const ids = (memberships ?? []).map((row: any) => String(row.room_id));
+    if (!ids.length) return { schedule: [] };
+    const { data: rooms, error: roomError } = await this.client.from('rooms')
+      .select('id, name').in('id', ids).eq('institution_id', context.institutionId);
+    if (roomError) throw new BadRequestException(roomError.message);
+    const roomIds = (rooms ?? []).map((room: any) => String(room.id));
+    if (!roomIds.length) return { schedule: [] };
+    const names = new Map((rooms ?? []).map((room: any) => [String(room.id), String(room.name)]));
+    const { data, error } = await this.client.from('room_schedule_items')
+      .select('id, room_id, title, weekday, starts_at, ends_at, location')
+      .in('room_id', roomIds).order('weekday', { ascending: true }).order('starts_at', { ascending: true });
+    if (error) throw new BadRequestException(error.message);
+    return { schedule: (data ?? []).map((item: any) => ({
+      id: item.id, title: item.title, roomName: names.get(String(item.room_id)),
+      weekday: Number(item.weekday), startsAt: String(item.starts_at).slice(0, 5),
+      endsAt: item.ends_at ? String(item.ends_at).slice(0, 5) : null, location: item.location ?? '',
+    })) };
+  }
+
   private async getTeacherHome(ctx: { userId: string; institutionId: string }) {
     const { data: teacherRooms } = await this.client
       .from('room_members')
@@ -924,6 +951,7 @@ export class CampusService {
       .from('room_subjects')
       .select('id, room_id, subject_id, subjects ( name )')
       .eq('id', body.room_subject_id)
+      .eq('teacher_id', user.id)
       .maybeSingle();
     if (rsError) throw new BadRequestException(rsError.message);
     if (!roomSubject || String(roomSubject.room_id) !== roomId) {
