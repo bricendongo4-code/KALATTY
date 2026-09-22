@@ -6,8 +6,15 @@ import { ROLES, isRoleSlug } from "../../roles";
 import Shell from "../../Shell";
 import { Icon } from "../../ui";
 import CampusHome from "../../CampusHome";
+import DirectionUsersPage from "../../direction/UsersPage";
+import DirectionFormationsPage from "../../direction/FormationsPage";
 
 type Params = Promise<{ role: string; section?: string[] }>;
+
+const BUILT_SECTIONS: Partial<Record<string, () => React.JSX.Element>> = {
+  "direction/utilisateurs": DirectionUsersPage,
+  "direction/formations-classes": DirectionFormationsPage,
+};
 
 export async function generateMetadata({
   params,
@@ -30,6 +37,11 @@ export default async function CampusRolePage({ params }: { params: Params }) {
 
   if (slug === "") {
     return <CampusHome role={role} />;
+  }
+
+  const Built = BUILT_SECTIONS[`${role}/${slug}`];
+  if (Built) {
+    return <Built />;
   }
 
   return (

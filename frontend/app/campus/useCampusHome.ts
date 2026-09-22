@@ -120,6 +120,65 @@ export function useCampusHome<T>(expectedRole: RoleSlug): HomeState<T> {
   return { ...state, reload: () => setTick((t) => t + 1) };
 }
 
+/**
+ * Version legere de useCampusHome pour les pages qui n'ont besoin que du
+ * contexte (institutionId, displayName...) et gerent elles-memes leurs
+ * propres donnees, sans charger l'agregat complet de l'accueil.
+ */
+export function useCampusContext(expectedRole: RoleSlug) {
+  const router = useRouter();
+  const [state, setState] = useState<{
+    loading: boolean;
+    error: string | null;
+    context: CampusContext | null;
+    mismatch: CampusContext | null;
+  }>({ loading: true, error: null, context: null, mismatch: null });
+
+  const load = useCallback(async () => {
+    const headers = authHeaders();
+    if (!headers) {
+      router.replace("/login");
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/campus/context`, { headers });
+      if (res.status === 401) {
+        router.replace("/login");
+        return;
+      }
+      const body = await res.json();
+      if (!res.ok) {
+        setState({
+          loading: false,
+          error: body.message ?? "Impossible de charger l'Espace Etablissement.",
+          context: null,
+          mismatch: null,
+        });
+        return;
+      }
+      if (body.campusRole !== expectedRole) {
+        setState({ loading: false, error: null, context: null, mismatch: body });
+        return;
+      }
+      setState({ loading: false, error: null, context: body, mismatch: null });
+    } catch {
+      setState({
+        loading: false,
+        error: "Connexion au serveur impossible.",
+        context: null,
+        mismatch: null,
+      });
+    }
+  }, [expectedRole, router]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load();
+  }, [load]);
+
+  return state;
+}
+
 export async function campusFetch(path: string, init?: RequestInit) {
   const headers = authHeaders();
   const res = await fetch(`${API_BASE}${path}`, {

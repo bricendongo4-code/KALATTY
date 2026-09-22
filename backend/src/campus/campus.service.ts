@@ -771,8 +771,10 @@ export class CampusService {
       activityValues.push(activityByDay.get(key) ?? 0);
     }
 
+    // institution_managed_users.status vaut 'active' | 'invited' | 'suspended'
+    // (pas 'pending') : 'invited' est le compte cree mais jamais encore connecte.
     const pendingManagedUsers = (managedUsers ?? []).filter(
-      (m: any) => m.status === 'pending',
+      (m: any) => m.status === 'invited',
     ).length;
     const lowProgressClasses = agg.progressBySubject.filter(
       (p) => p.pct < 50,
@@ -1002,5 +1004,203 @@ export class CampusService {
     }
 
     return { id: String(updated.id), status: updated.status };
+  }
+
+  // ------------------------------------------------------------ formations & classes (direction)
+  private async assertInstitutionStaff(
+    userId: string,
+    institutionId: string,
+    allowedRoles: string[] = ['owner', 'admin'],
+  ) {
+    const { data, error } = await this.client
+      .from('institution_members')
+      .select('role')
+      .eq('institution_id', institutionId)
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (error) throw new BadRequestException(error.message);
+    if (!data || !allowedRoles.includes(String(data.role))) {
+      throw new ForbiddenException(
+        'Cette action est reservee au personnel autorise de cet etablissement.',
+      );
+    }
+    return String(data.role);
+  }
+
+  async listFormations(user: AuthUser, institutionId: string) {
+    await this.assertInstitutionStaff(user.id, institutionId);
+
+    const { data: formations, error } = await this.client
+      .from('formations')
+      .select('id, name, level, created_at')
+      .eq('institution_id', institutionId)
+      .order('created_at', { ascending: false });
+    if (error) throw new BadRequestException(error.message);
+
+    const { data: rooms } = await this.client
+      .from('rooms')
+      .select('id, name, formation_id')
+      .eq('institution_id', institutionId);
+
+    const { data: roomMembers } = await this.client
+      .from('room_members')
+      .select('room_id, user_id, role, profiles ( fullname )')
+      .in(
+        'room_id',
+        (rooms ?? []).map((r: any) => r.id).length
+          ? (rooms ?? []).map((r: any) => r.id)
+          : ['00000000-0000-0000-0000-000000000000'],
+      );
+
+    const roomSummary = (roomId: string) => {
+      const members = (roomMembers ?? []).filter(
+        (m: any) => String(m.room_id) === roomId,
+      );
+      return {
+        studentsCount: members.filter((m: any) => m.role === 'student')
+          .length,
+        teacherNames: members
+          .filter((m: any) => m.role === 'teacher')
+          .map(
+            (m: any) =>
+              String(
+                (Array.isArray(m.profiles) ? m.profiles[0] : m.profiles)
+                  ?.fullname ?? 'Professeur',
+              ),
+          ),
+      };
+    };
+
+    const roomPayload = (room: any) => ({
+      id: String(room.id),
+      name: String(room.name),
+      ...roomSummary(String(room.id)),
+    });
+
+    const grouped = (formations ?? []).map((f: any) => ({
+      id: String(f.id),
+      name: String(f.name),
+      level: f.level ?? null,
+      rooms: (rooms ?? [])
+        .filter((r: any) => String(r.formation_id) === String(f.id))
+        .map(roomPayload),
+    }));
+
+    const unassignedRooms = (rooms ?? [])
+      .filter((r: any) => !r.formation_id)
+      .map(roomPayload);
+
+    return { formations: grouped, unassignedRooms };
+  }
+
+  async createFormation(
+    user: AuthUser,
+    institutionId: string,
+    payload: { name: string; level?: string },
+  ) {
+    await this.assertInstitutionStaff(user.id, institutionId);
+    const name = payload.name?.trim();
+    if (!name) {
+      throw new BadRequestException('Le nom de la formation est obligatoire.');
+    }
+
+    const { data, error } = await this.client
+      .from('formations')
+      .insert({
+        institution_id: institutionId,
+        name,
+        level: payload.level?.trim() || null,
+        created_by: user.id,
+      })
+      .select('id, name, level')
+      .single();
+
+    if (error || !data) {
+      throw new BadRequestException(
+        error?.message ?? 'Impossible de creer la formation.',
+      );
+    }
+    return data;
+  }
+
+  async createRoomInFormation(
+    user: AuthUser,
+    formationId: string,
+    payload: { name: string; description?: string },
+  ) {
+    const { data: formation, error: formationError } = await this.client
+      .from('formations')
+      .select('id, institution_id')
+      .eq('id', formationId)
+      .maybeSingle();
+    if (formationError) throw new BadRequestException(formationError.message);
+    if (!formation) throw new NotFoundException('Formation introuvable.');
+
+    await this.assertInstitutionStaff(
+      user.id,
+      String(formation.institution_id),
+    );
+
+    const name = payload.name?.trim();
+    if (!name) {
+      throw new BadRequestException('Le nom de la classe est obligatoire.');
+    }
+
+    const { data, error } = await this.client
+      .from('rooms')
+      .insert({
+        institution_id: formation.institution_id,
+        formation_id: formationId,
+        name,
+        description: payload.description?.trim() || null,
+        created_by: user.id,
+      })
+      .select('id, name')
+      .single();
+
+    if (error || !data) {
+      throw new BadRequestException(
+        error?.message ?? 'Impossible de creer la classe.',
+      );
+    }
+    return data;
+  }
+
+  async assignRoomToFormation(
+    user: AuthUser,
+    roomId: string,
+    formationId: string,
+  ) {
+    const { data: room, error: roomError } = await this.client
+      .from('rooms')
+      .select('id, institution_id')
+      .eq('id', roomId)
+      .maybeSingle();
+    if (roomError) throw new BadRequestException(roomError.message);
+    if (!room) throw new NotFoundException('Classe introuvable.');
+
+    const { data: formation, error: formationError } = await this.client
+      .from('formations')
+      .select('id, institution_id')
+      .eq('id', formationId)
+      .maybeSingle();
+    if (formationError) throw new BadRequestException(formationError.message);
+    if (!formation) throw new NotFoundException('Formation introuvable.');
+
+    if (String(formation.institution_id) !== String(room.institution_id)) {
+      throw new BadRequestException(
+        'La formation et la classe doivent appartenir au meme etablissement.',
+      );
+    }
+
+    await this.assertInstitutionStaff(user.id, String(room.institution_id));
+
+    const { error } = await this.client
+      .from('rooms')
+      .update({ formation_id: formationId })
+      .eq('id', roomId);
+    if (error) throw new BadRequestException(error.message);
+
+    return { message: 'Classe rattachee a la formation.' };
   }
 }

@@ -967,7 +967,7 @@ const DONUT_COLORS = ["#0f9d9a", "#1a7fa8", "#ffb020", "#ff6a1f", "#7a4df0"];
 
 const STATUS_LABEL: Record<string, string> = {
   active: "Actif",
-  pending: "En attente",
+  invited: "Invité (jamais connecté)",
   suspended: "Suspendu",
 };
 
@@ -1057,7 +1057,7 @@ export function DirectionHome({ data }: { data: DirectionHomeData }) {
                       </td>
                       <td>{i.role}</td>
                       <td>
-                        <Badge kind={i.status === "active" ? "ok" : "pending"}>
+                        <Badge kind={i.status === "active" ? "ok" : i.status === "suspended" ? "bad" : "pending"}>
                           {STATUS_LABEL[i.status] ?? i.status}
                         </Badge>
                       </td>
@@ -1124,8 +1124,7 @@ export function DirectionHome({ data }: { data: DirectionHomeData }) {
                     href: "/campus/direction/inscriptions",
                   }}
                 >
-                  Valider les inscriptions en attente (
-                  {data.pendingManagedUsers})
+                  Comptes créés jamais connectés ({data.pendingManagedUsers})
                 </Todo>
               ) : null}
               {data.pendingJustifications > 0 ? (

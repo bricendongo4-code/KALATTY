@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Post,
   Req,
   UseGuards,
@@ -14,6 +15,11 @@ import {
   MarkAttendanceDto,
   StartSessionDto,
 } from './dto/session-actions.dto';
+import {
+  AssignRoomFormationDto,
+  CreateFormationDto,
+  CreateFormationRoomDto,
+} from './dto/formation.dto';
 
 type RequestUser = {
   user: {
@@ -67,5 +73,48 @@ export class CampusController {
     @Body() body: EndSessionDto,
   ) {
     return this.campusService.endSession(req.user, sessionId, body);
+  }
+
+  @Get('institutions/:institutionId/formations')
+  listFormations(
+    @Req() req: RequestUser,
+    @Param('institutionId') institutionId: string,
+  ) {
+    return this.campusService.listFormations(req.user, institutionId);
+  }
+
+  @Post('institutions/:institutionId/formations')
+  createFormation(
+    @Req() req: RequestUser,
+    @Param('institutionId') institutionId: string,
+    @Body() body: CreateFormationDto,
+  ) {
+    return this.campusService.createFormation(req.user, institutionId, body);
+  }
+
+  @Post('formations/:formationId/rooms')
+  createRoomInFormation(
+    @Req() req: RequestUser,
+    @Param('formationId') formationId: string,
+    @Body() body: CreateFormationRoomDto,
+  ) {
+    return this.campusService.createRoomInFormation(
+      req.user,
+      formationId,
+      body,
+    );
+  }
+
+  @Patch('rooms/:roomId/formation')
+  assignRoomToFormation(
+    @Req() req: RequestUser,
+    @Param('roomId') roomId: string,
+    @Body() body: AssignRoomFormationDto,
+  ) {
+    return this.campusService.assignRoomToFormation(
+      req.user,
+      roomId,
+      body.formation_id,
+    );
   }
 }
