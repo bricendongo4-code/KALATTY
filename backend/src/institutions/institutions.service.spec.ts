@@ -102,7 +102,7 @@ describe('InstitutionsService - remise de devoir', () => {
       room_members: [
         { room_id: 'room-1', user_id: STUDENT.id, role: 'student' },
       ],
-      assignments: [{ id: 'assign-1', room_id: 'room-1' }],
+      assignments: [{ id: 'assign-1', room_id: 'room-1', status: 'published' }],
       assignment_submissions: [],
     };
   });
@@ -148,17 +148,24 @@ describe('InstitutionsService - remise de devoir', () => {
     expect(db.assignment_submissions).toHaveLength(1);
   });
 
-  it('met a jour la remise existante au lieu d en creer une seconde', async () => {
+  it('refuse la modification d une remise deja envoyee', async () => {
     const service = buildService(db);
     await service.submitAssignment(STUDENT, 'room-1', 'assign-1', {
       content: 'Version 1',
     });
-    await service.submitAssignment(STUDENT, 'room-1', 'assign-1', {
+    await expect(service.submitAssignment(STUDENT, 'room-1', 'assign-1', {
       content: 'Version 2',
-    });
+    })).rejects.toBeInstanceOf(ForbiddenException);
 
     expect(db.assignment_submissions).toHaveLength(1);
-    expect(db.assignment_submissions[0].content).toBe('Version 2');
+    expect(db.assignment_submissions[0].content).toBe('Version 1');
+  });
+
+  it('autorise la correction d une remise retournee et retire l ancienne note', async () => {
+    db.assignment_submissions = [{ id: 'sub-1', assignment_id: 'assign-1', student_id: STUDENT.id, status: 'returned', content: 'Ancienne version', score: 8, published: true }];
+    await buildService(db).submitAssignment(STUDENT, 'room-1', 'assign-1', { content: 'Nouvelle version' });
+    expect(db.assignment_submissions).toHaveLength(1);
+    expect(db.assignment_submissions[0]).toMatchObject({ content: 'Nouvelle version', status: 'submitted', score: null, published: false });
   });
 });
 
