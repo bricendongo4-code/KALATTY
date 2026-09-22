@@ -2123,6 +2123,11 @@ export class InstitutionsService {
           reviewed_at: new Date().toISOString(),
           reviewed_by: user.id,
           updated_at: new Date().toISOString(),
+          // La note/le commentaire ne sont visibles de l'etudiant qu'une fois
+          // publies (voir migration 2026-09-22) ; publier au moment de la
+          // correction, faute d'etape de publication differee separee.
+          published: true,
+          published_at: new Date().toISOString(),
         })
         .eq('id', submissionId)
         .select('id, status, score, feedback, reviewed_at')

@@ -195,3 +195,20 @@ export async function campusFetch(path: string, init?: RequestInit) {
   }
   return body;
 }
+
+/** Envoi multipart (fichier) : pas de Content-Type manuel, le navigateur pose la boundary. */
+export async function campusUpload(path: string, file: File) {
+  const headers = authHeaders();
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers: { ...(headers ?? {}) },
+    body: form,
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(body.message ?? "L'envoi du fichier a echoue.");
+  }
+  return body;
+}

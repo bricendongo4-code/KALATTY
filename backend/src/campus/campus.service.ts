@@ -1028,7 +1028,14 @@ export class CampusService {
   }
 
   async listFormations(user: AuthUser, institutionId: string) {
-    await this.assertInstitutionStaff(user.id, institutionId);
+    // Lecture ouverte au personnel de direction et au responsable pedagogique
+    // (perimetre entier en V1, voir migration) ; creation/rattachement reste
+    // reserve a owner/admin (methodes suivantes, garde par defaut).
+    await this.assertInstitutionStaff(user.id, institutionId, [
+      'owner',
+      'admin',
+      'pedagogy',
+    ]);
 
     const { data: formations, error } = await this.client
       .from('formations')
@@ -1202,5 +1209,63 @@ export class CampusService {
     if (error) throw new BadRequestException(error.message);
 
     return { message: 'Classe rattachee a la formation.' };
+  }
+
+  // ------------------------------------------------------------ mes travaux (etudiant, toutes classes)
+  async listMyAssignments(user: AuthUser) {
+    const { data: memberships } = await this.client
+      .from('room_members')
+      .select('room_id')
+      .eq('user_id', user.id)
+      .eq('role', 'student');
+    const roomIds = [...new Set((memberships ?? []).map((m: any) => String(m.room_id)))];
+    if (roomIds.length === 0) return { assignments: [] };
+
+    const { data: rooms } = await this.client
+      .from('rooms')
+      .select('id, name')
+      .in('id', roomIds);
+    const roomName = new Map((rooms ?? []).map((r: any) => [String(r.id), String(r.name)]));
+
+    const { data: assignments } = await this.client
+      .from('assignments')
+      .select('id, room_id, title, instructions, due_at, max_score, status')
+      .in('room_id', roomIds)
+      .eq('status', 'published')
+      .order('due_at', { ascending: true, nullsFirst: false });
+
+    const { data: submissions } = await this.client
+      .from('assignment_submissions')
+      .select('id, assignment_id, status, content, file_path, score, feedback, published, submitted_at')
+      .eq('student_id', user.id);
+    const submissionByAssignment = new Map(
+      (submissions ?? []).map((s: any) => [String(s.assignment_id), s]),
+    );
+
+    return {
+      assignments: (assignments ?? []).map((a: any) => {
+        const sub = submissionByAssignment.get(String(a.id));
+        return {
+          id: String(a.id),
+          roomId: String(a.room_id),
+          roomName: roomName.get(String(a.room_id)) ?? 'Salle',
+          title: String(a.title),
+          instructions: a.instructions ?? null,
+          dueAt: a.due_at ?? null,
+          maxScore: a.max_score ?? null,
+          submission: sub
+            ? {
+                id: String(sub.id),
+                status: String(sub.status),
+                content: sub.content ?? null,
+                filePath: sub.file_path ?? null,
+                score: sub.published ? (sub.score ?? null) : null,
+                feedback: sub.published ? (sub.feedback ?? null) : null,
+                submittedAt: sub.submitted_at ?? null,
+              }
+            : null,
+        };
+      }),
+    };
   }
 }

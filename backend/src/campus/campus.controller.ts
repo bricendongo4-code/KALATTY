@@ -117,4 +117,9 @@ export class CampusController {
       body.formation_id,
     );
   }
+
+  @Get('my-assignments')
+  listMyAssignments(@Req() req: RequestUser) {
+    return this.campusService.listMyAssignments(req.user);
+  }
 }

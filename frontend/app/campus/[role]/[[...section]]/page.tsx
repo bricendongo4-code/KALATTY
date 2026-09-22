@@ -8,12 +8,18 @@ import { Icon } from "../../ui";
 import CampusHome from "../../CampusHome";
 import DirectionUsersPage from "../../direction/UsersPage";
 import DirectionFormationsPage from "../../direction/FormationsPage";
+import StudentAssignmentsPage from "../../etudiant/AssignmentsPage";
+import TeacherClassesPage from "../../professeur/ClassesPage";
+import PedagogyClassesPage from "../../pedagogie/ClassesPage";
 
 type Params = Promise<{ role: string; section?: string[] }>;
 
 const BUILT_SECTIONS: Partial<Record<string, () => React.JSX.Element>> = {
   "direction/utilisateurs": DirectionUsersPage,
   "direction/formations-classes": DirectionFormationsPage,
+  "etudiant/travaux": StudentAssignmentsPage,
+  "professeur/classes": TeacherClassesPage,
+  "pedagogie/classes": PedagogyClassesPage,
 };
 
 export async function generateMetadata({
