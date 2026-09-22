@@ -6,6 +6,49 @@
   overflow: visible;
 }
 
+.campusPromoBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.9rem 1.2rem;
+  border-radius: var(--radius);
+  background: linear-gradient(100deg, #0f9d9a1a, #ff6a1f1a);
+  border: 1px solid rgba(15, 157, 154, 0.28);
+  text-decoration: none;
+  color: inherit;
+  transition: filter 0.15s ease;
+}
+
+.campusPromoBanner:hover {
+  filter: brightness(0.98);
+}
+
+.campusPromoBanner strong {
+  display: block;
+  color: var(--primary-dark);
+  font-size: 0.98rem;
+}
+
+.campusPromoBanner small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.82rem;
+  margin-top: 0.15rem;
+}
+
+.campusPromoCta {
+  flex: none;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  background: #0f9d9a;
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
 .dashboardMasthead {
   position: relative;
   z-index: 80;

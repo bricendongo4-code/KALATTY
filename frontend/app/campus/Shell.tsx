@@ -83,7 +83,19 @@ export default function Shell({
 
         <div className={styles.navPanel}>
           <nav className={styles.nav}>{cfg.nav.map(renderItem)}</nav>
-          <div className={styles.sideFoot}>{cfg.foot.map(renderItem)}</div>
+          <div className={styles.sideFoot}>
+            {cfg.foot.map(renderItem)}
+            {role !== "pedagogie" ? (
+              <Link
+                href="/dashboard"
+                className={styles.navItem}
+                onClick={() => setOpen(false)}
+              >
+                <Icon name="chevron" className={styles.navIcon} />
+                Ancien tableau de bord
+              </Link>
+            ) : null}
+          </div>
         </div>
       </aside>
 

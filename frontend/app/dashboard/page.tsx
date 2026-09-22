@@ -561,6 +561,13 @@ export default function DashboardPage() {
     workspace?.kind === "institution-admin" || role === "institution";
   const isInstitutionTeacher = workspace?.kind === "institution-teacher";
   const isInstitutionStudent = workspace?.kind === "institution-student";
+  const campusRoleSlug = isInstitutionAdmin
+    ? "direction"
+    : isInstitutionTeacher
+      ? "professeur"
+      : isInstitutionStudent
+        ? "etudiant"
+        : null;
   const workspaceInstitutionName = String(
     workspace?.institutionName ??
       dashboardData?.studentInstitutions?.[0]?.name ??
@@ -2386,6 +2393,22 @@ export default function DashboardPage() {
           </div>
         </div>
       </section>
+
+      {campusRoleSlug ? (
+        <Link
+          href={`/campus/${campusRoleSlug}`}
+          className={styles.campusPromoBanner}
+        >
+          <span>
+            <strong>Nouveau : Espace Établissement</strong>
+            <small>
+              Accueil, classes, devoirs et corrections deja disponibles dans
+              la nouvelle interface. Vous pouvez revenir ici a tout moment.
+            </small>
+          </span>
+          <span className={styles.campusPromoCta}>Ouvrir →</span>
+        </Link>
+      ) : null}
 
       <section className={styles.hero}>
         <div className={styles.heroTop}>
