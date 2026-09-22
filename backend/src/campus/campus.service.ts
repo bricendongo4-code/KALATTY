@@ -119,6 +119,81 @@ export class CampusService {
     }
   }
 
+  async getStudentOverview(user: AuthUser) {
+    const context = await this.getContext(user);
+    if (context.campusRole !== 'etudiant') {
+      throw new ForbiddenException('Espace réservé aux étudiants.');
+    }
+
+    const { data: memberships, error: membershipError } = await this.client
+      .from('room_members')
+      .select('room_id')
+      .eq('user_id', user.id)
+      .eq('role', 'student');
+    if (membershipError) throw new BadRequestException(membershipError.message);
+    const memberRoomIds = [...new Set((memberships ?? []).map((row: any) => String(row.room_id)))];
+    if (!memberRoomIds.length) return { context, rooms: [], schedule: [], courses: [], grades: [] };
+
+    const { data: rooms, error: roomError } = await this.client
+      .from('rooms')
+      .select('id, name, description, institution_id')
+      .in('id', memberRoomIds)
+      .eq('institution_id', context.institutionId);
+    if (roomError) throw new BadRequestException(roomError.message);
+    const roomIds = (rooms ?? []).map((room: any) => String(room.id));
+    if (!roomIds.length) return { context, rooms: [], schedule: [], courses: [], grades: [] };
+
+    const [scheduleResult, coursesResult, teachersResult, gradesResult] = await Promise.all([
+      this.client.from('room_schedule_items')
+        .select('id, room_id, title, weekday, starts_at, ends_at, location')
+        .in('room_id', roomIds)
+        .order('weekday', { ascending: true })
+        .order('starts_at', { ascending: true }),
+      this.client.from('room_courses')
+        .select('id, room_id, courses ( id, title, description, short_description )')
+        .in('room_id', roomIds),
+      this.client.from('room_members')
+        .select('room_id, profiles ( fullname )')
+        .in('room_id', roomIds)
+        .eq('role', 'teacher'),
+      this.client.from('assignment_submissions')
+        .select('id, status, score, feedback, submitted_at, reviewed_at, assignments ( title, max_score, room_id )')
+        .eq('student_id', user.id)
+        .eq('status', 'reviewed')
+        .eq('published', true)
+        .order('submitted_at', { ascending: false })
+        .limit(50),
+    ]);
+    for (const result of [scheduleResult, coursesResult, teachersResult, gradesResult]) {
+      if (result.error) throw new BadRequestException(result.error.message);
+    }
+
+    const names = new Map((rooms ?? []).map((room: any) => [String(room.id), String(room.name)]));
+    const teachers = new Map<string, string[]>();
+    for (const row of teachersResult.data ?? []) {
+      const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+      if (!profile?.fullname) continue;
+      const roomId = String(row.room_id);
+      teachers.set(roomId, [...(teachers.get(roomId) ?? []), String(profile.fullname)]);
+    }
+
+    return {
+      context,
+      rooms: (rooms ?? []).map((room: any) => ({ id: room.id, name: room.name, description: room.description ?? '', teachers: teachers.get(String(room.id)) ?? [] })),
+      schedule: (scheduleResult.data ?? []).map((row: any) => ({ id: row.id, roomId: row.room_id, roomName: names.get(String(row.room_id)), title: row.title, weekday: Number(row.weekday), startsAt: String(row.starts_at).slice(0, 5), endsAt: row.ends_at ? String(row.ends_at).slice(0, 5) : null, location: row.location ?? '' })),
+      courses: (coursesResult.data ?? []).flatMap((row: any) => {
+        const course = Array.isArray(row.courses) ? row.courses[0] : row.courses;
+        return course?.id ? [{ id: course.id, title: course.title, description: course.short_description ?? course.description ?? '', roomName: names.get(String(row.room_id)) }] : [];
+      }),
+      grades: (gradesResult.data ?? []).flatMap((row: any) => {
+        const assignment = Array.isArray(row.assignments) ? row.assignments[0] : row.assignments;
+        return assignment && roomIds.includes(String(assignment.room_id)) && row.score !== null
+          ? [{ id: row.id, title: assignment.title, roomName: names.get(String(assignment.room_id)), score: Number(row.score), maxScore: Number(assignment.max_score ?? 0), feedback: row.feedback ?? '', reviewedAt: row.reviewed_at }]
+          : [];
+      }),
+    };
+  }
+
   // ------------------------------------------------------------ horloge partagee (fuseau Europe/Paris)
   private nowParts(date: Date = new Date()) {
     const parts = WEEKDAY_TIME_FORMAT.formatToParts(date);

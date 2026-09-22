@@ -214,7 +214,6 @@ export function StudentHome({ data }: { data: StudentHomeData }) {
                   lead={<RowIcon icon="edit" tone="red" />}
                   title={w.title}
                   sub={`${w.room} • ${formatDueDate(w.dueAt)}`}
-                  chevron
                 />
               ))}
             </ul>
@@ -222,11 +221,11 @@ export function StudentHome({ data }: { data: StudentHomeData }) {
         </Card>
 
         <Card
-          title="Messages récents"
+          title="Notifications récentes"
           link={{ label: "Voir tout", href: "/campus/etudiant/messagerie" }}
         >
           {data.messages.length === 0 ? (
-            <Empty>Aucun message pour l&apos;instant.</Empty>
+            <Empty>Aucune notification pour l&apos;instant.</Empty>
           ) : (
             <ul className={styles.list}>
               {data.messages.map((m) => (

@@ -8,6 +8,7 @@ import StudentAssignmentsPage from "../../etudiant/AssignmentsPage";
 import TeacherClassesPage from "../../professeur/ClassesPage";
 import PedagogyClassesPage from "../../pedagogie/ClassesPage";
 import CampusSectionPage from "../../SectionPage";
+import StudentPages from "../../etudiant/StudentPages";
 
 type Params = Promise<{ role: string; section?: string[] }>;
 
@@ -40,6 +41,10 @@ export default async function CampusRolePage({ params }: { params: Params }) {
 
   if (slug === "") {
     return <CampusHome role={role} />;
+  }
+
+  if (role === "etudiant" && ["emploi-du-temps", "cours", "classe", "resultats", "evaluations"].includes(slug)) {
+    return <StudentPages section={slug as "emploi-du-temps" | "cours" | "classe" | "resultats" | "evaluations"} />;
   }
 
   const Built = BUILT_SECTIONS[`${role}/${slug}`];

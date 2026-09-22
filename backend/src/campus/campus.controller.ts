@@ -43,6 +43,11 @@ export class CampusController {
     return this.campusService.getHome(req.user);
   }
 
+  @Get('student/overview')
+  getStudentOverview(@Req() req: RequestUser) {
+    return this.campusService.getStudentOverview(req.user);
+  }
+
   @Post('rooms/:roomId/sessions/start')
   startSession(
     @Req() req: RequestUser,
