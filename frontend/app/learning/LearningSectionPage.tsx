@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Icon, Progress } from "../campus/ui";
 import { LEARNING_ROLES, type LearningRole } from "./config";
 import type { LearningDashboardData } from "./views";
+import AccountSettings from "../AccountSettings";
 import styles from "./learning.module.css";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
@@ -20,14 +21,16 @@ type CourseData = {
   learners?: number;
   lessonsCount?: number;
   thumbnailUrl?: string;
+  status?: string;
 };
 
-type Dashboard = LearningDashboardData & {
+type Dashboard = Omit<LearningDashboardData, "courses"> & {
+  courses?: CourseData[];
   catalogCourses?: CourseData[];
   tasks?: Array<{ label?: string; courseId?: string }>;
 };
 
-type Notification = { id: string; title?: string; message?: string; createdAt?: string; read?: boolean };
+type Notification = { id: string; title?: string; message?: string; createdAt?: string; read?: boolean; type?: string; href?: string };
 
 const DETAILS: Record<LearningRole, Record<string, { title: string; text: string; tabs: string[] }>> = {
   apprenant: {
@@ -58,7 +61,7 @@ function CourseCard({ course, trainer }: { course: CourseData; trainer: boolean 
   const progress = Number(course.progress ?? 0);
   return <article className={styles.liveCourseCard}>
     <div className={styles.liveCourseCover}>{course.thumbnailUrl ? <span style={{ backgroundImage: `url(${course.thumbnailUrl})` }} /> : <Icon name="book" />}</div>
-    <div className={styles.liveCourseBody}><small>{trainer ? `${course.learners ?? 0} apprenant(s)` : course.teacherName ?? "Formateur Kalatty"}</small><h2>{course.title ?? "Formation"}</h2><p>{course.description || `${course.lessonsCount ?? 0} leçon(s) disponible(s).`}</p>{!trainer ? <div className={styles.liveProgress}><Progress value={progress} color={progress > 55 ? "green" : "orange"} /><b>{progress}%</b></div> : null}<div><strong>{course.priceFcfa ? `${new Intl.NumberFormat("fr-FR").format(course.priceFcfa)} FCFA` : trainer ? `${course.lessonsCount ?? 0} leçon(s)` : "Inclus"}</strong><Link href={trainer ? "/learning/formateur/formations/builder" : course.id ? `/learning/apprenant/formations/${course.id}` : "#"}>{trainer ? "Gérer" : progress ? "Continuer" : "Découvrir"}</Link></div></div>
+    <div className={styles.liveCourseBody}><small>{trainer ? `${course.learners ?? 0} apprenant(s)` : course.teacherName ?? "Formateur Kalatty"}</small><h2>{course.title ?? "Formation"}</h2><p>{course.description || `${course.lessonsCount ?? 0} leçon(s) disponible(s).`}</p>{!trainer ? <div className={styles.liveProgress}><Progress value={progress} color={progress > 55 ? "green" : "orange"} /><b>{progress}%</b></div> : null}<div><strong>{course.priceFcfa ? `${new Intl.NumberFormat("fr-FR").format(course.priceFcfa)} FCFA` : trainer ? `${course.lessonsCount ?? 0} leçon(s)` : "Inclus"}</strong><Link href={trainer ? course.id ? `/learning/formateur/formations/${course.id}` : "/learning/formateur/formations/builder" : course.id ? `/learning/apprenant/formations/${course.id}` : "/learning/apprenant/explorer"}>{trainer ? "Gérer" : progress ? "Continuer" : "Découvrir"}</Link></div></div>
   </article>;
 }
 
@@ -69,6 +72,7 @@ export default function LearningSectionPage({ role, slug }: { role: LearningRole
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const details = DETAILS[role][slug] ?? { title: LEARNING_ROLES[role].nav.find((item) => item.slug === slug)?.label ?? "Kalatty", text: "Votre espace Kalatty.", tabs: ["Vue d’ensemble"] };
+  const [activeTab, setActiveTab] = useState(details.tabs[0]);
 
   const load = useCallback(async () => {
     const token = localStorage.getItem("kalatty_token");
@@ -112,15 +116,17 @@ export default function LearningSectionPage({ role, slug }: { role: LearningRole
 
   const isCourseScreen = ["explorer", "formations", "certificats", "favoris", "mediatheque", "apprenants", "evaluations", "analytics", "ressources"].includes(slug);
   const completedCourses = courses.filter((course) => Number(course.progress ?? 0) >= 100);
-  const visibleCourses = slug === "certificats" ? completedCourses : ["favoris"].includes(slug) ? [] : courses;
+  const visibleCourses = slug === "certificats" ? completedCourses : ["favoris"].includes(slug) ? [] : slug === "explorer" && activeTab === "Gratuites" ? courses.filter((course) => !Number(course.priceFcfa ?? 0)) : slug === "explorer" && activeTab === "Payantes" ? courses.filter((course) => Number(course.priceFcfa ?? 0) > 0) : slug === "formations" && activeTab === "Terminées" ? completedCourses : slug === "formations" && activeTab === "En cours" ? courses.filter((course) => Number(course.progress ?? 0) < 100) : role === "formateur" && activeTab === "Publiées" ? courses.filter((course) => course.status === "published") : role === "formateur" && activeTab === "Brouillons" ? courses.filter((course) => course.status !== "published") : courses;
+  const visibleNotifications = activeTab === "Non lues" ? notifications.filter((item) => !item.read) : activeTab === "Cours" ? notifications.filter((item) => item.type === "course") : activeTab === "Paiements" ? notifications.filter((item) => item.type === "payment") : notifications;
+  const openNotification = async (item: Notification) => { const token = localStorage.getItem("kalatty_token"); setNotifications((current) => current.map((entry) => entry.id === item.id ? { ...entry, read: true } : entry)); if (token && !item.read) await fetch(`${API_BASE}/notifications/${encodeURIComponent(item.id)}/read`, { method: "PATCH", headers: { Authorization: `Bearer ${token}` } }); if (item.href) router.push(item.href); };
 
   return <>
     <header className={styles.pageHead}><div><h1>{details.title}</h1><p>{details.text}</p></div>{role === "formateur" && slug === "formations" ? <Link href="/learning/formateur/formations/builder" className={styles.primaryButton}><Icon name="plus" /> Créer une formation</Link> : null}</header>
-    <nav className={styles.tabs}>{details.tabs.map((tab, index) => <button key={tab} className={index === 0 ? styles.tabActive : ""}>{tab}</button>)}</nav>
+    <nav className={styles.tabs}>{details.tabs.map((tab) => <button key={tab} className={activeTab === tab ? styles.tabActive : ""} onClick={() => setActiveTab(tab)}>{tab}</button>)}</nav>
 
-    {slug === "profil" ? <div className={styles.profileGrid}><section className={styles.panel}><span className={styles.profileAvatar}>{(dashboard.profile?.fullname ?? "K").split(" ").map((part) => part[0]).slice(0,2).join("")}</span><h2>{dashboard.profile?.fullname ?? "Utilisateur Kalatty"}</h2><p>{role === "formateur" ? dashboard.profile?.expertise || "Expertise à compléter" : "Apprenant indépendant"}</p></section><section className={styles.panel}><h2>Mes espaces Kalatty</h2><div className={styles.spaceLinks}><Link href="/learning/apprenant">Apprenant indépendant</Link><Link href="/learning/formateur">Formateur / Créateur</Link><Link href="/campus">Espace Établissement</Link></div><p className={styles.mutedText}>Les informations sensibles et le mot de passe restent gérés par les services sécurisés existants.</p></section></div> : null}
+    {slug === "profil" ? <AccountSettings /> : null}
 
-    {["messages", "notifications"].includes(slug) ? <section className={styles.panel}><div className={styles.sectionHead}><h2>{slug === "messages" ? "Conversations et questions" : "Activité récente"}</h2><button onClick={load}>Actualiser</button></div>{notifications.length ? <div className={styles.notificationList}>{notifications.map((item) => <article key={item.id}><span><Icon name={item.read ? "mail" : "bell"} /></span><div><strong>{item.title ?? "Notification"}</strong><p>{item.message ?? ""}</p></div><small>{item.createdAt ? new Date(item.createdAt).toLocaleDateString("fr-FR") : ""}</small></article>)}</div> : <div className={styles.empty}><Icon name="mail" /><h3>Aucun message</h3><p>Les nouvelles conversations et notifications apparaîtront ici.</p></div>}</section> : null}
+    {["messages", "notifications"].includes(slug) ? <section className={styles.panel}><div className={styles.sectionHead}><h2>{slug === "messages" ? "Conversations et questions" : "Activité récente"}</h2><button onClick={load}>Actualiser</button></div>{visibleNotifications.length ? <div className={styles.notificationList}>{visibleNotifications.map((item) => <button type="button" key={item.id} onClick={() => openNotification(item)}><span><Icon name={item.read ? "mail" : "bell"} /></span><div><strong>{item.title ?? "Notification"}</strong><p>{item.message ?? ""}</p></div><small>{item.createdAt ? new Date(item.createdAt).toLocaleDateString("fr-FR") : ""}</small></button>)}</div> : <div className={styles.empty}><Icon name="mail" /><h3>Aucun élément</h3><p>Aucune notification ne correspond à ce filtre.</p></div>}</section> : null}
 
     {isCourseScreen ? <>{visibleCourses.length ? <div className={styles.liveCourseGrid}>{visibleCourses.map((course) => <CourseCard key={course.id ?? course.title} course={course} trainer={role === "formateur"} />)}</div> : <section className={`${styles.panel} ${styles.empty}`}><Icon name={slug === "certificats" ? "award" : slug === "favoris" ? "shield" : "book"} /><h3>{slug === "certificats" ? "Aucun certificat disponible" : slug === "favoris" ? "Aucun favori enregistré" : "Aucun élément disponible"}</h3><p>{slug === "certificats" ? "Un certificat apparaîtra après validation des conditions de réussite." : slug === "favoris" ? "Ajoutez une formation à vos favoris depuis le catalogue." : "Créez ou rejoignez une formation pour alimenter cette rubrique."}</p>{role === "apprenant" ? <Link href="/learning/apprenant/explorer" className={styles.smallButton}>Explorer les formations</Link> : slug === "formations" ? <Link href="/learning/formateur/formations/builder" className={styles.smallButton}>Créer une formation</Link> : null}</section>}</> : null}
   </>;

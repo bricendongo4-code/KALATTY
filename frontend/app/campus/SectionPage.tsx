@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import Shell from "./Shell";
 import { ROLES, type RoleSlug } from "./roles";
 import { Icon, Progress } from "./ui";
@@ -141,6 +142,7 @@ export default function CampusSectionPage({ role, slug }: { role: RoleSlug; slug
   const { loading, error, context, data, mismatch } = useCampusHome<JsonRecord>(role);
   const item = [...ROLES[role].nav, ...ROLES[role].foot].find((entry) => entry.slug === slug)!;
   const detail = SECTION_DETAILS[role]?.[slug] ?? { description: `Consultez et gérez ${item.label.toLowerCase()} dans votre périmètre.`, tabs: ["Vue d’ensemble", "Activité"], permission: "Les données affichées respectent votre rôle et vos affectations." };
+  const [activeTab, setActiveTab] = useState(detail.tabs[0]);
 
   if (mismatch) {
     return <section className={styles.standalone}><h1>Espace non autorisé</h1><p>Votre compte correspond au rôle {ROLES[mismatch.campusRole].name}.</p><Link href={`/campus/${mismatch.campusRole}`}>Ouvrir mon espace</Link></section>;
@@ -156,14 +158,14 @@ export default function CampusSectionPage({ role, slug }: { role: RoleSlug; slug
     </header>
 
     <nav className={styles.tabs} aria-label={`Sections de ${item.label}`}>
-      {detail.tabs.map((tab, index) => <button type="button" className={index === 0 ? styles.tabActive : ""} key={tab}>{tab}</button>)}
+      {detail.tabs.map((tab) => <button type="button" className={activeTab === tab ? styles.tabActive : ""} onClick={() => setActiveTab(tab)} key={tab}>{tab}</button>)}
     </nav>
 
     {loading ? <section className={styles.stateCard}><span className={styles.loader} /><h2>Chargement des données</h2><p>Les informations de votre établissement sont en cours de récupération.</p></section> : error ? <section className={styles.stateCard}><Icon name="alert" /><h2>Impossible de charger cet écran</h2><p>{error}</p><button type="button" onClick={() => window.location.reload()}>Réessayer</button></section> : data ? <>
       <div className={styles.kpis}>{kpis.map(([icon, value, label]) => <article key={label}><span><Icon name={icon} /></span><div><strong>{value}</strong><small>{label}</small></div></article>)}</div>
 
       <section className={styles.contentCard}>
-        <div className={styles.cardHead}><div><h2>Vue d’ensemble</h2><p>Données synchronisées avec le contexte actif.</p></div><button type="button" onClick={() => window.location.reload()}>Actualiser</button></div>
+        <div className={styles.cardHead}><div><h2>{activeTab}</h2><p>Données synchronisées avec le contexte actif.</p></div><button type="button" onClick={() => window.location.reload()}>Actualiser</button></div>
         {rows.length ? <div className={styles.rows}>{rows.map((row) => <article key={row.id}><span className={styles.rowIcon}><Icon name={item.icon} /></span><div><strong>{row.title}</strong><small>{row.subtitle}</small></div><span className={styles.rowMeta}>{row.meta}</span><b>{row.status}</b></article>)}</div> : <div className={styles.empty}><span><Icon name={item.icon} /></span><h3>Aucun élément pour le moment</h3><p>Cette rubrique est opérationnelle, mais aucune donnée ne correspond encore à votre contexte ou aux filtres sélectionnés.</p></div>}
       </section>
 

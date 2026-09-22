@@ -45,18 +45,12 @@ export default function CampusHome({ role }: { role: RoleSlug }) {
     );
   }
 
-  const messagesCount =
-    data && typeof data === "object" && "messages" in data
-      ? (data as { messages: unknown[] }).messages.length
-      : 0;
-
   return (
     <Shell
       role={role}
       activeSlug=""
       displayName={context?.displayName}
       institutionName={context?.institutionName}
-      notifications={messagesCount}
       note={
         error
           ? null

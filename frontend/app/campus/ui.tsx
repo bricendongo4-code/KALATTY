@@ -50,6 +50,9 @@ const ICONS: Record<string, string> = {
   list: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",
   shield: "M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z",
   logout: "M10 5H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h5M14 8l4 4-4 4M8 12h10",
+  refresh: "M20 7v5h-5M4 17v-5h5M6.1 8a7 7 0 0 1 11.7-2.1L20 9M4 15l2.2 3.1A7 7 0 0 0 18 16",
+  eye: "M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z",
+  eyeOff: "M3 3l18 18M10.6 6.2A11 11 0 0 1 12 6c6.5 0 10 6 10 6a15 15 0 0 1-3 3.7M6.2 6.2C3.5 8 2 12 2 12s3.5 6 10 6a10 10 0 0 0 3-.4",
 };
 
 export function Icon({
@@ -87,7 +90,7 @@ const AVATAR_COLORS = [
   "#14b8a6",
 ];
 
-export function Avatar({ name, size = 36 }: { name: string; size?: number }) {
+export function Avatar({ name, size = 36, src }: { name: string; size?: number; src?: string }) {
   const initials = name
     .replace(/^(Mme|M\.|Prof\.|Professeur)\s+/i, "")
     .split(/\s+/)
@@ -104,11 +107,11 @@ export function Avatar({ name, size = 36 }: { name: string; size?: number }) {
         width: size,
         height: size,
         fontSize: Math.round(size * 0.38),
-        background: AVATAR_COLORS[hash % AVATAR_COLORS.length],
+        background: src ? `${AVATAR_COLORS[hash % AVATAR_COLORS.length]} url(${src}) center/cover no-repeat` : AVATAR_COLORS[hash % AVATAR_COLORS.length],
       }}
       aria-hidden="true"
     >
-      {initials}
+      {src ? "" : initials}
     </span>
   );
 }

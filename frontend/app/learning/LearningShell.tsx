@@ -6,6 +6,8 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import { Avatar, Icon } from "../campus/ui";
 import { logoutKalatty } from "../sessionSecurity";
+import NotificationBell from "../NotificationBell";
+import { useAccountIdentity } from "../useAccountIdentity";
 import { LEARNING_ROLES, type LearningRole } from "./config";
 import styles from "./learning.module.css";
 
@@ -19,6 +21,7 @@ export default function LearningShell({
   children: ReactNode;
 }) {
   const config = LEARNING_ROLES[role];
+  const identity = useAccountIdentity(config.user);
   const [open, setOpen] = useState(false);
 
   return (
@@ -60,14 +63,11 @@ export default function LearningShell({
             <Icon name="search" />
             <input type="search" placeholder={config.search} aria-label="Recherche" />
           </label>
-          <button type="button" className={styles.bell} aria-label="2 notifications">
-            <Icon name="bell" />
-            <span>2</span>
-          </button>
+          <NotificationBell allHref={role === "apprenant" ? "/learning/apprenant/notifications" : "/learning/formateur/messages"} />
           <details className={styles.profileMenu}>
             <summary>
-              <Avatar name={config.user} size={38} />
-              <span><strong>{config.user}</strong><small>{config.userSub}</small></span>
+              <Avatar name={identity.name} src={identity.avatarUrl} size={38} />
+              <span><strong>{identity.name}</strong><small>{config.userSub}</small></span>
               <Icon name="chevron" />
             </summary>
             <div className={styles.profilePopover}>
@@ -75,6 +75,7 @@ export default function LearningShell({
               <Link href="/learning/apprenant">Apprenant indépendant</Link>
               <Link href="/learning/formateur">Formateur / Créateur</Link>
               <Link href="/campus">Espace Établissement</Link>
+              <Link href="/settings">Profil &amp; sécurité</Link>
               <button type="button" className={styles.logoutButton} onClick={logoutKalatty}>
                 <Icon name="logout" />
                 Se déconnecter

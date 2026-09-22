@@ -9,6 +9,8 @@ import { ROLES } from "./roles";
 import type { RoleSlug } from "./roles";
 import { Avatar, Icon } from "./ui";
 import { logoutKalatty } from "../sessionSecurity";
+import NotificationBell from "../NotificationBell";
+import { useAccountIdentity } from "../useAccountIdentity";
 
 export default function Shell({
   role,
@@ -16,7 +18,6 @@ export default function Shell({
   children,
   displayName,
   institutionName,
-  notifications,
   note,
 }: {
   role: RoleSlug;
@@ -25,7 +26,6 @@ export default function Shell({
   /** Nom reel de l'utilisateur connecte (sinon repli sur le nom de demo). */
   displayName?: string;
   institutionName?: string;
-  notifications?: number;
   /** Bandeau sous la barre du haut ; null le masque. */
   note?: string | null;
 }) {
@@ -33,7 +33,7 @@ export default function Shell({
   const user = displayName
     ? { name: displayName, sub: institutionName ?? cfg.user.sub }
     : cfg.user;
-  const notifCount = notifications ?? cfg.notifications;
+  const identity = useAccountIdentity(user.name);
   const noteText =
     note === undefined ? "Connecte a vos donnees Kalatty en temps reel." : note;
   const [open, setOpen] = useState(false);
@@ -113,21 +113,12 @@ export default function Shell({
             />
           </label>
           <div className={styles.topRight}>
-            <button
-              type="button"
-              className={styles.bell}
-              aria-label={`${notifCount} notifications`}
-            >
-              <Icon name="bell" />
-              {notifCount > 0 ? (
-                <span className={styles.bellDot}>{notifCount}</span>
-              ) : null}
-            </button>
+            <NotificationBell allHref={`/campus/${role}/${role === "direction" ? "communication" : role === "pedagogie" ? "messagerie" : "actualites"}`} />
             <details className={styles.contextMenu}>
               <summary className={styles.userChip}>
-                <Avatar name={user.name} size={38} />
+                <Avatar name={identity.name} src={identity.avatarUrl} size={38} />
                 <span className={styles.userText}>
-                  <strong>{user.name}</strong>
+                  <strong>{identity.name}</strong>
                   <small>{user.sub}</small>
                 </span>
                 <Icon name="chevron" className={styles.contextChevron} />
@@ -137,6 +128,7 @@ export default function Shell({
                 <Link href="/campus">Espace Établissement</Link>
                 <Link href="/learning/apprenant">Apprenant indépendant</Link>
                 <Link href="/learning/formateur">Formateur / Créateur</Link>
+                <Link href="/settings">Profil &amp; sécurité</Link>
                 <button type="button" className={styles.logoutButton} onClick={logoutKalatty}>
                   <Icon name="logout" />
                   Se déconnecter
