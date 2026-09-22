@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import Shell from "./Shell";
+import { ROLES } from "./roles";
 import type { RoleSlug } from "./roles";
 import { useCampusHome } from "./useCampusHome";
 import {
@@ -18,7 +20,30 @@ import styles from "./campus.module.css";
 /** Accueil connecte a l'API pour un role donne : charge /campus/home puis
  * rend le bon tableau de bord avec les vraies donnees de l'utilisateur. */
 export default function CampusHome({ role }: { role: RoleSlug }) {
-  const { loading, error, context, data } = useCampusHome<unknown>(role);
+  const { loading, error, context, data, mismatch } =
+    useCampusHome<unknown>(role);
+
+  if (mismatch) {
+    return (
+      <section
+        className={`${styles.card} ${styles.soon}`}
+        style={{ margin: 24 }}
+      >
+        <h2>Ce n&apos;est pas votre espace</h2>
+        <p>
+          Le compte connecté ({mismatch.displayName}) a le rôle{" "}
+          <strong>{ROLES[mismatch.campusRole].name}</strong> dans{" "}
+          {mismatch.institutionName}. Cette page affiche l&apos;espace{" "}
+          <strong>{ROLES[role].name}</strong>, réservé aux comptes de ce rôle —
+          ce n&apos;est donc pas une erreur, seulement le mauvais compte pour
+          cette vue.
+        </p>
+        <Link href={`/campus/${mismatch.campusRole}`} className={styles.btn}>
+          Aller à mon espace ({ROLES[mismatch.campusRole].name})
+        </Link>
+      </section>
+    );
+  }
 
   const messagesCount =
     data && typeof data === "object" && "messages" in data

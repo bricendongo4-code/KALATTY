@@ -21,6 +21,10 @@ type HomeState<T> = {
   error: string | null;
   context: CampusContext | null;
   data: T | null;
+  /** Present quand le compte connecte a un role d'etablissement different de
+   * celui de la page visitee : on n'affiche jamais les donnees d'un autre
+   * role, mais on l'explique plutot que de rediriger silencieusement. */
+  mismatch: CampusContext | null;
   reload: () => void;
 };
 
@@ -43,11 +47,13 @@ export function useCampusHome<T>(expectedRole: RoleSlug): HomeState<T> {
     error: string | null;
     context: CampusContext | null;
     data: T | null;
+    mismatch: CampusContext | null;
   }>({
     loading: true,
     error: null,
     context: null,
     data: null,
+    mismatch: null,
   });
   const [tick, setTick] = useState(0);
 
@@ -72,11 +78,18 @@ export function useCampusHome<T>(expectedRole: RoleSlug): HomeState<T> {
             body.message ?? "Impossible de charger l'Espace Etablissement.",
           context: null,
           data: null,
+          mismatch: null,
         });
         return;
       }
       if (body.context.campusRole !== expectedRole) {
-        router.replace(`/campus/${body.context.campusRole}`);
+        setState({
+          loading: false,
+          error: null,
+          context: null,
+          data: null,
+          mismatch: body.context,
+        });
         return;
       }
       setState({
@@ -84,6 +97,7 @@ export function useCampusHome<T>(expectedRole: RoleSlug): HomeState<T> {
         error: null,
         context: body.context,
         data: body.data,
+        mismatch: null,
       });
     } catch {
       setState({
@@ -91,6 +105,7 @@ export function useCampusHome<T>(expectedRole: RoleSlug): HomeState<T> {
         error: "Connexion au serveur impossible.",
         context: null,
         data: null,
+        mismatch: null,
       });
     }
   }, [expectedRole, router]);
