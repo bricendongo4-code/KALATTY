@@ -338,6 +338,33 @@
   color: var(--accent-ink);
 }
 
+.logoutButton {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 5px;
+  padding: 10px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 9px 9px;
+  background: #fff;
+  color: #b83232;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}
+
+.logoutButton:hover {
+  background: #fff0f0;
+}
+
+.logoutButton svg {
+  width: 17px;
+  height: 17px;
+}
+
 .bell {
   position: relative;
   width: 38px;

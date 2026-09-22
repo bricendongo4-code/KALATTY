@@ -49,6 +49,7 @@ const ICONS: Record<string, string> = {
   reply: "M9 14L4 9l5-5M4 9h10a6 6 0 0 1 6 6v3",
   list: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",
   shield: "M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z",
+  logout: "M10 5H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h5M14 8l4 4-4 4M8 12h10",
 };
 
 export function Icon({

@@ -7,7 +7,16 @@ const SESSION_KEYS = ["kalatty_token", "kalatty_user", "kalatty_role"];
 
 export const clearKalattySession = () => {
   if (typeof window === "undefined") return;
-  SESSION_KEYS.forEach((key) => localStorage.removeItem(key));
+  SESSION_KEYS.forEach((key) => {
+    localStorage.removeItem(key);
+    sessionStorage.removeItem(key);
+  });
+};
+
+export const logoutKalatty = () => {
+  if (typeof window === "undefined") return;
+  clearKalattySession();
+  window.location.replace("/login");
 };
 
 const isHistoryRestore = (event?: PageTransitionEvent) => {

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { Avatar, Icon } from "../campus/ui";
+import { logoutKalatty } from "../sessionSecurity";
 import { LEARNING_ROLES, type LearningRole } from "./config";
 import styles from "./learning.module.css";
 
@@ -74,6 +75,10 @@ export default function LearningShell({
               <Link href="/learning/apprenant">Apprenant indépendant</Link>
               <Link href="/learning/formateur">Formateur / Créateur</Link>
               <Link href="/campus">Espace Établissement</Link>
+              <button type="button" className={styles.logoutButton} onClick={logoutKalatty}>
+                <Icon name="logout" />
+                Se déconnecter
+              </button>
             </div>
           </details>
         </header>

@@ -8,6 +8,7 @@ import styles from "./campus.module.css";
 import { ROLES } from "./roles";
 import type { RoleSlug } from "./roles";
 import { Avatar, Icon } from "./ui";
+import { logoutKalatty } from "../sessionSecurity";
 
 export default function Shell({
   role,
@@ -136,6 +137,10 @@ export default function Shell({
                 <Link href="/campus">Espace Établissement</Link>
                 <Link href="/learning/apprenant">Apprenant indépendant</Link>
                 <Link href="/learning/formateur">Formateur / Créateur</Link>
+                <button type="button" className={styles.logoutButton} onClick={logoutKalatty}>
+                  <Icon name="logout" />
+                  Se déconnecter
+                </button>
               </div>
             </details>
           </div>
