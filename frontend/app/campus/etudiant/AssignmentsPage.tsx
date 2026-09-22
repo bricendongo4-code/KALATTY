@@ -162,7 +162,7 @@ export default function AssignmentsPage() {
                         </button>
                       </div>
                     </div>
-                  ) : (
+                  ) : !a.submission || ["returned", "draft"].includes(a.submission.status) ? (
                     <button
                       type="button"
                       className={`${styles.btn} ${styles.btnGhost}`}
@@ -170,9 +170,9 @@ export default function AssignmentsPage() {
                       onClick={() => setOpenId(a.id)}
                     >
                       <Icon name="edit" className={styles.navIcon} />
-                      {a.submission ? "Modifier ma remise" : "Rendre ce devoir"}
+                      {a.submission ? "Corriger ma remise" : "Rendre ce devoir"}
                     </button>
-                  )}
+                  ) : null}
                 </Card>
               ))}
             </div>

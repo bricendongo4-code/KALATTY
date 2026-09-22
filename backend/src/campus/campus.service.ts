@@ -194,6 +194,30 @@ export class CampusService {
     };
   }
 
+  async getStudentAnnouncements(user: AuthUser) {
+    const context = await this.getContext(user);
+    if (context.campusRole !== 'etudiant') {
+      throw new ForbiddenException('Espace réservé aux étudiants.');
+    }
+    const { data: memberships, error: membershipError } = await this.client
+      .from('room_members').select('room_id').eq('user_id', user.id).eq('role', 'student');
+    if (membershipError) throw new BadRequestException(membershipError.message);
+    const roomIds = (memberships ?? []).map((row: any) => String(row.room_id));
+    const { data: rooms, error: roomsError } = roomIds.length
+      ? await this.client.from('rooms').select('id').in('id', roomIds).eq('institution_id', context.institutionId)
+      : { data: [], error: null };
+    if (roomsError) throw new BadRequestException(roomsError.message);
+    const allowedRooms = new Set((rooms ?? []).map((row: any) => String(row.id)));
+    const { data, error } = await this.client.from('announcements')
+      .select('id, title, body, room_id, created_at')
+      .eq('institution_id', context.institutionId)
+      .in('audience', ['all', 'students'])
+      .order('created_at', { ascending: false }).limit(100);
+    if (error) throw new BadRequestException(error.message);
+    return { announcements: (data ?? []).filter((row: any) => !row.room_id || allowedRooms.has(String(row.room_id)))
+      .map((row: any) => ({ id: row.id, title: row.title, body: row.body, createdAt: row.created_at, roomId: row.room_id })) };
+  }
+
   // ------------------------------------------------------------ horloge partagee (fuseau Europe/Paris)
   private nowParts(date: Date = new Date()) {
     const parts = WEEKDAY_TIME_FORMAT.formatToParts(date);
@@ -236,9 +260,9 @@ export class CampusService {
       .select('room_id')
       .eq('user_id', ctx.userId)
       .eq('role', 'student');
-    const roomIds = (memberships ?? []).map((m: any) => String(m.room_id));
+    const memberRoomIds = (memberships ?? []).map((m: any) => String(m.room_id));
 
-    if (roomIds.length === 0) {
+    if (memberRoomIds.length === 0) {
       return this.emptyStudentHome();
     }
 
@@ -247,7 +271,10 @@ export class CampusService {
     const { data: rooms } = await this.client
       .from('rooms')
       .select('id, name')
-      .in('id', roomIds);
+      .in('id', memberRoomIds)
+      .eq('institution_id', ctx.institutionId);
+    const roomIds = (rooms ?? []).map((room: any) => String(room.id));
+    if (!roomIds.length) return this.emptyStudentHome();
     const roomName = new Map(
       (rooms ?? []).map((r: any) => [String(r.id), String(r.name)]),
     );
@@ -323,11 +350,13 @@ export class CampusService {
 
     const { data: announcements } = await this.client
       .from('announcements')
-      .select('id, title, body, created_at')
+      .select('id, title, body, room_id, created_at')
       .eq('institution_id', ctx.institutionId)
       .in('audience', ['all', 'students'])
       .order('created_at', { ascending: false })
-      .limit(1);
+      .limit(30);
+
+    const visibleAnnouncement = (announcements ?? []).find((item: any) => !item.room_id || roomIds.includes(String(item.room_id)));
 
     return {
       today,
@@ -342,10 +371,10 @@ export class CampusService {
         body: String(n.message ?? ''),
         createdAt: n.created_at,
       })),
-      announcement: announcements?.[0]
+      announcement: visibleAnnouncement
         ? {
-            title: String(announcements[0].title),
-            body: String(announcements[0].body),
+            title: String(visibleAnnouncement.title),
+            body: String(visibleAnnouncement.body),
           }
         : null,
     };

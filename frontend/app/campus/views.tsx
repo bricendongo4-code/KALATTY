@@ -231,7 +231,7 @@ export function StudentHome({ data }: { data: StudentHomeData }) {
               {data.messages.map((m) => (
                 <Row
                   key={m.id}
-                  lead={<RowIcon icon="mail" tone="blue" />}
+                  lead={<RowIcon icon="bell" tone="blue" />}
                   title={m.title}
                   sub={m.body}
                   side={relativeTime(m.createdAt)}

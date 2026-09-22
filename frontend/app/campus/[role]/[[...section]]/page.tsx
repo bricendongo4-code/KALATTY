@@ -9,6 +9,7 @@ import TeacherClassesPage from "../../professeur/ClassesPage";
 import PedagogyClassesPage from "../../pedagogie/ClassesPage";
 import CampusSectionPage from "../../SectionPage";
 import StudentPages from "../../etudiant/StudentPages";
+import StudentActivityPage from "../../etudiant/ActivityPage";
 
 type Params = Promise<{ role: string; section?: string[] }>;
 
@@ -43,8 +44,11 @@ export default async function CampusRolePage({ params }: { params: Params }) {
     return <CampusHome role={role} />;
   }
 
-  if (role === "etudiant" && ["emploi-du-temps", "cours", "classe", "resultats", "evaluations"].includes(slug)) {
-    return <StudentPages section={slug as "emploi-du-temps" | "cours" | "classe" | "resultats" | "evaluations"} />;
+  if (role === "etudiant" && ["emploi-du-temps", "cours", "classe", "resultats", "evaluations", "ressources", "documents", "aide"].includes(slug)) {
+    return <StudentPages section={slug as "emploi-du-temps" | "cours" | "classe" | "resultats" | "evaluations" | "ressources" | "documents" | "aide"} />;
+  }
+  if (role === "etudiant" && ["actualites", "messagerie"].includes(slug)) {
+    return <StudentActivityPage section={slug as "actualites" | "messagerie"} />;
   }
 
   const Built = BUILT_SECTIONS[`${role}/${slug}`];

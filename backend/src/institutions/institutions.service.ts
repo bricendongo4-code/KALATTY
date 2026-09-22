@@ -1430,7 +1430,7 @@ export class InstitutionsService {
     const { data: assignment, error: assignmentError } =
       await this.supabaseService.client
         .from('assignments')
-        .select('id')
+        .select('id, status')
         .eq('id', assignmentId)
         .eq('room_id', roomId)
         .maybeSingle();
@@ -1441,6 +1441,9 @@ export class InstitutionsService {
 
     if (!assignment) {
       throw new NotFoundException('Devoir introuvable pour cette classe.');
+    }
+    if (assignment.status !== 'published') {
+      throw new ForbiddenException('Ce devoir n’est pas publié.');
     }
 
     const content = payload.content?.trim() || null;
@@ -1455,13 +1458,16 @@ export class InstitutionsService {
     const { data: existing, error: existingError } =
       await this.supabaseService.client
         .from('assignment_submissions')
-        .select('id')
+        .select('id, status')
         .eq('assignment_id', assignmentId)
         .eq('student_id', user.id)
         .maybeSingle();
 
     if (existingError) {
       throw new BadRequestException(existingError.message);
+    }
+    if (existing && existing.status !== 'returned' && existing.status !== 'draft') {
+      throw new ForbiddenException('Cette remise a déjà été envoyée et ne peut pas être modifiée.');
     }
 
     const submissionPayload = {
@@ -1471,6 +1477,12 @@ export class InstitutionsService {
       file_path: filePath,
       status: 'submitted',
       submitted_at: new Date().toISOString(),
+      published: false,
+      published_at: null,
+      score: null,
+      feedback: null,
+      reviewed_at: null,
+      reviewed_by: null,
     };
 
     const { data, error } = existing

@@ -120,7 +120,7 @@ export default function Shell({
             />
           </form>
           <div className={styles.topRight}>
-            <NotificationBell allHref={`/campus/${role}/${role === "direction" ? "communication" : role === "pedagogie" ? "messagerie" : "actualites"}`} />
+            <NotificationBell allHref={`/campus/${role}/${role === "direction" ? "communication" : role === "etudiant" || role === "pedagogie" ? "messagerie" : "actualites"}`} />
             <details className={styles.contextMenu}>
               <summary className={styles.userChip}>
                 <Avatar name={identity.name} src={identity.avatarUrl} size={38} />

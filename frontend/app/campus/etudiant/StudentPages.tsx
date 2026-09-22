@@ -12,9 +12,9 @@ type Schedule = { id: string; roomId: string; roomName: string; title: string; w
 type Course = { id: string; title: string; description: string; roomName: string };
 type Grade = { id: string; title: string; roomName: string; score: number; maxScore: number; feedback: string; reviewedAt: string | null };
 type Overview = { rooms: Room[]; schedule: Schedule[]; courses: Course[]; grades: Grade[] };
-type Section = "emploi-du-temps" | "cours" | "classe" | "resultats" | "evaluations";
+type Section = "emploi-du-temps" | "cours" | "classe" | "resultats" | "evaluations" | "ressources" | "documents" | "aide";
 const DAYS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
-const TITLES: Record<Section, string> = { "emploi-du-temps": "Mon emploi du temps", cours: "Mes cours", classe: "Ma classe", resultats: "Mes résultats", evaluations: "Mes évaluations" };
+const TITLES: Record<Section, string> = { "emploi-du-temps": "Mon emploi du temps", cours: "Mes cours", classe: "Ma classe", resultats: "Mes résultats", evaluations: "Mes évaluations", ressources: "Ressources", documents: "Mes documents", aide: "Aide & support" };
 
 export default function StudentPages({ section }: { section: Section }) {
   const { loading: contextLoading, error: contextError, context, mismatch } = useCampusContext("etudiant");
@@ -44,6 +44,9 @@ export default function StudentPages({ section }: { section: Section }) {
       {section === "classe" ? data.rooms.length ? <div className={styles.grid}>{data.rooms.map((room) => <article className={styles.tile} key={room.id}><span className={styles.icon}><Icon name="users" /></span><h2>{room.name}</h2><p>{room.description || "Votre classe dans l’établissement."}</p><strong>Professeur{room.teachers.length > 1 ? "s" : ""}</strong><p>{room.teachers.length ? room.teachers.join(", ") : "Aucun professeur affecté"}</p><Link href="/campus/etudiant/emploi-du-temps">Voir le planning →</Link></article>)}</div> : <Empty text="Vous n’êtes pas encore affecté à une classe." /> : null}
       {section === "resultats" ? data.grades.length ? <div className={styles.stack}>{data.grades.map((grade) => <article className={styles.card} key={grade.id}><span className={styles.score}>{grade.score}/{grade.maxScore || "—"}</span><div><h2>{grade.title}</h2><p>{grade.roomName}{grade.feedback ? ` · ${grade.feedback}` : ""}</p></div><Icon name="award" /></article>)}</div> : <Empty text="Aucune note publiée pour le moment. Les résultats apparaîtront après correction." /> : null}
       {section === "evaluations" ? <div className={styles.tile}><span className={styles.icon}><Icon name="clipboard" /></span><h2>Évaluations et travaux</h2><p>Les devoirs publiés, leurs échéances et vos remises se trouvent dans « Mes travaux ». Vos notes corrigées apparaissent dans « Mes résultats ».</p><div className={styles.actions}><Link href="/campus/etudiant/travaux">Voir mes travaux →</Link><Link href="/campus/etudiant/resultats">Voir mes résultats →</Link></div></div> : null}
+      {section === "ressources" ? <div className={styles.tile}><span className={styles.icon}><Icon name="folder" /></span><h2>Supports de formation</h2><p>Les leçons et supports publiés dans les formations attribuées à votre classe sont accessibles depuis vos cours.</p><Link href="/campus/etudiant/cours">Accéder à mes cours →</Link></div> : null}
+      {section === "documents" ? <div className={styles.tile}><span className={styles.icon}><Icon name="file" /></span><h2>Pièces de vos travaux</h2><p>Consultez vos devoirs, leurs consignes et les remises effectuées. Aucun document officiel personnel n’est actuellement disponible dans cet espace.</p><Link href="/campus/etudiant/travaux">Consulter mes travaux →</Link></div> : null}
+      {section === "aide" ? <div className={styles.tile}><span className={styles.icon}><Icon name="help" /></span><h2>Besoin d’aide ?</h2><p>Pour une question sur votre classe ou vos évaluations, contactez votre établissement. Pour une difficulté technique avec Kalatty, écrivez au support.</p><a href="mailto:support@kalatty.com?subject=Aide%20espace%20%C3%A9tudiant">Écrire au support →</a></div> : null}
     </>}
   </Shell>;
 }
