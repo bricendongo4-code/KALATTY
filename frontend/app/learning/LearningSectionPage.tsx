@@ -78,9 +78,9 @@ const DETAILS: Record<LearningRole, Record<string, { title: string; text: string
 
 function CourseCard({ course, trainer }: { course: CourseData; trainer: boolean }) {
   const progress = Number(course.progress ?? 0);
-  const href = trainer
-    ? course.id ? `/creator/courses/${course.id}/builder` : "/creator/courses/new"
-    : course.id ? `/learn/courses/${course.id}` : "/learn/explore";
+  const learnerHref = course.id
+    ? progress > 0 ? `/learn/courses/${course.id}` : `/learn/catalog/${course.id}`
+    : "/learn/explore";
   return <article className={styles.liveCourseCard}>
     <div className={styles.liveCourseCover}>{course.thumbnailUrl ? <span style={{ backgroundImage: `url(${course.thumbnailUrl})` }} /> : <Icon name="book" />}</div>
     <div className={styles.liveCourseBody}>
@@ -88,7 +88,7 @@ function CourseCard({ course, trainer }: { course: CourseData; trainer: boolean 
       <h2>{course.title ?? "Formation"}</h2>
       <p>{course.description || `${course.lessonsCount ?? 0} leçon(s) disponible(s).`}</p>
       {!trainer ? <div className={styles.liveProgress}><Progress value={progress} color={progress > 55 ? "green" : "orange"} /><b>{progress}%</b></div> : null}
-      <div><strong>{course.priceFcfa ? `${new Intl.NumberFormat("fr-FR").format(course.priceFcfa)} FCFA` : trainer ? `${course.lessonsCount ?? 0} leçon(s)` : "Inclus"}</strong><Link href={href}>{trainer ? "Gérer" : progress ? "Continuer" : "Découvrir"}</Link></div>
+      <div><strong>{course.priceFcfa ? `${new Intl.NumberFormat("fr-FR").format(course.priceFcfa)} FCFA` : trainer ? `${course.lessonsCount ?? 0} leçon(s)` : "Inclus"}</strong>{trainer ? <span className={styles.courseCardActions}><Link href={course.id ? `/creator/courses/${course.id}/preview` : "/creator/courses/new"}>Aperçu</Link><Link href={course.id ? `/creator/courses/${course.id}/builder` : "/creator/courses/new"}>Modifier</Link></span> : <Link href={learnerHref}>{progress ? "Continuer" : "Découvrir"}</Link>}</div>
     </div>
   </article>;
 }

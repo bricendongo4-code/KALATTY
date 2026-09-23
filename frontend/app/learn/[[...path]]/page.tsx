@@ -22,9 +22,11 @@ export default async function LearnerPage({ params }: { params: Params }) {
 
   if (!section) view = <LearningHome role="apprenant" />;
   else if (section === "courses" && id && (!child || (child === "lessons" && lessonId))) view = <CoursePlayerPage courseId={id} initialLessonId={lessonId} />;
+  else if ((section === "catalog" || section === "checkout") && id && !child) view = <CoursePlayerPage courseId={id} />;
   else if (section === "billing" && !id) view = <PaymentHistory />;
   else if (SECTIONS.has(section) && !id) view = <LearningSectionPage role="apprenant" slug={section} />;
   else notFound();
 
-  return <LearningShell role="apprenant" activeSlug={section === "courses" ? "my-courses" : section}>{view}</LearningShell>;
+  const activeSlug = section === "courses" ? "my-courses" : section === "catalog" || section === "checkout" ? "explore" : section;
+  return <LearningShell role="apprenant" activeSlug={activeSlug}>{view}</LearningShell>;
 }

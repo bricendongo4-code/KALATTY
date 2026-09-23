@@ -48,7 +48,7 @@ export class PaymentsService {
   getPlans() {
     return {
       coursePayments: {
-        provider: 'demo',
+        provider: process.env.PAYMENT_PROVIDER ?? 'pending_configuration',
         platformFeePercent: 15,
         description:
           'Les cours gratuits sont accessibles apres inscription. Les cours payants activent un paiement par cours.',
@@ -231,26 +231,50 @@ export class PaymentsService {
     const platformFeeFcfa = Math.round(priceFcfa * 0.15);
     const teacherEarningFcfa = Math.max(priceFcfa - platformFeeFcfa, 0);
 
-    const { data: payment, error } = await this.supabaseService.client
-      .from('payments')
-      .insert({
-        user_id: user.id,
-        course_id: course.id,
-        teacher_id: course.teacher_id,
-        amount_fcfa: priceFcfa,
-        platform_fee_fcfa: platformFeeFcfa,
-        teacher_earning_fcfa: teacherEarningFcfa,
-        status: 'pending',
-      })
-      .select(
-        'id, amount_fcfa, platform_fee_fcfa, teacher_earning_fcfa, status, created_at',
-      )
-      .single();
+    const { data: existingPayment, error: existingPaymentError } =
+      await this.supabaseService.client
+        .from('payments')
+        .select(
+          'id, amount_fcfa, platform_fee_fcfa, teacher_earning_fcfa, status, created_at',
+        )
+        .eq('user_id', user.id)
+        .eq('course_id', course.id)
+        .in('status', ['pending', 'processing'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-    if (error || !payment) {
+    if (existingPaymentError) {
       throw new BadRequestException(
-        error?.message ?? 'Impossible de preparer le paiement du cours.',
+        existingPaymentError.message ??
+          'Impossible de vérifier la transaction en attente.',
       );
+    }
+
+    let payment = existingPayment;
+    if (!payment) {
+      const { data: createdPayment, error } = await this.supabaseService.client
+        .from('payments')
+        .insert({
+          user_id: user.id,
+          course_id: course.id,
+          teacher_id: course.teacher_id,
+          amount_fcfa: priceFcfa,
+          platform_fee_fcfa: platformFeeFcfa,
+          teacher_earning_fcfa: teacherEarningFcfa,
+          status: 'pending',
+        })
+        .select(
+          'id, amount_fcfa, platform_fee_fcfa, teacher_earning_fcfa, status, created_at',
+        )
+        .single();
+
+      if (error || !createdPayment) {
+        throw new BadRequestException(
+          error?.message ?? 'Impossible de préparer le paiement du cours.',
+        );
+      }
+      payment = createdPayment;
     }
 
     return {
@@ -260,10 +284,10 @@ export class PaymentsService {
       platformFeeFcfa: Number(payment.platform_fee_fcfa ?? 0),
       teacherEarningFcfa: Number(payment.teacher_earning_fcfa ?? 0),
       createdAt: payment.created_at,
-      provider: 'demo',
-      providerLabel: 'Paiement de demonstration',
+      provider: process.env.PAYMENT_PROVIDER ?? 'pending_configuration',
+      providerLabel: 'Paiement sécurisé en attente',
       instructions:
-        "Flux de paiement pret pour integration. Pour l'instant, la confirmation se fait en mode demo.",
+        "Votre demande est enregistrée. Aucun accès n'est accordé avant la confirmation sécurisée du prestataire de paiement.",
       course: {
         id: course.id,
         title: course.title ?? 'Cours Kalatty',
@@ -276,6 +300,12 @@ export class PaymentsService {
     if (role !== 'student' && role !== 'admin') {
       throw new ForbiddenException(
         'Seuls les etudiants peuvent confirmer un paiement.',
+      );
+    }
+
+    if (process.env.PAYMENTS_DEMO_MODE !== 'true' && role !== 'admin') {
+      throw new ForbiddenException(
+        'La confirmation manuelle est désactivée en production.',
       );
     }
 

@@ -130,10 +130,9 @@ export default function CoursePlayerPage({ courseId, initialLessonId }: { course
         const checkoutResponse = await fetch(`${API_BASE}/payments/course-checkout`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ courseId }) });
         const checkout = await checkoutResponse.json();
         if (!checkoutResponse.ok) throw new Error(checkout.message ?? "Paiement impossible.");
-        if (!checkout.alreadyEnrolled && checkout.paymentId) {
-          const confirmResponse = await fetch(`${API_BASE}/payments/${checkout.paymentId}/confirm-demo`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
-          const confirmation = await confirmResponse.json();
-          if (!confirmResponse.ok) throw new Error(confirmation.message ?? "Confirmation impossible.");
+        if (!checkout.alreadyEnrolled) {
+          setAccessMessage(checkout.instructions ?? "Votre demande de paiement est enregistrée. L’accès sera activé après confirmation du paiement.");
+          return;
         }
       }
       setAccessMessage("Accès activé. Votre formation est prête.");
