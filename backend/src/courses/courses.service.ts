@@ -249,6 +249,120 @@ export class CoursesService {
     }));
   }
 
+  async getTeacherInsights(user: AuthUser) {
+    await this.assertTeacher(user);
+    const { data: courses, error: courseError } =
+      await this.supabaseService.client
+        .from('courses')
+        .select('id, title, status, lessons ( id )')
+        .eq('teacher_id', user.id)
+        .neq('status', 'archived')
+        .order('created_at', { ascending: false });
+    if (courseError) throw new BadRequestException(courseError.message);
+
+    const courseIds = (courses ?? []).map((course) => course.id);
+    if (!courseIds.length) {
+      return {
+        summary: { learners: 0, activeLearners: 0, averageProgress: 0, completions: 0 },
+        learners: [],
+        courses: [],
+      };
+    }
+
+    const lessonCourse = new Map<string, string>();
+    const lessonCountByCourse = new Map<string, number>();
+    for (const course of courses ?? []) {
+      const lessons = (course.lessons ?? []) as Array<{ id: string }>;
+      lessonCountByCourse.set(course.id, lessons.length);
+      for (const lesson of lessons) lessonCourse.set(lesson.id, course.id);
+    }
+
+    const { data: enrollments, error: enrollmentError } =
+      await this.supabaseService.client
+        .from('enrollments')
+        .select('id, user_id, course_id, enrolled_at')
+        .in('course_id', courseIds)
+        .order('enrolled_at', { ascending: false });
+    if (enrollmentError) throw new BadRequestException(enrollmentError.message);
+
+    const userIds = Array.from(
+      new Set((enrollments ?? []).map((item) => item.user_id).filter((id): id is string => Boolean(id))),
+    );
+    const lessonIds = Array.from(lessonCourse.keys());
+    const [profilesResult, progressResult] = await Promise.all([
+      userIds.length
+        ? this.supabaseService.client.from('profiles').select('id, fullname, email').in('id', userIds)
+        : Promise.resolve({ data: [], error: null }),
+      userIds.length && lessonIds.length
+        ? this.supabaseService.client.from('progress').select('user_id, lesson_id, status, progress_pct, updated_at').in('user_id', userIds).in('lesson_id', lessonIds)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+    const secondaryError = profilesResult.error ?? progressResult.error;
+    if (secondaryError) throw new BadRequestException(secondaryError.message);
+
+    const profiles = new Map((profilesResult.data ?? []).map((profile) => [profile.id, profile]));
+    const progressByUserCourse = new Map<string, Array<{ status: string | null; progress_pct: number; updated_at: string | null }>>();
+    for (const progress of progressResult.data ?? []) {
+      if (!progress.user_id || !progress.lesson_id) continue;
+      const courseId = lessonCourse.get(progress.lesson_id);
+      if (!courseId) continue;
+      const key = `${progress.user_id}:${courseId}`;
+      const items = progressByUserCourse.get(key) ?? [];
+      items.push(progress);
+      progressByUserCourse.set(key, items);
+    }
+
+    const courseById = new Map((courses ?? []).map((course) => [course.id, course]));
+    const learners = (enrollments ?? []).flatMap((enrollment) => {
+      if (!enrollment.user_id || !enrollment.course_id) return [];
+      const profile = profiles.get(enrollment.user_id);
+      const items = progressByUserCourse.get(`${enrollment.user_id}:${enrollment.course_id}`) ?? [];
+      const totalLessons = lessonCountByCourse.get(enrollment.course_id) ?? 0;
+      const completedLessons = items.filter((item) => item.status === 'completed').length;
+      const progress = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+      const lastActivity = items.map((item) => item.updated_at).filter((date): date is string => Boolean(date)).sort().at(-1) ?? enrollment.enrolled_at;
+      return [{
+        enrollmentId: enrollment.id,
+        userId: enrollment.user_id,
+        name: profile?.fullname ?? 'Apprenant Kalatty',
+        email: profile?.email ?? '',
+        courseId: enrollment.course_id,
+        courseTitle: courseById.get(enrollment.course_id)?.title ?? 'Formation',
+        enrolledAt: enrollment.enrolled_at,
+        lastActivity,
+        completedLessons,
+        totalLessons,
+        progress,
+        completed: totalLessons > 0 && completedLessons >= totalLessons,
+      }];
+    });
+
+    const activityThreshold = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const courseMetrics = (courses ?? []).map((course) => {
+      const courseLearners = learners.filter((item) => item.courseId === course.id);
+      return {
+        id: course.id,
+        title: course.title ?? 'Formation',
+        status: course.status ?? 'draft',
+        learners: courseLearners.length,
+        activeLearners: courseLearners.filter((item) => item.lastActivity && new Date(item.lastActivity).getTime() >= activityThreshold).length,
+        completions: courseLearners.filter((item) => item.completed).length,
+        averageProgress: courseLearners.length ? Math.round(courseLearners.reduce((sum, item) => sum + item.progress, 0) / courseLearners.length) : 0,
+      };
+    });
+
+    return {
+      summary: {
+        learners: new Set(learners.map((item) => item.userId)).size,
+        activeLearners: new Set(learners.filter((item) => item.lastActivity && new Date(item.lastActivity).getTime() >= activityThreshold).map((item) => item.userId)).size,
+        averageProgress: learners.length ? Math.round(learners.reduce((sum, item) => sum + item.progress, 0) / learners.length) : 0,
+        completions: learners.filter((item) => item.completed).length,
+      },
+      learners,
+      courses: courseMetrics,
+    };
+  }
+
   async getTeacherQuestions(user: AuthUser) {
     await this.assertTeacher(user);
     const { data: courses, error: courseError } =

@@ -94,6 +94,12 @@ export class CoursesController {
   }
 
   @UseGuards(AuthGuard('jwt'))
+  @Get('teacher/insights')
+  getTeacherInsights(@Req() req: RequestUser) {
+    return this.coursesService.getTeacherInsights(req.user);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
   @Patch('teacher/activities/:submissionId')
   reviewTeacherActivity(
     @Req() req: RequestUser,

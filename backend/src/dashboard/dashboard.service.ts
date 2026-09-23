@@ -784,6 +784,7 @@ export class DashboardService {
           description,
           price_fcfa,
           thumbnail_url,
+          status,
           created_at,
           enrollments ( id ),
           lessons ( id, video_path )
@@ -806,6 +807,7 @@ export class DashboardService {
         course.lessons?.find((lesson: any) => lesson.video_path)?.video_path ??
         '',
       thumbnailUrl: thumbnailUrls.get(String(course.thumbnail_url ?? '')) ?? '',
+      status: course.status ?? 'draft',
       createdAt: course.created_at,
       learners: course.enrollments?.length ?? 0,
       lessonsCount: course.lessons?.length ?? 0,
