@@ -812,19 +812,51 @@ export class CampusService {
       : (await this.client.from('rooms').select('id').eq('institution_id', context.institutionId)).data?.map((row: any) => String(row.id)) ?? [];
     if (!scope.length) return { justifications: [] };
     const { data: records, error: recordsError } = await this.client.from('room_attendance_records')
-      .select('id, room_id').in('room_id', scope);
+      .select('id, room_id, session_id').in('room_id', scope);
     if (recordsError) throw new BadRequestException(recordsError.message);
     const allowed = new Set((records ?? []).map((row: any) => String(row.id)));
     if (!allowed.size) return { justifications: [] };
     const { data, error } = await this.client.from('absence_justifications')
-      .select('id, record_id, reason, status, review_note, created_at, profiles:student_id ( fullname )')
+      .select('id, record_id, reason, file_path, status, review_note, created_at, profiles:student_id ( fullname )')
       .eq('institution_id', context.institutionId).in('record_id', [...allowed])
       .order('created_at', { ascending: false }).limit(100);
     if (error) throw new BadRequestException(error.message);
-    return { justifications: (data ?? []).map((item: any) => ({
-      id: item.id, reason: item.reason, status: item.status, note: item.review_note,
-      createdAt: item.created_at, studentName: (Array.isArray(item.profiles) ? item.profiles[0] : item.profiles)?.fullname ?? 'Étudiant',
-    })) };
+    const roomIds = [...new Set((records ?? []).map((row: any) => String(row.room_id)))];
+    const sessionIds = [...new Set((records ?? []).map((row: any) => String(row.session_id)))];
+    const [roomsResult, sessionsResult] = await Promise.all([
+      this.client.from('rooms').select('id, name').in('id', roomIds),
+      this.client.from('room_attendance_sessions').select('id, title, session_date').in('id', sessionIds),
+    ]);
+    if (roomsResult.error) throw new BadRequestException(roomsResult.error.message);
+    if (sessionsResult.error) throw new BadRequestException(sessionsResult.error.message);
+    const recordsById = new Map((records ?? []).map((row: any) => [String(row.id), row]));
+    const roomNames = new Map((roomsResult.data ?? []).map((row: any) => [String(row.id), String(row.name)]));
+    const sessionsById = new Map((sessionsResult.data ?? []).map((row: any) => [String(row.id), row]));
+    const justifications = await Promise.all((data ?? []).map(async (item: any) => {
+      const record = recordsById.get(String(item.record_id));
+      const session = sessionsById.get(String(record?.session_id));
+      const filePath = item.file_path ? String(item.file_path) : null;
+      let attachmentUrl: string | null = null;
+      if (filePath?.startsWith(`${context.institutionId}/`)) {
+        const { data: signed } = await this.client.storage
+          .from('absence-justifications')
+          .createSignedUrl(filePath, 60 * 15);
+        attachmentUrl = signed?.signedUrl ?? null;
+      }
+      return {
+        id: item.id,
+        reason: item.reason,
+        status: item.status,
+        note: item.review_note,
+        createdAt: item.created_at,
+        attachmentUrl,
+        roomName: roomNames.get(String(record?.room_id)) ?? 'Classe',
+        sessionTitle: session?.title ?? 'Séance',
+        sessionDate: session?.session_date ?? null,
+        studentName: (Array.isArray(item.profiles) ? item.profiles[0] : item.profiles)?.fullname ?? 'Étudiant',
+      };
+    }));
+    return { justifications };
   }
 
   async reviewJustification(
