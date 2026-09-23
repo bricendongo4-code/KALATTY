@@ -51,6 +51,8 @@ type TeacherQuestion = {
   createdAt?: string;
 };
 
+type Certificate = { id: string; courseId: string; courseTitle: string; verificationCode: string; issuedAt: string };
+
 const DETAILS: Record<LearningRole, Record<string, { title: string; text: string; tabs: string[] }>> = {
   apprenant: {
     explore: { title: "Explorer les formations", text: "Découvrez les formations publiées et choisissez votre prochain objectif.", tabs: ["Toutes", "Gratuites", "Payantes", "Nouveautés"] },
@@ -100,6 +102,7 @@ export default function LearningSectionPage({ role, slug }: { role: LearningRole
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [teacherQuestions, setTeacherQuestions] = useState<TeacherQuestion[]>([]);
   const [questionAnswers, setQuestionAnswers] = useState<Record<string, string>>({});
+  const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const searchQuery = (searchParams.get("q") ?? "").trim().toLocaleLowerCase("fr");
@@ -129,6 +132,12 @@ export default function LearningSectionPage({ role, slug }: { role: LearningRole
         if (!questionsResponse.ok) throw new Error(questionsBody.message ?? "Impossible de charger les questions.");
         setTeacherQuestions(questionsBody.questions ?? []);
       }
+      if (role === "apprenant" && slug === "certificates") {
+        const certificatesResponse = await fetch(`${API_BASE}/courses/learner/certificates`, { headers });
+        const certificatesBody = await certificatesResponse.json();
+        if (!certificatesResponse.ok) throw new Error(certificatesBody.message ?? "Impossible de charger les certificats.");
+        setCertificates(certificatesBody.certificates ?? []);
+      }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Connexion au serveur impossible.");
     } finally {
@@ -152,7 +161,7 @@ export default function LearningSectionPage({ role, slug }: { role: LearningRole
   const tabCourses = slug === "certificates" ? completedCourses : slug === "explore" && activeTab === "Gratuites" ? courses.filter((course) => !Number(course.priceFcfa ?? 0)) : slug === "explore" && activeTab === "Payantes" ? courses.filter((course) => Number(course.priceFcfa ?? 0) > 0) : slug === "my-courses" && activeTab === "Terminées" ? completedCourses : slug === "my-courses" && activeTab === "En cours" ? courses.filter((course) => Number(course.progress ?? 0) < 100) : role === "formateur" && activeTab === "Publiées" ? courses.filter((course) => course.status === "published") : role === "formateur" && activeTab === "Brouillons" ? courses.filter((course) => course.status !== "published") : courses;
   const visibleCourses = searchQuery ? tabCourses.filter((course) => `${course.title ?? ""} ${course.description ?? ""} ${course.teacherName ?? ""}`.toLocaleLowerCase("fr").includes(searchQuery)) : tabCourses;
   const visibleNotifications = activeTab === "Non lues" ? notifications.filter((item) => !item.read) : activeTab === "Cours" ? notifications.filter((item) => item.type === "course") : activeTab === "Paiements" ? notifications.filter((item) => item.type === "payment") : notifications;
-  const showCourses = ["explore", "my-courses", "certificates", "courses"].includes(slug);
+  const showCourses = ["explore", "my-courses", "courses"].includes(slug);
 
   async function openNotification(item: Notification) {
     const token = localStorage.getItem("kalatty_token");
@@ -173,6 +182,12 @@ export default function LearningSectionPage({ role, slug }: { role: LearningRole
     setQuestionAnswers((current) => ({ ...current, [item.id]: "" }));
   }
 
+  async function shareCertificate(item: Certificate) {
+    const text = `Certificat Kalatty · ${item.courseTitle} · Code ${item.verificationCode}`;
+    if (navigator.share) await navigator.share({ title: "Certificat Kalatty", text });
+    else { await navigator.clipboard.writeText(text); setError(null); }
+  }
+
   return <>
     <header className={styles.pageHead}><div><h1>{details.title}</h1><p>{details.text}</p></div>{role === "formateur" && slug === "courses" ? <Link href="/creator/courses/new" className={styles.primaryButton}><Icon name="plus" /> Créer une formation</Link> : null}</header>
     {searchQuery ? <p className={styles.builderMessage}>Résultats pour « {searchParams.get("q")} »</p> : null}
@@ -180,6 +195,7 @@ export default function LearningSectionPage({ role, slug }: { role: LearningRole
     {slug === "profile" ? <AccountSettings /> : null}
     {slug === "notifications" ? <section className={styles.panel}><div className={styles.sectionHead}><h2>Activité récente</h2><button onClick={() => void load()}>Actualiser</button></div>{visibleNotifications.length ? <div className={styles.notificationList}>{visibleNotifications.map((item) => <button type="button" key={item.id} onClick={() => void openNotification(item)}><span><Icon name={item.read ? "mail" : "bell"} /></span><div><strong>{item.title ?? "Notification"}</strong><p>{item.message ?? ""}</p></div><small>{item.createdAt ? new Date(item.createdAt).toLocaleDateString("fr-FR") : ""}</small></button>)}</div> : <div className={styles.empty}><Icon name="mail" /><h3>Aucune notification</h3><p>Vous êtes à jour.</p></div>}</section> : null}
     {showCourses ? visibleCourses.length ? <div className={styles.liveCourseGrid}>{visibleCourses.map((course) => <CourseCard key={course.id ?? course.title} course={course} trainer={role === "formateur"} />)}</div> : <section className={`${styles.panel} ${styles.empty}`}><Icon name={slug === "certificates" ? "award" : "book"} /><h3>{slug === "certificates" ? "Aucun certificat disponible" : "Aucun élément disponible"}</h3><p>{slug === "certificates" ? "Un certificat apparaîtra après validation des conditions de réussite." : "Créez ou rejoignez une formation pour alimenter cette rubrique."}</p>{role === "apprenant" ? <Link href="/learn/explore" className={styles.smallButton}>Explorer les formations</Link> : <Link href="/creator/courses/new" className={styles.smallButton}>Créer une formation</Link>}</section> : null}
+    {role === "apprenant" && slug === "certificates" ? certificates.length ? <div className={styles.certGrid}>{certificates.map((item) => <article className={styles.certificate} key={item.id}><Icon name="award" /><small>Certificat de réussite</small><h2>{item.courseTitle}</h2><strong>{item.verificationCode}</strong><small>Délivré le {new Date(item.issuedAt).toLocaleDateString("fr-FR")}</small><div><Link href={`/learn/courses/${item.courseId}`}>Revoir la formation</Link><button type="button" onClick={() => void shareCertificate(item)}>Partager</button></div></article>)}</div> : <section className={`${styles.panel} ${styles.empty}`}><Icon name="award" /><h3>Aucun certificat disponible</h3><p>Terminez toutes les leçons d’une formation pour recevoir automatiquement votre certificat.</p><Link href="/learn/my-courses" className={styles.smallButton}>Continuer mes formations</Link></section> : null}
     {role === "apprenant" && slug === "activities" ? <section className={`${styles.panel} ${styles.empty}`}><Icon name="clipboard" /><h3>Aucune activité à rendre</h3><p>Les quiz et exercices de vos formations apparaîtront ici.</p><Link href="/learn/my-courses" className={styles.smallButton}>Voir mes formations</Link></section> : null}
     {role === "formateur" && slug === "media" ? <section className={styles.panel}><h2>{details.title}</h2><p>Les médias sont liés aux leçons de vos formations et aux projets du Studio.</p><Link href="/creator/studio" className={styles.primaryButton}>Ouvrir le studio</Link></section> : null}
     {role === "formateur" && slug === "assessments" ? <section className={styles.questionInbox}><div className={styles.sectionHead}><div><h2>Questions des apprenants</h2><p>{teacherQuestions.filter((item) => item.status !== "answered").length} question(s) en attente</p></div><Link href="/creator/courses">Gérer les contenus</Link></div>{teacherQuestions.length ? teacherQuestions.map((item) => <article key={item.id}><header><span><strong>{item.authorName}</strong><small>{item.courseTitle} · {item.lessonTitle}</small></span><time>{item.createdAt ? new Date(item.createdAt).toLocaleDateString("fr-FR") : ""}</time></header><p>{item.body}</p>{item.status === "answered" ? <div className={styles.answerPublished}><Icon name="checkCircle" /><span><small>Réponse envoyée</small><strong>{item.answer}</strong></span></div> : <div className={styles.answerComposer}><textarea rows={3} value={questionAnswers[item.id] ?? ""} onChange={(event) => setQuestionAnswers((current) => ({ ...current, [item.id]: event.target.value }))} placeholder="Rédigez une réponse claire et utile…" /><button type="button" disabled={(questionAnswers[item.id] ?? "").trim().length < 2} onClick={() => void answerQuestion(item)}>Envoyer la réponse</button></div>}</article>) : <div className={styles.empty}><Icon name="checkCircle" /><h3>Aucune question</h3><p>Les questions posées depuis le lecteur apparaîtront ici.</p></div>}</section> : null}

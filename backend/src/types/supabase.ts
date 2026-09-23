@@ -1006,6 +1006,12 @@ export interface Database {
         Update: { user_id?: string; course_id?: string; created_at?: string };
         Relationships: [];
       };
+      certificates: {
+        Row: { id: string; user_id: string; course_id: string; verification_code: string; issued_at: string; revoked_at: string | null };
+        Insert: { id?: string; user_id: string; course_id: string; verification_code?: string; issued_at?: string; revoked_at?: string | null };
+        Update: { id?: string; user_id?: string; course_id?: string; verification_code?: string; issued_at?: string; revoked_at?: string | null };
+        Relationships: [];
+      };
       room_attendance_records: {
         Row: {
           id: string;

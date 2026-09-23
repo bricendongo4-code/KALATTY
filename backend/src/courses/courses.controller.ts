@@ -60,6 +60,12 @@ export class CoursesController {
   }
 
   @UseGuards(AuthGuard('jwt'))
+  @Get('learner/certificates')
+  getLearnerCertificates(@Req() req: RequestUser) {
+    return this.coursesService.getLearnerCertificates(req.user);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
   @Patch('teacher/questions/:questionId')
   answerTeacherQuestion(
     @Req() req: RequestUser,

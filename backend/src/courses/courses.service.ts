@@ -326,6 +326,47 @@ export class CoursesService {
     };
   }
 
+  async getLearnerCertificates(user: AuthUser) {
+    const role = await this.resolveRole(user);
+    if (role !== 'student') {
+      throw new ForbiddenException(
+        'Les certificats sont reserves aux apprenants.',
+      );
+    }
+    const { data, error } = await this.supabaseService.client
+      .from('certificates')
+      .select('id, course_id, verification_code, issued_at, revoked_at')
+      .eq('user_id', user.id)
+      .is('revoked_at', null)
+      .order('issued_at', { ascending: false });
+    if (error) {
+      throw new BadRequestException(
+        error.message ?? 'Impossible de charger les certificats.',
+      );
+    }
+    const courseIds = (data ?? []).map((certificate) => certificate.course_id);
+    const { data: courses, error: courseError } = courseIds.length
+      ? await this.supabaseService.client
+          .from('courses')
+          .select('id, title, teacher_id')
+          .in('id', courseIds)
+      : { data: [], error: null };
+    if (courseError) throw new BadRequestException(courseError.message);
+    const courseById = new Map<string, { id: string; title: string }>(
+      (courses ?? []).map((course) => [course.id, course] as const),
+    );
+    return {
+      certificates: (data ?? []).map((certificate) => ({
+        id: certificate.id,
+        courseId: certificate.course_id,
+        courseTitle:
+          courseById.get(certificate.course_id)?.title ?? 'Formation Kalatty',
+        verificationCode: certificate.verification_code,
+        issuedAt: certificate.issued_at,
+      })),
+    };
+  }
+
   async answerTeacherQuestion(
     user: AuthUser,
     questionId: string,
@@ -1076,6 +1117,10 @@ export class CoursesService {
       }
     }
 
+    if (nextStatus === 'completed' && isStudent) {
+      await this.maybeIssueCertificate(user.id, courseId);
+    }
+
     return {
       lessonId,
       courseId,
@@ -1278,6 +1323,36 @@ export class CoursesService {
       throw new ForbiddenException(
         "Cette lecon n'est pas accessible avec ce compte.",
       );
+    }
+  }
+
+  private async maybeIssueCertificate(userId: string, courseId: string) {
+    const [lessonsResult, completedResult] = await Promise.all([
+      this.supabaseService.client
+        .from('lessons')
+        .select('id')
+        .eq('course_id', courseId),
+      this.supabaseService.client
+        .from('progress')
+        .select('lesson_id')
+        .eq('user_id', userId)
+        .eq('status', 'completed'),
+    ]);
+    const error = lessonsResult.error ?? completedResult.error;
+    if (error) throw new BadRequestException(error.message);
+    const lessonIds = new Set((lessonsResult.data ?? []).map((item) => item.id));
+    const completedIds = new Set(
+      (completedResult.data ?? [])
+        .map((item) => item.lesson_id)
+        .filter((id): id is string => Boolean(id)),
+    );
+    if (!lessonIds.size || !Array.from(lessonIds).every((id) => completedIds.has(id))) return;
+
+    const { error: certificateError } = await this.supabaseService.client
+      .from('certificates')
+      .upsert({ user_id: userId, course_id: courseId }, { onConflict: 'user_id,course_id' });
+    if (certificateError && !this.isMissingTableError(certificateError)) {
+      throw new BadRequestException(certificateError.message);
     }
   }
 
