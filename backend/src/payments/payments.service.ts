@@ -397,8 +397,8 @@ export class PaymentsService {
     const institution = await this.getInstitutionForBilling(institutionId);
 
     return {
-      provider: 'demo',
-      providerLabel: 'Abonnement de demonstration',
+      provider: process.env.PAYMENT_PROVIDER ?? 'pending_configuration',
+      providerLabel: 'Abonnement sécurisé en attente',
       institution: {
         id: institution.id,
         name: institution.name ?? 'Etablissement',
@@ -411,7 +411,7 @@ export class PaymentsService {
         maxRooms: plan.maxRooms,
       },
       instructions:
-        "Flux d'abonnement pret pour integration. La confirmation s'effectue actuellement en mode demo.",
+        "La demande d'abonnement est préparée. L'activation intervient uniquement après confirmation sécurisée du prestataire de paiement.",
     };
   }
 
@@ -460,6 +460,11 @@ export class PaymentsService {
     institutionId: string,
     planName?: string,
   ) {
+    if (process.env.PAYMENTS_DEMO_MODE !== 'true') {
+      throw new ForbiddenException(
+        "L'activation manuelle des abonnements est désactivée en production.",
+      );
+    }
     const membershipRole = await this.getInstitutionAccessRole(
       user.id,
       institutionId,
@@ -505,7 +510,7 @@ export class PaymentsService {
         maxRooms: plan.maxRooms,
       },
       status: 'active',
-      message: 'Abonnement etablissement active en mode demo.',
+      message: 'Abonnement établissement activé dans un environnement de test.',
     };
   }
 

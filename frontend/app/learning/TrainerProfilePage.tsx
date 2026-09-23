@@ -30,14 +30,17 @@ export default function TrainerProfilePage({ teacherId }: { teacherId: string })
   const load = useCallback(async () => {
     const token = localStorage.getItem("kalatty_token");
     if (!token) return router.replace(`/login?redirect=/learn/trainers/${teacherId}`);
-    setError(null);
     const response = await fetch(`${API_BASE}/courses/trainers/${teacherId}`, { headers: { Authorization: `Bearer ${token}` } });
     const body = await response.json();
     if (!response.ok) return setError(body.message ?? "Profil formateur indisponible.");
+    setError(null);
     setProfile(body as TrainerProfile);
   }, [router, teacherId]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    const timeout = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timeout);
+  }, [load]);
 
   if (error) return <section className={styles.loadingState}><Icon name="alert" /><h1>Profil indisponible</h1><p>{error}</p><button type="button" onClick={() => void load()}>Réessayer</button></section>;
   if (!profile) return <section className={styles.loadingState}><span /><h1>Chargement du formateur</h1></section>;

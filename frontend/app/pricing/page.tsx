@@ -102,7 +102,7 @@ export default function PricingPage() {
             <article className={styles.card}>
               <h3>Formateurs</h3>
               <strong className={styles.price}>15%</strong>
-              <p>Commission plateforme demo calculee sur les cours payants.</p>
+              <p>Commission de service calculée uniquement sur les ventes confirmées.</p>
             </article>
           </div>
         </section>
