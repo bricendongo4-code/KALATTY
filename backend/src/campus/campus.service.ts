@@ -11,7 +11,21 @@ import {
   StartSessionDto,
 } from './dto/session-actions.dto';
 
+import {
+  ReviewAbsenceJustificationDto,
+  SubmitAbsenceJustificationDto,
+} from './dto/absence-justification.dto';
+
 type AuthUser = { id: string; role?: string };
+
+type UploadedCampusFile = {
+  buffer: Buffer;
+  mimetype: string;
+  originalname: string;
+  size: number;
+};
+
+
 
 type CampusRole = 'etudiant' | 'professeur' | 'pedagogie' | 'direction';
 
@@ -216,6 +230,248 @@ export class CampusService {
     if (error) throw new BadRequestException(error.message);
     return { announcements: (data ?? []).filter((row: any) => !row.room_id || allowedRooms.has(String(row.room_id)))
       .map((row: any) => ({ id: row.id, title: row.title, body: row.body, createdAt: row.created_at, roomId: row.room_id })) };
+  }
+
+  // ------------------------------------------------------------ horloge partagee (fuseau Europe/Paris)
+  async getStudentAttendance(user: AuthUser) {
+    const context = await this.getContext(user);
+    if (context.campusRole !== 'etudiant') {
+      throw new ForbiddenException('Espace réservé aux étudiants.');
+    }
+
+    const { data: records, error: recordsError } = await this.client
+      .from('room_attendance_records')
+      .select('id, session_id, room_id, status, note, created_at')
+      .eq('student_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(200);
+    if (recordsError) throw new BadRequestException(recordsError.message);
+    if (!records?.length) return { context, attendance: [] };
+
+    const roomIds = [
+      ...new Set(records.map((item: any) => String(item.room_id))),
+    ];
+    const sessionIds = [
+      ...new Set(records.map((item: any) => String(item.session_id))),
+    ];
+    const recordIds = records.map((item: any) => String(item.id));
+
+    const [roomsResult, sessionsResult, justificationsResult] =
+      await Promise.all([
+        this.client
+          .from('rooms')
+          .select('id, name')
+          .in('id', roomIds)
+          .eq('institution_id', context.institutionId),
+        this.client
+          .from('room_attendance_sessions')
+          .select('id, title, session_date, status')
+          .in('id', sessionIds),
+        this.client
+          .from('absence_justifications')
+          .select(
+            'id, record_id, reason, file_path, status, review_note, created_at, updated_at',
+          )
+          .eq('institution_id', context.institutionId)
+          .eq('student_id', user.id)
+          .in('record_id', recordIds),
+      ]);
+
+    for (const result of [roomsResult, sessionsResult, justificationsResult]) {
+      if (result.error) throw new BadRequestException(result.error.message);
+    }
+
+    const rooms = new Map(
+      (roomsResult.data ?? []).map((item: any) => [
+        String(item.id),
+        String(item.name),
+      ]),
+    );
+    const sessions = new Map(
+      (sessionsResult.data ?? []).map((item: any) => [String(item.id), item]),
+    );
+    const justifications = new Map(
+      (justificationsResult.data ?? []).map((item: any) => [
+        String(item.record_id),
+        item,
+      ]),
+    );
+
+    const attendance = await Promise.all(
+      records
+        .filter((record: any) => rooms.has(String(record.room_id)))
+        .map(async (record: any) => {
+          const session = sessions.get(String(record.session_id));
+          const justification = justifications.get(String(record.id));
+          let attachmentUrl: string | null = null;
+          const filePath = justification?.file_path
+            ? String(justification.file_path)
+            : null;
+          if (filePath?.startsWith(`${context.institutionId}/${user.id}/`)) {
+            const { data: signed } = await this.client.storage
+              .from('absence-justifications')
+              .createSignedUrl(filePath, 60 * 15);
+            attachmentUrl = signed?.signedUrl ?? null;
+          }
+
+          return {
+            id: String(record.id),
+            roomId: String(record.room_id),
+            roomName: rooms.get(String(record.room_id)),
+            sessionId: String(record.session_id),
+            sessionTitle: String(session?.title ?? 'Séance'),
+            sessionDate: session?.session_date ?? null,
+            status: String(record.status),
+            note: record.note ?? null,
+            justification: justification
+              ? {
+                  id: String(justification.id),
+                  reason: String(justification.reason),
+                  status: String(justification.status),
+                  reviewNote: justification.review_note ?? null,
+                  attachmentUrl,
+                  createdAt: justification.created_at,
+                  updatedAt: justification.updated_at,
+                }
+              : null,
+          };
+        }),
+    );
+
+    return { context, attendance };
+  }
+
+  async submitAbsenceJustification(
+    user: AuthUser,
+    recordId: string,
+    payload: SubmitAbsenceJustificationDto,
+    file?: UploadedCampusFile,
+  ) {
+    const context = await this.getContext(user);
+    if (context.campusRole !== 'etudiant') {
+      throw new ForbiddenException('Espace réservé aux étudiants.');
+    }
+
+    const reason = payload.reason.trim();
+    const { data: record, error: recordError } = await this.client
+      .from('room_attendance_records')
+      .select('id, room_id, status')
+      .eq('id', recordId)
+      .eq('student_id', user.id)
+      .maybeSingle();
+    if (recordError) throw new BadRequestException(recordError.message);
+    if (!record) throw new NotFoundException('Absence ou retard introuvable.');
+    if (!['absent', 'late'].includes(String(record.status))) {
+      throw new BadRequestException(
+        'Seules une absence ou un retard peuvent être justifiés.',
+      );
+    }
+
+    const { data: room, error: roomError } = await this.client
+      .from('rooms')
+      .select('id, institution_id')
+      .eq('id', record.room_id)
+      .eq('institution_id', context.institutionId)
+      .maybeSingle();
+    if (roomError) throw new BadRequestException(roomError.message);
+    if (!room) throw new ForbiddenException('Présence hors établissement.');
+
+    const { data: membership, error: membershipError } = await this.client
+      .from('room_members')
+      .select('room_id')
+      .eq('room_id', record.room_id)
+      .eq('user_id', user.id)
+      .eq('role', 'student')
+      .maybeSingle();
+    if (membershipError) {
+      throw new BadRequestException(membershipError.message);
+    }
+    if (!membership) {
+      throw new ForbiddenException("Tu n'appartiens plus à cette classe.");
+    }
+
+    const { data: existing, error: existingError } = await this.client
+      .from('absence_justifications')
+      .select('id, status, file_path')
+      .eq('record_id', recordId)
+      .eq('student_id', user.id)
+      .maybeSingle();
+    if (existingError) throw new BadRequestException(existingError.message);
+    if (existing && existing.status !== 'rejected') {
+      throw new BadRequestException(
+        existing.status === 'approved'
+          ? 'Cette absence est déjà justifiée.'
+          : 'Un justificatif est déjà en attente de traitement.',
+      );
+    }
+
+    let filePath: string | null = existing?.file_path ?? null;
+    let uploadedPath: string | null = null;
+    if (file) {
+      const extensions: Record<string, string> = {
+        'application/pdf': 'pdf',
+        'image/png': 'png',
+        'image/jpeg': 'jpg',
+      };
+      const extension = extensions[file.mimetype];
+      if (!extension || !file.buffer?.length || file.size > 5 * 1024 * 1024) {
+        throw new BadRequestException(
+          'Pièce invalide. Formats acceptés : PDF, PNG ou JPEG (5 Mo maximum).',
+        );
+      }
+      uploadedPath = `${context.institutionId}/${user.id}/${recordId}/${crypto.randomUUID()}.${extension}`;
+      const { error: uploadError } = await this.client.storage
+        .from('absence-justifications')
+        .upload(uploadedPath, file.buffer, {
+          contentType: file.mimetype,
+          upsert: false,
+        });
+      if (uploadError) throw new BadRequestException(uploadError.message);
+      filePath = uploadedPath;
+    }
+
+    const values = {
+      institution_id: context.institutionId,
+      student_id: user.id,
+      record_id: recordId,
+      reason,
+      file_path: filePath,
+      status: 'pending',
+      reviewed_by: null,
+      reviewed_at: null,
+      review_note: null,
+    };
+    const query = existing
+      ? this.client
+          .from('absence_justifications')
+          .update(values)
+          .eq('id', existing.id)
+          .eq('status', 'rejected')
+      : this.client.from('absence_justifications').insert(values);
+    const { data, error } = await query
+      .select('id, status, reason, created_at, updated_at')
+      .maybeSingle();
+    if (error || !data) {
+      if (uploadedPath) {
+        await this.client.storage
+          .from('absence-justifications')
+          .remove([uploadedPath]);
+      }
+      throw new BadRequestException(
+        error?.message ?? 'Impossible de transmettre le justificatif.',
+      );
+    }
+
+    if (
+      uploadedPath &&
+      existing?.file_path &&
+      existing.file_path !== uploadedPath
+    ) {
+      await this.client.storage
+        .from('absence-justifications')
+        .remove([String(existing.file_path)]);
+    }
+    return data;
   }
 
   // ------------------------------------------------------------ horloge partagee (fuseau Europe/Paris)
@@ -571,32 +827,88 @@ export class CampusService {
     })) };
   }
 
-  async reviewJustification(user: AuthUser, id: string, payload: { status?: string; note?: string }) {
+  async reviewJustification(
+    user: AuthUser,
+    id: string,
+    payload: ReviewAbsenceJustificationDto,
+  ) {
     const context = await this.getContext(user);
-    if (context.campusRole !== 'pedagogie' && context.campusRole !== 'direction') throw new ForbiddenException('Décision non autorisée.');
-    if (!['approved', 'rejected'].includes(payload.status ?? '')) throw new BadRequestException('Décision invalide.');
-    const { data: item, error: itemError } = await this.client.from('absence_justifications')
-      .select('id, record_id, status').eq('id', id).eq('institution_id', context.institutionId).maybeSingle();
+    if (
+      context.campusRole !== 'pedagogie' &&
+      context.campusRole !== 'direction'
+    )
+      throw new ForbiddenException('Décision non autorisée.');
+    const reviewNote = payload.note?.trim() || null;
+    if (payload.status === 'rejected' && !reviewNote) {
+      throw new BadRequestException('Le motif du refus est obligatoire.');
+    }
+    const { data: item, error: itemError } = await this.client
+      .from('absence_justifications')
+      .select('id, record_id, status')
+      .eq('id', id)
+      .eq('institution_id', context.institutionId)
+      .maybeSingle();
     if (itemError) throw new BadRequestException(itemError.message);
     if (!item) throw new NotFoundException('Justificatif introuvable.');
-    if (item.status !== 'pending') throw new BadRequestException('Ce justificatif a déjà été traité.');
-    const { data: record, error: recordError } = await this.client.from('room_attendance_records')
-      .select('room_id').eq('id', item.record_id).maybeSingle();
+    if (item.status !== 'pending')
+      throw new BadRequestException('Ce justificatif a déjà été traité.');
+    const { data: record, error: recordError } = await this.client
+      .from('room_attendance_records')
+      .select('room_id')
+      .eq('id', item.record_id)
+      .maybeSingle();
     if (recordError) throw new BadRequestException(recordError.message);
     if (!record) throw new NotFoundException('Présence associée introuvable.');
-    const { data: room } = await this.client.from('rooms').select('institution_id')
-      .eq('id', record.room_id).maybeSingle();
-    if (!room || room.institution_id !== context.institutionId) throw new ForbiddenException('Justificatif hors établissement.');
+    const { data: room } = await this.client
+      .from('rooms')
+      .select('institution_id')
+      .eq('id', record.room_id)
+      .maybeSingle();
+    if (!room || room.institution_id !== context.institutionId)
+      throw new ForbiddenException('Justificatif hors établissement.');
     if (context.campusRole === 'pedagogie') {
-      const scope = await this.pedagogyScopeRoomIds(user.id, context.institutionId);
-      if (!scope.includes(String(record.room_id))) throw new ForbiddenException('Justificatif hors périmètre.');
+      const scope = await this.pedagogyScopeRoomIds(
+        user.id,
+        context.institutionId,
+      );
+      if (!scope.includes(String(record.room_id)))
+        throw new ForbiddenException('Justificatif hors périmètre.');
     }
-    const { data, error } = await this.client.from('absence_justifications').update({
-      status: payload.status, review_note: payload.note?.trim() || null,
-      reviewed_by: user.id, reviewed_at: new Date().toISOString(),
-    }).eq('id', id).eq('status', 'pending').select('id, status').maybeSingle();
+    const { data, error } = await this.client
+      .from('absence_justifications')
+      .update({
+        status: payload.status,
+        review_note: reviewNote,
+        reviewed_by: user.id,
+        reviewed_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .eq('status', 'pending')
+      .select('id, status')
+      .maybeSingle();
     if (error) throw new BadRequestException(error.message);
-    if (!data) throw new BadRequestException('Ce justificatif vient d’être traité.');
+    if (!data)
+      throw new BadRequestException('Ce justificatif vient d’être traité.');
+    if (payload.status === 'approved') {
+      const { error: attendanceError } = await this.client
+        .from('room_attendance_records')
+        .update({ status: 'excused' })
+        .eq('id', item.record_id)
+        .in('status', ['absent', 'late']);
+      if (attendanceError) {
+        await this.client
+          .from('absence_justifications')
+          .update({
+            status: 'pending',
+            review_note: null,
+            reviewed_by: null,
+            reviewed_at: null,
+          })
+          .eq('id', id)
+          .eq('status', 'approved');
+        throw new BadRequestException(attendanceError.message);
+      }
+    }
     return data;
   }
 

@@ -24,6 +24,18 @@ import {
   CreateFormationRoomDto,
 } from './dto/formation.dto';
 
+import {
+  ReviewAbsenceJustificationDto,
+  SubmitAbsenceJustificationDto,
+} from './dto/absence-justification.dto';
+
+type UploadedCampusFile = {
+  buffer: Buffer;
+  mimetype: string;
+  originalname: string;
+  size: number;
+};
+
 type RequestUser = {
   user: {
     id: string;
@@ -54,6 +66,29 @@ export class CampusController {
   @Get('student/announcements')
   getStudentAnnouncements(@Req() req: RequestUser) {
     return this.campusService.getStudentAnnouncements(req.user);
+  }
+
+  @Get('student/attendance')
+  getStudentAttendance(@Req() req: RequestUser) {
+    return this.campusService.getStudentAttendance(req.user);
+  }
+
+  @Post('student/attendance/:recordId/justification')
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }),
+  )
+  submitAbsenceJustification(
+    @Req() req: RequestUser,
+    @Param('recordId') recordId: string,
+    @UploadedFile() file: UploadedCampusFile | undefined,
+    @Body() body: SubmitAbsenceJustificationDto,
+  ) {
+    return this.campusService.submitAbsenceJustification(
+      req.user,
+      recordId,
+      body,
+      file,
+    );
   }
 
   @Get('teacher/schedule')
@@ -92,7 +127,11 @@ export class CampusController {
   }
 
   @Patch('staff/justifications/:id')
-  reviewJustification(@Req() req: RequestUser, @Param('id') id: string, @Body() body: { status?: string; note?: string }) {
+  reviewJustification(
+    @Req() req: RequestUser,
+    @Param('id') id: string,
+    @Body() body: ReviewAbsenceJustificationDto,
+  ) {
     return this.campusService.reviewJustification(req.user, id, body);
   }
 
