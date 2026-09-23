@@ -52,10 +52,10 @@ export default function LearningShell({
         </nav>
         <div className={styles.sidebarFoot}>
           <p>{config.tagline}</p>
-          <Link href="/establishment" className={styles.switchLink}>
-            <Icon name="layers" />
-            Espace Établissement
-          </Link>
+          <button type="button" className={styles.sidebarLogout} onClick={logoutKalatty}>
+            <Icon name="logout" />
+            Se déconnecter
+          </button>
         </div>
       </aside>
 
@@ -69,6 +69,9 @@ export default function LearningShell({
             <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={config.search} aria-label="Recherche" />
           </form>
           <NotificationBell allHref={`${basePath}/notifications`} />
+          <button type="button" className={styles.mobileLogout} onClick={logoutKalatty} aria-label="Se déconnecter" title="Se déconnecter">
+            <Icon name="logout" />
+          </button>
           <details className={styles.profileMenu}>
             <summary>
               <Avatar name={identity.name} src={identity.avatarUrl} size={38} />
@@ -79,7 +82,6 @@ export default function LearningShell({
               <span>Changer d&apos;espace</span>
               <Link href="/learn">Apprenant indépendant</Link>
               <Link href="/creator">Formateur / Créateur</Link>
-              <Link href="/establishment">Espace Établissement</Link>
               <Link href="/settings">Profil &amp; sécurité</Link>
               <button type="button" className={styles.logoutButton} onClick={logoutKalatty}>
                 <Icon name="logout" />

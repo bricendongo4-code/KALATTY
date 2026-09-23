@@ -35,7 +35,12 @@ export class NotificationsService {
       this.buildGeneratedNotifications(user),
     ]);
 
-    const notifications = [...storedNotifications, ...generatedNotifications]
+    const generatedWithReceipts = await this.applyReadReceipts(
+      user.id,
+      generatedNotifications,
+    );
+
+    const notifications = [...storedNotifications, ...generatedWithReceipts]
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .slice(0, 25);
 
@@ -47,25 +52,80 @@ export class NotificationsService {
   }
 
   async markRead(user: AuthUser, notificationId: string) {
-    const { error } = await this.supabaseService.client
-      .from('notifications')
-      .update({ read_at: new Date().toISOString() })
-      .eq('id', notificationId)
-      .eq('user_id', user.id);
-
-    if (error) {
-      return {
-        notificationId,
-        status: 'acknowledged',
-        message: 'Notification prise en compte localement.',
-      };
-    }
+    const readAt = new Date().toISOString();
+    await Promise.all([
+      this.supabaseService.client
+        .from('notifications')
+        .update({ read_at: readAt })
+        .eq('id', notificationId)
+        .eq('user_id', user.id),
+      this.supabaseService.client.from('notification_receipts').upsert(
+        {
+          user_id: user.id,
+          notification_key: notificationId,
+          read_at: readAt,
+        },
+        { onConflict: 'user_id,notification_key' },
+      ),
+    ]);
 
     return {
       notificationId,
       status: 'read',
       message: 'Notification marquee comme lue.',
     };
+  }
+
+  async markAllRead(user: AuthUser) {
+    const generated = await this.buildGeneratedNotifications(user);
+    const readAt = new Date().toISOString();
+    const receipts = generated.map((notification) => ({
+      user_id: user.id,
+      notification_key: notification.id,
+      read_at: readAt,
+    }));
+
+    const operations: PromiseLike<unknown>[] = [
+      this.supabaseService.client
+        .from('notifications')
+        .update({ read_at: readAt })
+        .eq('user_id', user.id)
+        .is('read_at', null),
+    ];
+    if (receipts.length > 0) {
+      operations.push(
+        this.supabaseService.client
+          .from('notification_receipts')
+          .upsert(receipts, { onConflict: 'user_id,notification_key' }),
+      );
+    }
+    await Promise.all(operations);
+
+    return { status: 'read', message: 'Toutes les notifications sont lues.' };
+  }
+
+  private async applyReadReceipts(
+    userId: string,
+    notifications: NotificationItem[],
+  ) {
+    if (notifications.length === 0) return notifications;
+
+    const { data } = await this.supabaseService.client
+      .from('notification_receipts')
+      .select('notification_key')
+      .eq('user_id', userId)
+      .in(
+        'notification_key',
+        notifications.map((notification) => notification.id),
+      );
+    const readKeys = new Set(
+      (data ?? []).map((receipt: any) => String(receipt.notification_key)),
+    );
+
+    return notifications.map((notification) => ({
+      ...notification,
+      read: readKeys.has(notification.id),
+    }));
   }
 
   private async loadStoredNotifications(

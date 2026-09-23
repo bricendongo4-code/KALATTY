@@ -945,6 +945,34 @@ export interface Database {
           },
         ];
       };
+      notification_receipts: {
+        Row: {
+          id: string;
+          user_id: string;
+          notification_key: string;
+          read_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          notification_key: string;
+          read_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          notification_key?: string;
+          read_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'notification_receipts_user_id_fkey';
+            columns: ['user_id'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       progress: {
         Row: {
           id: string;
