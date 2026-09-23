@@ -1,15 +1,10 @@
 name: Deploy Kalatty
 
 on:
-  push:
-    branches:
-      - master
-    paths:
-      - backend/**
-      - .github/workflows/deploy-kalatty.yml
+  # Railway et Vercel déploient déjà automatiquement depuis GitHub.
+  # Cette action reste un recours manuel afin d'éviter deux déploiements
+  # concurrents à chaque commit.
   workflow_dispatch:
-  schedule:
-    - cron: "30 2 * * *"
 
 jobs:
   deploy-backend:

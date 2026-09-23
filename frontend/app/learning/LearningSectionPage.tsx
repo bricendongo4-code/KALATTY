@@ -39,6 +39,18 @@ type Notification = {
   href?: string;
 };
 
+type TeacherQuestion = {
+  id: string;
+  courseId: string;
+  courseTitle: string;
+  lessonTitle: string;
+  authorName: string;
+  body: string;
+  status: string;
+  answer?: string;
+  createdAt?: string;
+};
+
 const DETAILS: Record<LearningRole, Record<string, { title: string; text: string; tabs: string[] }>> = {
   apprenant: {
     explore: { title: "Explorer les formations", text: "Découvrez les formations publiées et choisissez votre prochain objectif.", tabs: ["Toutes", "Gratuites", "Payantes", "Nouveautés"] },
@@ -86,6 +98,8 @@ export default function LearningSectionPage({ role, slug }: { role: LearningRole
   const [activeTab, setActiveTab] = useState(details.tabs[0]);
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [teacherQuestions, setTeacherQuestions] = useState<TeacherQuestion[]>([]);
+  const [questionAnswers, setQuestionAnswers] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const searchQuery = (searchParams.get("q") ?? "").trim().toLocaleLowerCase("fr");
@@ -109,12 +123,18 @@ export default function LearningSectionPage({ role, slug }: { role: LearningRole
         const notificationBody = await notificationsResponse.json();
         setNotifications(Array.isArray(notificationBody) ? notificationBody : notificationBody.notifications ?? []);
       }
+      if (role === "formateur" && slug === "assessments") {
+        const questionsResponse = await fetch(`${API_BASE}/courses/teacher/questions`, { headers });
+        const questionsBody = await questionsResponse.json();
+        if (!questionsResponse.ok) throw new Error(questionsBody.message ?? "Impossible de charger les questions.");
+        setTeacherQuestions(questionsBody.questions ?? []);
+      }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Connexion au serveur impossible.");
     } finally {
       setLoading(false);
     }
-  }, [basePath, router, slug]);
+  }, [basePath, role, router, slug]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -141,6 +161,18 @@ export default function LearningSectionPage({ role, slug }: { role: LearningRole
     if (item.href?.startsWith("/") && !item.href.startsWith("//")) router.push(item.href);
   }
 
+  async function answerQuestion(item: TeacherQuestion) {
+    const answer = (questionAnswers[item.id] ?? "").trim();
+    if (answer.length < 2) return;
+    const token = localStorage.getItem("kalatty_token");
+    if (!token) return;
+    const response = await fetch(`${API_BASE}/courses/teacher/questions/${item.id}`, { method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ answer }) });
+    const body = await response.json();
+    if (!response.ok) return setError(body.message ?? "Réponse impossible.");
+    setTeacherQuestions((current) => current.map((questionItem) => questionItem.id === item.id ? { ...questionItem, status: "answered", answer } : questionItem));
+    setQuestionAnswers((current) => ({ ...current, [item.id]: "" }));
+  }
+
   return <>
     <header className={styles.pageHead}><div><h1>{details.title}</h1><p>{details.text}</p></div>{role === "formateur" && slug === "courses" ? <Link href="/creator/courses/new" className={styles.primaryButton}><Icon name="plus" /> Créer une formation</Link> : null}</header>
     {searchQuery ? <p className={styles.builderMessage}>Résultats pour « {searchParams.get("q")} »</p> : null}
@@ -149,7 +181,8 @@ export default function LearningSectionPage({ role, slug }: { role: LearningRole
     {slug === "notifications" ? <section className={styles.panel}><div className={styles.sectionHead}><h2>Activité récente</h2><button onClick={() => void load()}>Actualiser</button></div>{visibleNotifications.length ? <div className={styles.notificationList}>{visibleNotifications.map((item) => <button type="button" key={item.id} onClick={() => void openNotification(item)}><span><Icon name={item.read ? "mail" : "bell"} /></span><div><strong>{item.title ?? "Notification"}</strong><p>{item.message ?? ""}</p></div><small>{item.createdAt ? new Date(item.createdAt).toLocaleDateString("fr-FR") : ""}</small></button>)}</div> : <div className={styles.empty}><Icon name="mail" /><h3>Aucune notification</h3><p>Vous êtes à jour.</p></div>}</section> : null}
     {showCourses ? visibleCourses.length ? <div className={styles.liveCourseGrid}>{visibleCourses.map((course) => <CourseCard key={course.id ?? course.title} course={course} trainer={role === "formateur"} />)}</div> : <section className={`${styles.panel} ${styles.empty}`}><Icon name={slug === "certificates" ? "award" : "book"} /><h3>{slug === "certificates" ? "Aucun certificat disponible" : "Aucun élément disponible"}</h3><p>{slug === "certificates" ? "Un certificat apparaîtra après validation des conditions de réussite." : "Créez ou rejoignez une formation pour alimenter cette rubrique."}</p>{role === "apprenant" ? <Link href="/learn/explore" className={styles.smallButton}>Explorer les formations</Link> : <Link href="/creator/courses/new" className={styles.smallButton}>Créer une formation</Link>}</section> : null}
     {role === "apprenant" && slug === "activities" ? <section className={`${styles.panel} ${styles.empty}`}><Icon name="clipboard" /><h3>Aucune activité à rendre</h3><p>Les quiz et exercices de vos formations apparaîtront ici.</p><Link href="/learn/my-courses" className={styles.smallButton}>Voir mes formations</Link></section> : null}
-    {role === "formateur" && ["media", "assessments"].includes(slug) ? <section className={styles.panel}><h2>{details.title}</h2><p>Les médias et évaluations sont liés aux leçons de vos formations.</p><Link href={slug === "media" ? "/creator/studio" : "/creator/courses"} className={styles.primaryButton}>{slug === "media" ? "Ouvrir le studio" : "Gérer mes formations"}</Link></section> : null}
+    {role === "formateur" && slug === "media" ? <section className={styles.panel}><h2>{details.title}</h2><p>Les médias sont liés aux leçons de vos formations et aux projets du Studio.</p><Link href="/creator/studio" className={styles.primaryButton}>Ouvrir le studio</Link></section> : null}
+    {role === "formateur" && slug === "assessments" ? <section className={styles.questionInbox}><div className={styles.sectionHead}><div><h2>Questions des apprenants</h2><p>{teacherQuestions.filter((item) => item.status !== "answered").length} question(s) en attente</p></div><Link href="/creator/courses">Gérer les contenus</Link></div>{teacherQuestions.length ? teacherQuestions.map((item) => <article key={item.id}><header><span><strong>{item.authorName}</strong><small>{item.courseTitle} · {item.lessonTitle}</small></span><time>{item.createdAt ? new Date(item.createdAt).toLocaleDateString("fr-FR") : ""}</time></header><p>{item.body}</p>{item.status === "answered" ? <div className={styles.answerPublished}><Icon name="checkCircle" /><span><small>Réponse envoyée</small><strong>{item.answer}</strong></span></div> : <div className={styles.answerComposer}><textarea rows={3} value={questionAnswers[item.id] ?? ""} onChange={(event) => setQuestionAnswers((current) => ({ ...current, [item.id]: event.target.value }))} placeholder="Rédigez une réponse claire et utile…" /><button type="button" disabled={(questionAnswers[item.id] ?? "").trim().length < 2} onClick={() => void answerQuestion(item)}>Envoyer la réponse</button></div>}</article>) : <div className={styles.empty}><Icon name="checkCircle" /><h3>Aucune question</h3><p>Les questions posées depuis le lecteur apparaîtront ici.</p></div>}</section> : null}
     {role === "formateur" && ["learners", "analytics"].includes(slug) ? <section className={styles.panel}><h2>{slug === "learners" ? "Inscriptions par formation" : "Activité de mes formations"}</h2>{courses.length ? <div className={styles.notificationList}>{courses.map((course) => <Link key={course.id ?? course.title} href={course.id ? `/creator/courses/${course.id}/builder` : "/creator/courses"}><strong>{course.title}</strong> · {course.learners ?? 0} apprenant(s) · {course.lessonsCount ?? 0} leçon(s)</Link>)}</div> : <p>Aucune formation créée pour le moment.</p>}</section> : null}
   </>;
 }

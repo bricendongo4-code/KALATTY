@@ -244,6 +244,134 @@ export class CoursesService {
     }));
   }
 
+  async getTeacherQuestions(user: AuthUser) {
+    await this.assertTeacher(user);
+    const { data: courses, error: courseError } =
+      await this.supabaseService.client
+        .from('courses')
+        .select('id, title')
+        .eq('teacher_id', user.id);
+    if (courseError) throw new BadRequestException(courseError.message);
+
+    const courseIds = (courses ?? []).map((course) => course.id);
+    if (!courseIds.length) return { questions: [] };
+    const titleById = new Map(
+      (courses ?? []).map((course) => [course.id, course.title]),
+    );
+    const { data, error } = await this.supabaseService.client
+      .from('course_questions')
+      .select(
+        'id, course_id, lesson_id, author_id, body, status, answer, created_at, answered_at',
+      )
+      .in('course_id', courseIds)
+      .order('created_at', { ascending: false });
+    if (error) {
+      throw new BadRequestException(
+        error.message ?? 'Impossible de charger les questions.',
+      );
+    }
+
+    const authorIds = Array.from(
+      new Set((data ?? []).map((question) => question.author_id)),
+    );
+    const lessonIds = Array.from(
+      new Set(
+        (data ?? [])
+          .map((question) => question.lesson_id)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    );
+    const [profilesResult, lessonsResult] = await Promise.all([
+      authorIds.length
+        ? this.supabaseService.client
+            .from('profiles')
+            .select('id, fullname')
+            .in('id', authorIds)
+        : Promise.resolve({ data: [], error: null }),
+      lessonIds.length
+        ? this.supabaseService.client
+            .from('lessons')
+            .select('id, title')
+            .in('id', lessonIds)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+    const secondaryError = profilesResult.error ?? lessonsResult.error;
+    if (secondaryError) throw new BadRequestException(secondaryError.message);
+    const authorById = new Map(
+      (profilesResult.data ?? []).map((profile) => [
+        profile.id,
+        profile.fullname,
+      ]),
+    );
+    const lessonById = new Map(
+      (lessonsResult.data ?? []).map((lesson) => [lesson.id, lesson.title]),
+    );
+
+    return {
+      questions: (data ?? []).map((question) => ({
+        id: question.id,
+        courseId: question.course_id,
+        courseTitle: titleById.get(question.course_id) ?? 'Formation',
+        lessonTitle: question.lesson_id
+          ? lessonById.get(question.lesson_id) ?? 'Lecon'
+          : 'Formation',
+        authorName:
+          authorById.get(question.author_id) ?? 'Apprenant Kalatty',
+        body: question.body,
+        status: question.status,
+        answer: question.answer ?? '',
+        createdAt: question.created_at,
+        answeredAt: question.answered_at,
+      })),
+    };
+  }
+
+  async answerTeacherQuestion(
+    user: AuthUser,
+    questionId: string,
+    answer: string,
+  ) {
+    await this.assertTeacher(user);
+    const normalizedAnswer = answer.trim();
+    if (normalizedAnswer.length < 2) {
+      throw new BadRequestException('La reponse est trop courte.');
+    }
+
+    const { data: question, error: questionError } =
+      await this.supabaseService.client
+        .from('course_questions')
+        .select('id, course_id, author_id')
+        .eq('id', questionId)
+        .maybeSingle();
+    if (questionError || !question) {
+      throw new BadRequestException(
+        questionError?.message ?? 'Question introuvable.',
+      );
+    }
+    await this.assertTeacherCourseAccess(user, question.course_id);
+    const now = new Date().toISOString();
+    const { error } = await this.supabaseService.client
+      .from('course_questions')
+      .update({
+        answer: normalizedAnswer,
+        status: 'answered',
+        answered_by: user.id,
+        answered_at: now,
+        updated_at: now,
+      })
+      .eq('id', questionId);
+    if (error) throw new BadRequestException(error.message);
+
+    await this.supabaseService.client.from('notifications').insert({
+      user_id: question.author_id,
+      type: 'course_question_answered',
+      title: 'Votre formateur vous a repondu',
+      message: normalizedAnswer.slice(0, 180),
+      href: `/learn/courses/${question.course_id}`,
+    });
+    return { id: questionId, status: 'answered', answer: normalizedAnswer };
+  }
+
   async getTeacherCourseForEdit(user: AuthUser, courseId: string) {
     const course = await this.assertTeacherCourseAccess(user, courseId);
 

@@ -22,6 +22,7 @@ import { ReviewDto } from './dto/review.dto';
 import { UpdateLessonProgressDto } from './dto/update-lesson-progress.dto';
 import { LessonNoteDto } from './dto/lesson-note.dto';
 import { CourseQuestionDto } from './dto/course-question.dto';
+import { QuestionAnswerDto } from './dto/question-answer.dto';
 
 type RequestUser = {
   user: {
@@ -50,6 +51,26 @@ export class CoursesController {
   @Get('mine')
   getMine(@Req() req: RequestUser) {
     return this.coursesService.getTeacherCourses(req.user);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('teacher/questions')
+  getTeacherQuestions(@Req() req: RequestUser) {
+    return this.coursesService.getTeacherQuestions(req.user);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Patch('teacher/questions/:questionId')
+  answerTeacherQuestion(
+    @Req() req: RequestUser,
+    @Param('questionId') questionId: string,
+    @Body() body: QuestionAnswerDto,
+  ) {
+    return this.coursesService.answerTeacherQuestion(
+      req.user,
+      questionId,
+      body.answer,
+    );
   }
 
   @UseGuards(AuthGuard('jwt'))
