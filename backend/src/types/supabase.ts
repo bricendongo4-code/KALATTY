@@ -1491,6 +1491,59 @@ export interface Database {
           },
         ];
       };
+      studio_projects: {
+        Row: {
+          id: string;
+          teacher_id: string;
+          course_id: string;
+          lesson_id: string | null;
+          title: string;
+          status: string;
+          script: string;
+          transcript: string;
+          scenes: Json;
+          video_path: string | null;
+          version: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          teacher_id: string;
+          course_id: string;
+          lesson_id?: string | null;
+          title: string;
+          status?: string;
+          script?: string;
+          transcript?: string;
+          scenes?: Json;
+          video_path?: string | null;
+          version?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          teacher_id?: string;
+          course_id?: string;
+          lesson_id?: string | null;
+          title?: string;
+          status?: string;
+          script?: string;
+          transcript?: string;
+          scenes?: Json;
+          video_path?: string | null;
+          version?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      studio_ai_generations: {
+        Row: { id: string; project_id: string; teacher_id: string; action: string; prompt: string; result: Json; model: string; created_at: string };
+        Insert: { id?: string; project_id: string; teacher_id: string; action: string; prompt: string; result: Json; model: string; created_at?: string };
+        Update: { id?: string; action?: string; prompt?: string; result?: Json; model?: string };
+        Relationships: [];
+      };
       teacher_reviews: {
         Row: {
           id: string;

@@ -11,6 +11,7 @@ import { MobileModule } from './mobile/mobile.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentsModule } from './payments/payments.module';
 import { SupabaseModule } from './supabase/supabase.module';
+import { StudioModule } from './studio/studio.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { SupabaseModule } from './supabase/supabase.module';
     NotificationsModule,
     MobileModule,
     PaymentsModule,
+    StudioModule,
   ],
   controllers: [AppController],
   providers: [AppService],

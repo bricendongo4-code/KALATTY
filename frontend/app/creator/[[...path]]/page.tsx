@@ -27,6 +27,7 @@ export default async function CreatorPage({ params }: { params: Params }) {
   else if (section === "courses" && id && action === "builder") view = <CourseBuilderPage courseId={id} />;
   else if (section === "courses" && id && action === "preview") view = <CoursePlayerPage courseId={id} />;
   else if (section === "studio" && !id) view = <StudioPage />;
+  else if (section === "studio" && id && !action) view = <StudioPage projectId={id} />;
   else if (section === "revenue" && !id) view = <RevenueDashboard />;
   else if (SECTIONS.has(section) && !id) view = <LearningSectionPage role="formateur" slug={section} />;
   else notFound();
