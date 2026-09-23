@@ -21,7 +21,7 @@ export default async function LearnerPage({ params }: { params: Params }) {
   let view: React.ReactNode;
 
   if (!section) view = <LearningHome role="apprenant" />;
-  else if (section === "courses" && id && (!child || (child === "lessons" && lessonId))) view = <CoursePlayerPage courseId={id} />;
+  else if (section === "courses" && id && (!child || (child === "lessons" && lessonId))) view = <CoursePlayerPage courseId={id} initialLessonId={lessonId} />;
   else if (section === "billing" && !id) view = <PaymentHistory />;
   else if (SECTIONS.has(section) && !id) view = <LearningSectionPage role="apprenant" slug={section} />;
   else notFound();

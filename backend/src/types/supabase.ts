@@ -952,6 +952,8 @@ export interface Database {
           lesson_id: string | null;
           status: string | null;
           updated_at: string | null;
+          position_seconds: number;
+          progress_pct: number;
         };
         Insert: {
           id?: string;
@@ -959,6 +961,8 @@ export interface Database {
           lesson_id?: string | null;
           status?: string | null;
           updated_at?: string | null;
+          position_seconds?: number;
+          progress_pct?: number;
         };
         Update: {
           id?: string;
@@ -966,6 +970,8 @@ export interface Database {
           lesson_id?: string | null;
           status?: string | null;
           updated_at?: string | null;
+          position_seconds?: number;
+          progress_pct?: number;
         };
         Relationships: [
           {
@@ -981,6 +987,24 @@ export interface Database {
             referencedColumns: ['id'];
           },
         ];
+      };
+      lesson_notes: {
+        Row: { id: string; user_id: string; lesson_id: string; content: string; created_at: string; updated_at: string };
+        Insert: { id?: string; user_id: string; lesson_id: string; content?: string; created_at?: string; updated_at?: string };
+        Update: { id?: string; user_id?: string; lesson_id?: string; content?: string; created_at?: string; updated_at?: string };
+        Relationships: [];
+      };
+      course_questions: {
+        Row: { id: string; course_id: string; lesson_id: string | null; author_id: string; body: string; status: string; answer: string | null; answered_by: string | null; answered_at: string | null; created_at: string; updated_at: string };
+        Insert: { id?: string; course_id: string; lesson_id?: string | null; author_id: string; body: string; status?: string; answer?: string | null; answered_by?: string | null; answered_at?: string | null; created_at?: string; updated_at?: string };
+        Update: { id?: string; course_id?: string; lesson_id?: string | null; author_id?: string; body?: string; status?: string; answer?: string | null; answered_by?: string | null; answered_at?: string | null; created_at?: string; updated_at?: string };
+        Relationships: [];
+      };
+      course_favorites: {
+        Row: { user_id: string; course_id: string; created_at: string };
+        Insert: { user_id: string; course_id: string; created_at?: string };
+        Update: { user_id?: string; course_id?: string; created_at?: string };
+        Relationships: [];
       };
       room_attendance_records: {
         Row: {

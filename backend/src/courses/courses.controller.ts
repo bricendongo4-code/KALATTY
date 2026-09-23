@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Req,
   UploadedFile,
   UseGuards,
@@ -19,6 +20,8 @@ import { CreateCourseDto } from './dto/create-course.dto';
 import { EnrollDto } from './dto/enroll.dto';
 import { ReviewDto } from './dto/review.dto';
 import { UpdateLessonProgressDto } from './dto/update-lesson-progress.dto';
+import { LessonNoteDto } from './dto/lesson-note.dto';
+import { CourseQuestionDto } from './dto/course-question.dto';
 
 type RequestUser = {
   user: {
@@ -130,6 +133,61 @@ export class CoursesController {
       lessonId,
       body,
     );
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get(':courseId/lessons/:lessonId/engagement')
+  getLessonEngagement(
+    @Req() req: RequestUser,
+    @Param('courseId') courseId: string,
+    @Param('lessonId') lessonId: string,
+  ) {
+    return this.coursesService.getLessonEngagement(
+      req.user,
+      courseId,
+      lessonId,
+    );
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Put(':courseId/lessons/:lessonId/note')
+  saveLessonNote(
+    @Req() req: RequestUser,
+    @Param('courseId') courseId: string,
+    @Param('lessonId') lessonId: string,
+    @Body() body: LessonNoteDto,
+  ) {
+    return this.coursesService.saveLessonNote(
+      req.user,
+      courseId,
+      lessonId,
+      body.content,
+    );
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post(':courseId/lessons/:lessonId/questions')
+  createLessonQuestion(
+    @Req() req: RequestUser,
+    @Param('courseId') courseId: string,
+    @Param('lessonId') lessonId: string,
+    @Body() body: CourseQuestionDto,
+  ) {
+    return this.coursesService.createLessonQuestion(
+      req.user,
+      courseId,
+      lessonId,
+      body.body,
+    );
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post(':courseId/favorite')
+  toggleFavorite(
+    @Req() req: RequestUser,
+    @Param('courseId') courseId: string,
+  ) {
+    return this.coursesService.toggleFavorite(req.user, courseId);
   }
 
   @UseGuards(AuthGuard('jwt'))

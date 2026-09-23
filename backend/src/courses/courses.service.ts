@@ -70,6 +70,8 @@ type ReviewPayload = {
 
 type ProgressPayload = {
   status?: 'started' | 'completed';
+  positionSeconds?: number;
+  progressPct?: number;
 };
 
 type DiscoveryCourse = {
@@ -110,6 +112,8 @@ type SignedLesson = {
   durationSeconds: number;
   isPreview: boolean;
   progressStatus: string;
+  lastPositionSeconds: number;
+  progressPct: number;
 };
 
 type SignedModule = {
@@ -520,7 +524,10 @@ export class CoursesService {
     const progressMap =
       role === 'student' && lessonIds.length > 0
         ? await this.getLessonProgressMap(user.id, lessonIds)
-        : new Map<string, string>();
+        : new Map<
+            string,
+            { status: string; positionSeconds: number; progressPct: number }
+          >();
 
     const modules = await Promise.all(
       (course.course_modules ?? [])
@@ -538,18 +545,23 @@ export class CoursesService {
                   Number(a.order_index ?? 0) - Number(b.order_index ?? 0),
               )
               .map(
-                async (lesson: any): Promise<SignedLesson> => ({
-                  id: lesson.id,
-                  title: lesson.title ?? 'Lecon',
-                  content: lesson.content ?? '',
-                  videoPath: await this.resolveStorageUrl(
-                    'course-videos',
-                    lesson.video_path ?? '',
-                  ),
-                  durationSeconds: Number(lesson.duration_seconds ?? 0),
-                  isPreview: Boolean(lesson.is_preview),
-                  progressStatus: progressMap.get(lesson.id) ?? 'not_started',
-                }),
+                async (lesson: any): Promise<SignedLesson> => {
+                  const progress = progressMap.get(lesson.id);
+                  return {
+                    id: lesson.id,
+                    title: lesson.title ?? 'Lecon',
+                    content: lesson.content ?? '',
+                    videoPath: await this.resolveStorageUrl(
+                      'course-videos',
+                      lesson.video_path ?? '',
+                    ),
+                    durationSeconds: Number(lesson.duration_seconds ?? 0),
+                    isPreview: Boolean(lesson.is_preview),
+                    progressStatus: progress?.status ?? 'not_started',
+                    lastPositionSeconds: progress?.positionSeconds ?? 0,
+                    progressPct: progress?.progressPct ?? 0,
+                  };
+                },
               ),
           );
 
@@ -593,10 +605,11 @@ export class CoursesService {
       0,
     );
     const completedLessons = Array.from(progressMap.values()).filter(
-      (status) => status === 'completed',
+      (progress) => progress.status === 'completed',
     ).length;
     const startedLessons = Array.from(progressMap.values()).filter(
-      (status) => status === 'started' || status === 'completed',
+      (progress) =>
+        progress.status === 'started' || progress.status === 'completed',
     ).length;
 
     const courseReviews = await this.getCourseReviews(course.id);
@@ -637,6 +650,8 @@ export class CoursesService {
           ? Math.round((startedLessons / totalLessons) * 100)
           : 0,
       enrolled: role === 'student' ? studentAccess.hasAccess : false,
+      ownerPreview:
+        role === 'admin' || (role === 'teacher' && course.teacher_id === user.id),
       institutionAccess:
         role === 'student' ? studentAccess.institutionAccess : false,
       accessSource:
@@ -816,6 +831,14 @@ export class CoursesService {
   ) {
     const role = await this.resolveRole(user);
     const nextStatus = payload.status === 'completed' ? 'completed' : 'started';
+    const positionSeconds = Math.max(
+      0,
+      Math.round(Number(payload.positionSeconds ?? 0)),
+    );
+    const progressPct = Math.min(
+      100,
+      Math.max(0, Number(payload.progressPct ?? 0)),
+    );
 
     if (role !== 'student' && role !== 'teacher' && role !== 'admin') {
       throw new ForbiddenException(
@@ -873,7 +896,7 @@ export class CoursesService {
     const { data: existingProgress, error: progressLookupError } =
       await this.supabaseService.client
         .from('progress')
-        .select('id, status')
+        .select('id, status, position_seconds, progress_pct')
         .eq('user_id', user.id)
         .eq('lesson_id', lessonId)
         .maybeSingle();
@@ -894,6 +917,9 @@ export class CoursesService {
         .from('progress')
         .update({
           status: finalStatus,
+          position_seconds:
+            finalStatus === 'completed' ? 0 : positionSeconds,
+          progress_pct: finalStatus === 'completed' ? 100 : progressPct,
           updated_at: new Date().toISOString(),
         })
         .eq('id', existingProgress.id);
@@ -910,6 +936,8 @@ export class CoursesService {
           user_id: user.id,
           lesson_id: lessonId,
           status: nextStatus,
+          position_seconds: nextStatus === 'completed' ? 0 : positionSeconds,
+          progress_pct: nextStatus === 'completed' ? 100 : progressPct,
           updated_at: new Date().toISOString(),
         });
 
@@ -925,7 +953,204 @@ export class CoursesService {
       courseId,
       status:
         existingProgress?.status === 'completed' ? 'completed' : nextStatus,
+      positionSeconds: nextStatus === 'completed' ? 0 : positionSeconds,
+      progressPct: nextStatus === 'completed' ? 100 : progressPct,
     };
+  }
+
+  async getLessonEngagement(
+    user: AuthUser,
+    courseId: string,
+    lessonId: string,
+  ) {
+    await this.assertLearnerLessonAccess(user, courseId, lessonId);
+
+    const [noteResult, questionsResult, favoriteResult] = await Promise.all([
+      this.supabaseService.client
+        .from('lesson_notes')
+        .select('id, content, updated_at')
+        .eq('user_id', user.id)
+        .eq('lesson_id', lessonId)
+        .maybeSingle(),
+      this.supabaseService.client
+        .from('course_questions')
+        .select('id, body, status, answer, created_at, answered_at')
+        .eq('author_id', user.id)
+        .eq('course_id', courseId)
+        .eq('lesson_id', lessonId)
+        .order('created_at', { ascending: false }),
+      this.supabaseService.client
+        .from('course_favorites')
+        .select('course_id')
+        .eq('user_id', user.id)
+        .eq('course_id', courseId)
+        .maybeSingle(),
+    ]);
+
+    const error =
+      noteResult.error ?? questionsResult.error ?? favoriteResult.error;
+    if (error) {
+      throw new BadRequestException(
+        error.message ?? "Impossible de charger l'espace de travail.",
+      );
+    }
+
+    return {
+      note: noteResult.data?.content ?? '',
+      noteUpdatedAt: noteResult.data?.updated_at ?? null,
+      favorite: Boolean(favoriteResult.data?.course_id),
+      questions: (questionsResult.data ?? []).map((question) => ({
+        id: question.id,
+        body: question.body,
+        status: question.status,
+        answer: question.answer ?? '',
+        createdAt: question.created_at,
+        answeredAt: question.answered_at,
+      })),
+    };
+  }
+
+  async saveLessonNote(
+    user: AuthUser,
+    courseId: string,
+    lessonId: string,
+    content: string,
+  ) {
+    await this.assertLearnerLessonAccess(user, courseId, lessonId);
+    const normalizedContent = content.trim().slice(0, 10000);
+    const { data, error } = await this.supabaseService.client
+      .from('lesson_notes')
+      .upsert(
+        {
+          user_id: user.id,
+          lesson_id: lessonId,
+          content: normalizedContent,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id,lesson_id' },
+      )
+      .select('content, updated_at')
+      .single();
+
+    if (error) {
+      throw new BadRequestException(
+        error.message ?? "Impossible d'enregistrer la note.",
+      );
+    }
+    return { note: data.content, updatedAt: data.updated_at };
+  }
+
+  async createLessonQuestion(
+    user: AuthUser,
+    courseId: string,
+    lessonId: string,
+    body: string,
+  ) {
+    await this.assertLearnerLessonAccess(user, courseId, lessonId);
+    const normalizedBody = body.trim();
+    if (normalizedBody.length < 3) {
+      throw new BadRequestException('La question est trop courte.');
+    }
+
+    const { data, error } = await this.supabaseService.client
+      .from('course_questions')
+      .insert({
+        course_id: courseId,
+        lesson_id: lessonId,
+        author_id: user.id,
+        body: normalizedBody,
+      })
+      .select('id, body, status, created_at')
+      .single();
+
+    if (error) {
+      throw new BadRequestException(
+        error.message ?? "Impossible d'envoyer la question.",
+      );
+    }
+    return {
+      id: data.id,
+      body: data.body,
+      status: data.status,
+      createdAt: data.created_at,
+    };
+  }
+
+  async toggleFavorite(user: AuthUser, courseId: string) {
+    const role = await this.resolveRole(user);
+    if (role !== 'student') {
+      throw new ForbiddenException(
+        'Les favoris sont reserves aux apprenants.',
+      );
+    }
+
+    const { data: course, error: courseError } =
+      await this.supabaseService.client
+        .from('courses')
+        .select('id')
+        .eq('id', courseId)
+        .eq('status', 'published')
+        .maybeSingle();
+    if (courseError || !course) {
+      throw new BadRequestException(
+        courseError?.message ?? 'Formation introuvable.',
+      );
+    }
+
+    const { data: existing, error: lookupError } =
+      await this.supabaseService.client
+        .from('course_favorites')
+        .select('course_id')
+        .eq('user_id', user.id)
+        .eq('course_id', courseId)
+        .maybeSingle();
+    if (lookupError) throw new BadRequestException(lookupError.message);
+
+    if (existing) {
+      const { error } = await this.supabaseService.client
+        .from('course_favorites')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('course_id', courseId);
+      if (error) throw new BadRequestException(error.message);
+      return { favorite: false };
+    }
+
+    const { error } = await this.supabaseService.client
+      .from('course_favorites')
+      .insert({ user_id: user.id, course_id: courseId });
+    if (error) throw new BadRequestException(error.message);
+    return { favorite: true };
+  }
+
+  private async assertLearnerLessonAccess(
+    user: AuthUser,
+    courseId: string,
+    lessonId: string,
+  ) {
+    const role = await this.resolveRole(user);
+    if (role !== 'student') {
+      throw new ForbiddenException(
+        'Cette action est reservee aux apprenants.',
+      );
+    }
+
+    const { data: lesson, error } = await this.supabaseService.client
+      .from('lessons')
+      .select('id, course_id, is_preview')
+      .eq('id', lessonId)
+      .eq('course_id', courseId)
+      .maybeSingle();
+    if (error || !lesson) {
+      throw new BadRequestException(error?.message ?? 'Lecon introuvable.');
+    }
+
+    const access = await this.getStudentCourseAccess(user.id, courseId);
+    if (!access.hasAccess && !lesson.is_preview) {
+      throw new ForbiddenException(
+        "Cette lecon n'est pas accessible avec ce compte.",
+      );
+    }
   }
 
   private async getStudentCourseAccess(userId: string, courseId: string) {
@@ -992,7 +1217,9 @@ export class CoursesService {
   private async getLessonProgressMap(userId: string, lessonIds: string[]) {
     const { data, error } = await this.supabaseService.client
       .from('progress')
-      .select('lesson_id, status, updated_at')
+      .select(
+        'lesson_id, status, position_seconds, progress_pct, updated_at',
+      )
       .eq('user_id', userId)
       .in('lesson_id', lessonIds)
       .order('updated_at', { ascending: false });
@@ -1003,11 +1230,18 @@ export class CoursesService {
       );
     }
 
-    const progressMap = new Map<string, string>();
+    const progressMap = new Map<
+      string,
+      { status: string; positionSeconds: number; progressPct: number }
+    >();
 
     for (const row of data ?? []) {
       if (row.lesson_id && !progressMap.has(row.lesson_id)) {
-        progressMap.set(row.lesson_id, row.status ?? 'started');
+        progressMap.set(row.lesson_id, {
+          status: row.status ?? 'started',
+          positionSeconds: Number(row.position_seconds ?? 0),
+          progressPct: Number(row.progress_pct ?? 0),
+        });
       }
     }
 
