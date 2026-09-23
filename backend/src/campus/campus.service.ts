@@ -471,6 +471,33 @@ export class CampusService {
         .from('absence-justifications')
         .remove([String(existing.file_path)]);
     }
+    const { data: staffMembers } = await this.client
+      .from('institution_members')
+      .select('user_id, role')
+      .eq('institution_id', context.institutionId)
+      .in('role', ['owner', 'admin', 'pedagogy']);
+    await this.createNotifications(
+      (staffMembers ?? [])
+        .filter((member: any) => member.role === 'pedagogy')
+        .map((member: any) => String(member.user_id)),
+      {
+        type: 'institution',
+        title: "Nouveau justificatif d'absence",
+        message: `${context.displayName} a transmis un justificatif à examiner.`,
+        href: '/campus/pedagogie/vie-scolaire',
+      },
+    );
+    await this.createNotifications(
+      (staffMembers ?? [])
+        .filter((member: any) => ['owner', 'admin'].includes(String(member.role)))
+        .map((member: any) => String(member.user_id)),
+      {
+        type: 'institution',
+        title: "Nouveau justificatif d'absence",
+        message: `${context.displayName} a transmis un justificatif à l'équipe pédagogique.`,
+        href: '/campus/direction',
+      },
+    );
     return data;
   }
 
@@ -876,7 +903,7 @@ export class CampusService {
     }
     const { data: item, error: itemError } = await this.client
       .from('absence_justifications')
-      .select('id, record_id, status')
+      .select('id, record_id, student_id, status')
       .eq('id', id)
       .eq('institution_id', context.institutionId)
       .maybeSingle();
@@ -941,7 +968,44 @@ export class CampusService {
         throw new BadRequestException(attendanceError.message);
       }
     }
-    return data;
+    const notificationSent = await this.createNotifications(
+      [String(item.student_id)],
+      {
+        type: 'system',
+        title:
+          payload.status === 'approved'
+            ? 'Justificatif accepté'
+            : 'Justificatif refusé',
+        message:
+          payload.status === 'approved'
+            ? "Votre absence a été régularisée par l'établissement."
+            : `Votre justificatif a été refusé : ${reviewNote}`,
+        href: '/campus/etudiant/presences',
+      },
+    );
+    return { ...data, notificationSent };
+  }
+
+  private async createNotifications(
+    userIds: string[],
+    notification: {
+      type: 'institution' | 'system';
+      title: string;
+      message: string;
+      href: string;
+    },
+  ) {
+    const recipients = [...new Set(userIds.filter(Boolean))];
+    if (!recipients.length) return false;
+    const { error } = await this.client.from('notifications').insert(
+      recipients.map((userId) => ({
+        user_id: userId,
+        ...notification,
+      })),
+    );
+    // La décision reste valide même si le centre de notifications est
+    // temporairement indisponible ; l'écran métier affiche déjà son résultat.
+    return !error;
   }
 
   async uploadDocument(user: AuthUser, file: { buffer: Buffer; mimetype: string; originalname: string; size: number }, payload: { title?: string; category?: string }) {
