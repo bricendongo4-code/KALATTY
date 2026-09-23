@@ -74,6 +74,11 @@ type ProgressPayload = {
   progressPct?: number;
 };
 
+type ActivityReviewPayload = {
+  score?: number;
+  feedback?: string;
+};
+
 type DiscoveryCourse = {
   id: string;
   title: string;
@@ -365,6 +370,152 @@ export class CoursesService {
         issuedAt: certificate.issued_at,
       })),
     };
+  }
+
+  async getLearnerActivities(user: AuthUser) {
+    const role = await this.resolveRole(user);
+    if (role !== 'student') {
+      throw new ForbiddenException('Les activites sont reservees aux apprenants.');
+    }
+    const courseIds = await this.getStudentAccessibleCourseIds(user.id);
+    if (!courseIds.length) return { activities: [] };
+
+    const [coursesResult, exercisesResult] = await Promise.all([
+      this.supabaseService.client
+        .from('courses')
+        .select('id, title')
+        .in('id', courseIds),
+      this.supabaseService.client
+        .from('exercises')
+        .select('id, course_id, module_id, lesson_id, title, instructions, created_at')
+        .in('course_id', courseIds)
+        .order('created_at', { ascending: false }),
+    ]);
+    const error = coursesResult.error ?? exercisesResult.error;
+    if (error) throw new BadRequestException(error.message);
+    const exerciseIds = (exercisesResult.data ?? []).map((item) => item.id);
+    const { data: submissions, error: submissionError } = exerciseIds.length
+      ? await this.supabaseService.client
+          .from('course_activity_submissions')
+          .select('id, exercise_id, answer, status, score, feedback, submitted_at, reviewed_at')
+          .eq('user_id', user.id)
+          .in('exercise_id', exerciseIds)
+      : { data: [], error: null };
+    if (submissionError) throw new BadRequestException(submissionError.message);
+    const courseTitles = new Map(
+      (coursesResult.data ?? []).map((course) => [course.id, course.title] as const),
+    );
+    const submissionByExercise = new Map(
+      (submissions ?? []).map((submission) => [submission.exercise_id, submission] as const),
+    );
+    return {
+      activities: (exercisesResult.data ?? []).map((exercise) => {
+        const submission = submissionByExercise.get(exercise.id);
+        return {
+          id: exercise.id,
+          courseId: exercise.course_id,
+          courseTitle: courseTitles.get(exercise.course_id) ?? 'Formation',
+          title: exercise.title,
+          instructions: exercise.instructions ?? '',
+          submissionId: submission?.id ?? null,
+          answer: submission?.answer ?? '',
+          status: submission?.status ?? 'todo',
+          score: submission?.score ?? null,
+          feedback: submission?.feedback ?? '',
+          submittedAt: submission?.submitted_at ?? null,
+        };
+      }),
+    };
+  }
+
+  async submitLearnerActivity(
+    user: AuthUser,
+    exerciseId: string,
+    answer: string,
+  ) {
+    const role = await this.resolveRole(user);
+    if (role !== 'student') {
+      throw new ForbiddenException('Cette remise est reservee aux apprenants.');
+    }
+    const normalizedAnswer = answer.trim();
+    if (normalizedAnswer.length < 2) {
+      throw new BadRequestException('La reponse est trop courte.');
+    }
+    const { data: exercise, error: exerciseError } =
+      await this.supabaseService.client
+        .from('exercises')
+        .select('id, course_id')
+        .eq('id', exerciseId)
+        .maybeSingle();
+    if (exerciseError || !exercise) {
+      throw new BadRequestException(exerciseError?.message ?? 'Activite introuvable.');
+    }
+    const access = await this.getStudentCourseAccess(user.id, exercise.course_id);
+    if (!access.hasAccess) {
+      throw new ForbiddenException("Cette activite n'appartient pas a vos formations.");
+    }
+    const now = new Date().toISOString();
+    const { data, error } = await this.supabaseService.client
+      .from('course_activity_submissions')
+      .upsert(
+        { exercise_id: exerciseId, user_id: user.id, answer: normalizedAnswer, status: 'submitted', score: null, feedback: null, submitted_at: now, reviewed_by: null, reviewed_at: null, updated_at: now },
+        { onConflict: 'exercise_id,user_id' },
+      )
+      .select('id, status, submitted_at')
+      .single();
+    if (error) throw new BadRequestException(error.message);
+    return { submissionId: data.id, status: data.status, submittedAt: data.submitted_at };
+  }
+
+  async getTeacherActivities(user: AuthUser) {
+    await this.assertTeacher(user);
+    const { data: courses, error: coursesError } = await this.supabaseService.client
+      .from('courses').select('id, title').eq('teacher_id', user.id);
+    if (coursesError) throw new BadRequestException(coursesError.message);
+    const courseIds = (courses ?? []).map((course) => course.id);
+    if (!courseIds.length) return { submissions: [] };
+    const { data: exercises, error: exercisesError } = await this.supabaseService.client
+      .from('exercises').select('id, course_id, title').in('course_id', courseIds);
+    if (exercisesError) throw new BadRequestException(exercisesError.message);
+    const exerciseIds = (exercises ?? []).map((exercise) => exercise.id);
+    if (!exerciseIds.length) return { submissions: [] };
+    const { data: submissions, error } = await this.supabaseService.client
+      .from('course_activity_submissions')
+      .select('id, exercise_id, user_id, answer, status, score, feedback, submitted_at, reviewed_at')
+      .in('exercise_id', exerciseIds)
+      .order('submitted_at', { ascending: false });
+    if (error) throw new BadRequestException(error.message);
+    const userIds = Array.from(new Set((submissions ?? []).map((item) => item.user_id)));
+    const { data: profiles, error: profileError } = userIds.length
+      ? await this.supabaseService.client.from('profiles').select('id, fullname').in('id', userIds)
+      : { data: [], error: null };
+    if (profileError) throw new BadRequestException(profileError.message);
+    const courseTitles = new Map((courses ?? []).map((item) => [item.id, item.title] as const));
+    const exerciseById = new Map((exercises ?? []).map((item) => [item.id, item] as const));
+    const names = new Map((profiles ?? []).map((item) => [item.id, item.fullname] as const));
+    return { submissions: (submissions ?? []).map((submission) => {
+      const exercise = exerciseById.get(submission.exercise_id);
+      return { ...submission, exerciseTitle: exercise?.title ?? 'Activite', courseTitle: exercise ? courseTitles.get(exercise.course_id) ?? 'Formation' : 'Formation', learnerName: names.get(submission.user_id) ?? 'Apprenant Kalatty' };
+    }) };
+  }
+
+  async reviewTeacherActivity(user: AuthUser, submissionId: string, payload: ActivityReviewPayload) {
+    await this.assertTeacher(user);
+    const { data: submission, error: lookupError } = await this.supabaseService.client
+      .from('course_activity_submissions').select('id, exercise_id, user_id').eq('id', submissionId).maybeSingle();
+    if (lookupError || !submission) throw new BadRequestException(lookupError?.message ?? 'Remise introuvable.');
+    const { data: exercise, error: exerciseError } = await this.supabaseService.client
+      .from('exercises').select('course_id').eq('id', submission.exercise_id).single();
+    if (exerciseError) throw new BadRequestException(exerciseError.message);
+    await this.assertTeacherCourseAccess(user, exercise.course_id);
+    const feedback = payload.feedback?.trim() ?? '';
+    const now = new Date().toISOString();
+    const { error } = await this.supabaseService.client.from('course_activity_submissions')
+      .update({ status: 'reviewed', score: payload.score ?? null, feedback, reviewed_by: user.id, reviewed_at: now, updated_at: now })
+      .eq('id', submissionId);
+    if (error) throw new BadRequestException(error.message);
+    await this.supabaseService.client.from('notifications').insert({ user_id: submission.user_id, type: 'activity_reviewed', title: 'Une activite a ete corrigee', message: feedback || 'Votre correction est disponible.', href: '/learn/activities' });
+    return { id: submissionId, status: 'reviewed', score: payload.score ?? null, feedback };
   }
 
   async answerTeacherQuestion(
@@ -1415,6 +1566,38 @@ export class CoursesService {
 
     const institutionAccess = Boolean(assignedCourse?.id);
     return { hasAccess: institutionAccess, institutionAccess };
+  }
+
+  private async getStudentAccessibleCourseIds(userId: string) {
+    const [enrollmentsResult, membershipsResult] = await Promise.all([
+      this.supabaseService.client
+        .from('enrollments')
+        .select('course_id')
+        .eq('user_id', userId),
+      this.supabaseService.client
+        .from('room_members')
+        .select('room_id')
+        .eq('user_id', userId)
+        .eq('role', 'student'),
+    ]);
+    const error = enrollmentsResult.error ?? membershipsResult.error;
+    if (error) throw new BadRequestException(error.message);
+    const roomIds = (membershipsResult.data ?? [])
+      .map((item) => item.room_id)
+      .filter(Boolean);
+    const { data: roomCourses, error: roomCoursesError } = roomIds.length
+      ? await this.supabaseService.client
+          .from('room_courses')
+          .select('course_id')
+          .in('room_id', roomIds)
+      : { data: [], error: null };
+    if (roomCoursesError) throw new BadRequestException(roomCoursesError.message);
+    return Array.from(
+      new Set([
+        ...(enrollmentsResult.data ?? []).map((item) => item.course_id),
+        ...(roomCourses ?? []).map((item) => item.course_id),
+      ].filter((id): id is string => Boolean(id))),
+    );
   }
 
   private async getLessonProgressMap(userId: string, lessonIds: string[]) {

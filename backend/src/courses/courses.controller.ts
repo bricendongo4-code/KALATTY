@@ -23,6 +23,8 @@ import { UpdateLessonProgressDto } from './dto/update-lesson-progress.dto';
 import { LessonNoteDto } from './dto/lesson-note.dto';
 import { CourseQuestionDto } from './dto/course-question.dto';
 import { QuestionAnswerDto } from './dto/question-answer.dto';
+import { ActivitySubmissionDto } from './dto/activity-submission.dto';
+import { ActivityReviewDto } from './dto/activity-review.dto';
 
 type RequestUser = {
   user: {
@@ -63,6 +65,46 @@ export class CoursesController {
   @Get('learner/certificates')
   getLearnerCertificates(@Req() req: RequestUser) {
     return this.coursesService.getLearnerCertificates(req.user);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('learner/activities')
+  getLearnerActivities(@Req() req: RequestUser) {
+    return this.coursesService.getLearnerActivities(req.user);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('learner/activities/:exerciseId/submit')
+  submitLearnerActivity(
+    @Req() req: RequestUser,
+    @Param('exerciseId') exerciseId: string,
+    @Body() body: ActivitySubmissionDto,
+  ) {
+    return this.coursesService.submitLearnerActivity(
+      req.user,
+      exerciseId,
+      body.answer,
+    );
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('teacher/activities')
+  getTeacherActivities(@Req() req: RequestUser) {
+    return this.coursesService.getTeacherActivities(req.user);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Patch('teacher/activities/:submissionId')
+  reviewTeacherActivity(
+    @Req() req: RequestUser,
+    @Param('submissionId') submissionId: string,
+    @Body() body: ActivityReviewDto,
+  ) {
+    return this.coursesService.reviewTeacherActivity(
+      req.user,
+      submissionId,
+      body,
+    );
   }
 
   @UseGuards(AuthGuard('jwt'))

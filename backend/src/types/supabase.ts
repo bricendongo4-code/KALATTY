@@ -1012,6 +1012,12 @@ export interface Database {
         Update: { id?: string; user_id?: string; course_id?: string; verification_code?: string; issued_at?: string; revoked_at?: string | null };
         Relationships: [];
       };
+      course_activity_submissions: {
+        Row: { id: string; exercise_id: string; user_id: string; answer: string; status: string; score: number | null; feedback: string | null; submitted_at: string; reviewed_by: string | null; reviewed_at: string | null; updated_at: string };
+        Insert: { id?: string; exercise_id: string; user_id: string; answer: string; status?: string; score?: number | null; feedback?: string | null; submitted_at?: string; reviewed_by?: string | null; reviewed_at?: string | null; updated_at?: string };
+        Update: { id?: string; exercise_id?: string; user_id?: string; answer?: string; status?: string; score?: number | null; feedback?: string | null; submitted_at?: string; reviewed_by?: string | null; reviewed_at?: string | null; updated_at?: string };
+        Relationships: [];
+      };
       room_attendance_records: {
         Row: {
           id: string;
