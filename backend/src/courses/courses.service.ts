@@ -1110,6 +1110,14 @@ export class CoursesService {
       (progress) =>
         progress.status === 'started' || progress.status === 'completed',
     ).length;
+    const accumulatedProgress = Array.from(progressMap.values()).reduce(
+      (sum, progress) =>
+        sum +
+        (progress.status === 'completed'
+          ? 100
+          : Math.min(99, Math.max(0, Number(progress.progressPct ?? 0)))),
+      0,
+    );
 
     const courseReviews = await this.getCourseReviews(course.id);
     const teacherReviews = course.teacher_id
@@ -1147,7 +1155,7 @@ export class CoursesService {
       startedLessons,
       progressPercentage:
         totalLessons > 0
-          ? Math.round((startedLessons / totalLessons) * 100)
+          ? Math.round(accumulatedProgress / totalLessons)
           : 0,
       enrolled: role === 'student' ? studentAccess.hasAccess : false,
       ownerPreview:

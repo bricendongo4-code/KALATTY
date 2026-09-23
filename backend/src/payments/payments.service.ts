@@ -46,12 +46,18 @@ export class PaymentsService {
   };
 
   getPlans() {
+    const provider =
+      process.env.PAYMENT_PROVIDER?.trim() || 'pending_configuration';
+    const paymentsEnabled = provider !== 'pending_configuration';
     return {
       coursePayments: {
-        provider: process.env.PAYMENT_PROVIDER ?? 'pending_configuration',
+        provider,
+        enabled: paymentsEnabled,
         platformFeePercent: 15,
         description:
-          'Les cours gratuits sont accessibles apres inscription. Les cours payants activent un paiement par cours.',
+          paymentsEnabled
+            ? 'Les cours gratuits sont accessibles apres inscription. Les cours payants activent un paiement par cours.'
+            : "Les inscriptions gratuites restent disponibles. Les paiements sont desactives jusqu'a la connexion d'un prestataire securise.",
       },
       institutionPlans: Object.entries(this.institutionPlans).map(
         ([code, plan]) => ({
@@ -214,6 +220,13 @@ export class PaymentsService {
       );
     }
 
+    const provider = process.env.PAYMENT_PROVIDER?.trim();
+    if (!provider || provider === 'pending_configuration') {
+      throw new BadRequestException(
+        "Le paiement n'est pas encore disponible. Aucun debit ni demande de paiement n'a ete cree.",
+      );
+    }
+
     const { data: enrollment } = await this.supabaseService.client
       .from('enrollments')
       .select('id')
@@ -284,7 +297,7 @@ export class PaymentsService {
       platformFeeFcfa: Number(payment.platform_fee_fcfa ?? 0),
       teacherEarningFcfa: Number(payment.teacher_earning_fcfa ?? 0),
       createdAt: payment.created_at,
-      provider: process.env.PAYMENT_PROVIDER ?? 'pending_configuration',
+      provider,
       providerLabel: 'Paiement sécurisé en attente',
       instructions:
         "Votre demande est enregistrée. Aucun accès n'est accordé avant la confirmation sécurisée du prestataire de paiement.",
