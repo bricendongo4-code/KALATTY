@@ -49,11 +49,11 @@ export default function DashboardRouter() {
         throw new Error(dashboard.message ?? "Impossible de déterminer votre espace.");
       }
       if (dashboard.role === "teacher") {
-        router.replace("/learning/formateur");
+        router.replace("/creator");
         return;
       }
       if (dashboard.role === "student") {
-        router.replace("/learning/apprenant");
+        router.replace("/learn");
         return;
       }
       router.replace("/establishment/admin");
@@ -69,7 +69,7 @@ export default function DashboardRouter() {
   return <main className={styles.page}>
     <section className={styles.card}>
       <Image src="/kalatty-logo-campus.png" alt="Kalatty" width={156} height={126} priority />
-      {error ? <><h1>Nous n’avons pas pu ouvrir votre espace</h1><p>{error}</p><div><button onClick={resolveSpace}>Réessayer</button><Link href="/learning">Choisir un espace</Link></div></> : <><span className={styles.loader} /><h1>Ouverture de votre espace Kalatty</h1><p>Votre rôle et votre contexte actif sont en cours de vérification.</p></>}
+      {error ? <><h1>Nous n’avons pas pu ouvrir votre espace</h1><p>{error}</p><div><button onClick={resolveSpace}>Réessayer</button><Link href="/">Retour à l’accueil</Link></div></> : <><span className={styles.loader} /><h1>Ouverture de votre espace Kalatty</h1><p>Votre rôle et votre contexte actif sont en cours de vérification.</p></>}
     </section>
   </main>;
 }

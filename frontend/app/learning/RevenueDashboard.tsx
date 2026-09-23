@@ -28,12 +28,12 @@ export default function RevenueDashboard() {
 
   const load = useCallback(async () => {
     const token = localStorage.getItem("kalatty_token");
-    if (!token) return router.replace("/login?redirect=/learning/formateur/revenus");
+    if (!token) return router.replace("/login?redirect=/creator/revenue");
     setLoading(true);
     setError(null);
     try {
       const response = await fetch(`${API_BASE}/payments/teacher/revenue-summary`, { headers: { Authorization: `Bearer ${token}` } });
-      if (response.status === 401) return router.replace("/login?redirect=/learning/formateur/revenus");
+      if (response.status === 401) return router.replace("/login?redirect=/creator/revenue");
       const body = await response.json();
       if (!response.ok) throw new Error(body.message ?? "Impossible de charger vos revenus.");
       setData(body as Revenue);

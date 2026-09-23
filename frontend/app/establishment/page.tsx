@@ -33,7 +33,7 @@ export default function CampusPicker() {
             </Link>
           ))}
         </div>
-        <Link href="/learning" className={styles.btn} style={{ marginTop: 22 }}>
+        <Link href="/learn" className={styles.btn} style={{ marginTop: 22 }}>
           Ouvrir l&apos;univers Formation en ligne
         </Link>
       </div>

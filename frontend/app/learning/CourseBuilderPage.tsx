@@ -28,7 +28,7 @@ export default function CourseBuilderPage({ courseId }: { courseId?: string }) {
     if (!courseId) return;
     const load = async () => {
       const token = localStorage.getItem("kalatty_token");
-      if (!token) return router.replace(`/login?redirect=/learning/formateur/formations/${courseId}`);
+      if (!token) return router.replace(`/login?redirect=/creator/courses/${courseId}/builder`);
       setSaving(true);
       try {
         const response = await fetch(`${API_BASE}/courses/${courseId}/edit`, { headers: { Authorization: `Bearer ${token}` } });
@@ -50,7 +50,7 @@ export default function CourseBuilderPage({ courseId }: { courseId?: string }) {
 
   const save = async (status: "draft" | "published") => {
     const token = localStorage.getItem("kalatty_token");
-    if (!token) return router.replace("/login?redirect=/learning/formateur/formations/builder");
+    if (!token) return router.replace("/login?redirect=/creator/courses/new");
     if (!title.trim()) return setMessage("Le titre de la formation est obligatoire.");
     if (status === "published" && (!description.trim() || !modules.some((module) => module.lessons.length))) return setMessage("Ajoutez une description et au moins une leçon avant publication.");
     setSaving(true);
@@ -64,7 +64,7 @@ export default function CourseBuilderPage({ courseId }: { courseId?: string }) {
       const body = await response.json();
       if (!response.ok) throw new Error(body.message ?? "Enregistrement impossible.");
       setMessage(status === "published" ? "Formation publiée avec succès." : "Brouillon enregistré.");
-      setTimeout(() => router.push("/learning/formateur/formations"), 600);
+      setTimeout(() => router.push("/creator/courses"), 600);
     } catch (reason) {
       setMessage(reason instanceof Error ? reason.message : "Enregistrement impossible.");
     } finally {

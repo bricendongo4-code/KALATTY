@@ -21,7 +21,7 @@ export default function CoursePlayerPage({ courseId }: { courseId: string }) {
 
   const load = useCallback(async () => {
     const token = localStorage.getItem("kalatty_token");
-    if (!token) return router.replace(`/login?redirect=/learning/apprenant/formations/${courseId}`);
+    if (!token) return router.replace(`/login?redirect=/learn/courses/${courseId}`);
     setLoading(true);
     try {
       const response = await fetch(`${API_BASE}/courses/${courseId}`, { headers: { Authorization: `Bearer ${token}` } });
@@ -53,7 +53,7 @@ export default function CoursePlayerPage({ courseId }: { courseId: string }) {
   const activateAccess = async () => {
     if (!course) return;
     const token = localStorage.getItem("kalatty_token");
-    if (!token) return router.replace(`/login?redirect=/learning/apprenant/formations/${courseId}`);
+    if (!token) return router.replace(`/login?redirect=/learn/courses/${courseId}`);
     setBuying(true);
     setAccessMessage(null);
     try {
@@ -85,13 +85,13 @@ export default function CoursePlayerPage({ courseId }: { courseId: string }) {
   if (!course) return null;
 
   if (!course.enrolled && !course.institutionAccess) return <>
-    <div className={styles.playerHeader}><Link href="/learning/apprenant/explorer">← Retour au catalogue</Link></div>
+    <div className={styles.playerHeader}><Link href="/learn/explore">← Retour au catalogue</Link></div>
     <section className={styles.courseAccessHero}><div><span className={styles.eyebrow}>Formation en ligne</span><h1>{course.title}</h1><p>{course.shortDescription || course.description}</p><small>Par {course.teacherName ?? "Formateur Kalatty"} · {lessons.length} leçon(s)</small></div><aside><strong>{course.priceFcfa > 0 ? `${new Intl.NumberFormat("fr-FR").format(course.priceFcfa)} FCFA` : "Gratuit"}</strong><button disabled={buying} className={styles.primaryButton} onClick={activateAccess}>{buying ? "Traitement…" : course.priceFcfa > 0 ? "Acheter la formation" : "S’inscrire gratuitement"}</button>{accessMessage ? <p>{accessMessage}</p> : null}<small>L’accès est activé uniquement après confirmation du serveur.</small></aside></section>
     <div className={styles.twoColumns}><section className={styles.panel}><h2>À propos de cette formation</h2><p className={styles.courseLongCopy}>{course.description}</p></section><section className={styles.panel}><h2>Programme</h2><div className={styles.publicProgram}>{course.modules.map((module) => <div key={module.id}><strong>{module.title}</strong><span>{module.lessons.length} leçon(s)</span></div>)}</div></section></div>
   </>;
 
   return <>
-    <div className={styles.playerHeader}><Link href="/learning/apprenant/formations">← Mes formations</Link><span>{course.progressPercentage}% terminé</span></div>
+    <div className={styles.playerHeader}><Link href="/learn/my-courses">← Mes formations</Link><span>{course.progressPercentage}% terminé</span></div>
     <header className={styles.pageHead}><div><h1>{course.title}</h1><p>{activeLesson?.moduleTitle} · {activeLesson?.title}</p></div><div className={styles.playerProgress}><Progress value={course.progressPercentage} color="green" /><b>{course.progressPercentage}%</b></div></header>
     <div className={styles.playerLayout}>
       <section>

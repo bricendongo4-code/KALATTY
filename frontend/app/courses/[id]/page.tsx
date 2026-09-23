@@ -4,5 +4,5 @@ type Params = Promise<{ id: string }>;
 
 export default async function LegacyCourseRedirect({ params }: { params: Params }) {
   const { id } = await params;
-  redirect(`/learning/apprenant/formations/${id}`);
+  redirect(`/learn/courses/${id}`);
 }

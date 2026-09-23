@@ -24,12 +24,12 @@ export default function PaymentHistory() {
 
   const load = useCallback(async () => {
     const token = localStorage.getItem("kalatty_token");
-    if (!token) return router.replace("/login?redirect=/learning/apprenant/paiements");
+    if (!token) return router.replace("/login?redirect=/learn/billing");
     setLoading(true);
     setError(null);
     try {
       const response = await fetch(`${API_BASE}/payments/mine`, { headers: { Authorization: `Bearer ${token}` } });
-      if (response.status === 401) return router.replace("/login?redirect=/learning/apprenant/paiements");
+      if (response.status === 401) return router.replace("/login?redirect=/learn/billing");
       const body = await response.json();
       if (!response.ok) throw new Error(body.message ?? "Impossible de charger vos paiements.");
       setTransactions(body.transactions ?? []);

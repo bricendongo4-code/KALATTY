@@ -18,7 +18,7 @@ export default function LearningHome({ role }: { role: LearningRole }) {
   const load = useCallback(async () => {
     const token = localStorage.getItem("kalatty_token");
     if (!token) {
-      router.replace(`/login?redirect=/learning/${role}`);
+      router.replace(`/login?redirect=${role === "formateur" ? "/creator" : "/learn"}`);
       return;
     }
     setLoading(true);
@@ -29,7 +29,7 @@ export default function LearningHome({ role }: { role: LearningRole }) {
       });
       if (response.status === 401) {
         localStorage.removeItem("kalatty_token");
-        router.replace(`/login?redirect=/learning/${role}`);
+        router.replace(`/login?redirect=${role === "formateur" ? "/creator" : "/learn"}`);
         return;
       }
       const body = await response.json();
@@ -52,7 +52,7 @@ export default function LearningHome({ role }: { role: LearningRole }) {
 
   const expected = role === "apprenant" ? "student" : "teacher";
   if (data.role !== expected) {
-    const target = data.role === "teacher" ? "/learning/formateur" : data.role === "student" ? "/learning/apprenant" : "/establishment";
+    const target = data.role === "teacher" ? "/creator" : data.role === "student" ? "/learn" : "/establishment";
     return <section className={styles.loadingState}><h1>Ce n&apos;est pas votre espace actif</h1><p>Votre profil actuel correspond à un autre contexte Kalatty.</p><Link href={target} className={styles.primaryButton}>Ouvrir mon espace</Link></section>;
   }
 

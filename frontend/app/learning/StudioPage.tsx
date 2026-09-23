@@ -95,7 +95,7 @@ export default function StudioPage() {
   };
 
   if (loading) return <section className={styles.loadingState}><span /><h1>Ouverture du Studio</h1></section>;
-  if (!course) return <section className={styles.emptyLearning}><Icon name="video" /><div><h1>Kalatty Studio</h1><p>Créez d’abord une formation et au moins une leçon pour importer vos vidéos.</p></div><Link href="/learning/formateur/formations/builder" className={styles.primaryButton}>Créer une formation</Link></section>;
+  if (!course) return <section className={styles.emptyLearning}><Icon name="video" /><div><h1>Kalatty Studio</h1><p>Créez d’abord une formation et au moins une leçon pour importer vos vidéos.</p></div><Link href="/creator/courses/new" className={styles.primaryButton}>Créer une formation</Link></section>;
 
   return <>
     <header className={styles.pageHead}><div><h1>Kalatty Studio</h1><p>Importez une vidéo, associez-la à une leçon et publiez-la sans quitter votre espace.</p></div><select className={styles.studioCourseSelect} value={course.id} onChange={(event) => loadCourse(event.target.value)}>{courses.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></header>

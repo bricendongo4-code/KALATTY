@@ -133,8 +133,8 @@ export default function Shell({
               <div className={styles.contextPopover}>
                 <span>Changer d&apos;espace</span>
                 <Link href="/establishment">Espace Établissement</Link>
-                <Link href="/learning/apprenant">Apprenant indépendant</Link>
-                <Link href="/learning/formateur">Formateur / Créateur</Link>
+                <Link href="/learn">Apprenant indépendant</Link>
+                <Link href="/creator">Formateur / Créateur</Link>
                 <Link href="/settings">Profil &amp; sécurité</Link>
                 <button type="button" className={styles.logoutButton} onClick={logoutKalatty}>
                   <Icon name="logout" />

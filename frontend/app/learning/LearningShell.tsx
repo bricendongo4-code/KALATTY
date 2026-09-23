@@ -22,6 +22,7 @@ export default function LearningShell({
   children: ReactNode;
 }) {
   const config = LEARNING_ROLES[role];
+  const basePath = role === "apprenant" ? "/learn" : "/creator";
   const identity = useAccountIdentity("Compte Kalatty");
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -33,14 +34,14 @@ export default function LearningShell({
     <div className={styles.app} data-role={role}>
       {open ? <button className={styles.scrim} onClick={() => setOpen(false)} aria-label="Fermer le menu" /> : null}
       <aside className={`${styles.sidebar} ${open ? styles.sidebarOpen : ""}`}>
-        <Link href="/learning" className={styles.logoLink} aria-label="Changer d'espace Kalatty">
+        <Link href={basePath} className={styles.logoLink} aria-label="Accueil Kalatty">
           <Image src="/kalatty-logo-campus.png" alt="Kalatty" width={148} height={124} className={styles.logo} priority />
         </Link>
         <nav className={styles.nav} aria-label={config.title}>
           {config.nav.map((item) => (
             <Link
               key={item.slug || "home"}
-              href={item.slug ? `/learning/${role}/${item.slug}` : `/learning/${role}`}
+              href={item.slug ? `${basePath}/${item.slug}` : basePath}
               className={`${styles.navItem} ${activeSlug === item.slug ? styles.navActive : ""}`}
               onClick={() => setOpen(false)}
             >
@@ -67,7 +68,7 @@ export default function LearningShell({
             <Icon name="search" />
             <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={config.search} aria-label="Recherche" />
           </form>
-          <NotificationBell allHref={role === "apprenant" ? "/learning/apprenant/notifications" : "/learning/formateur/messages"} />
+          <NotificationBell allHref={`${basePath}/notifications`} />
           <details className={styles.profileMenu}>
             <summary>
               <Avatar name={identity.name} src={identity.avatarUrl} size={38} />
@@ -76,8 +77,8 @@ export default function LearningShell({
             </summary>
             <div className={styles.profilePopover}>
               <span>Changer d&apos;espace</span>
-              <Link href="/learning/apprenant">Apprenant indépendant</Link>
-              <Link href="/learning/formateur">Formateur / Créateur</Link>
+              <Link href="/learn">Apprenant indépendant</Link>
+              <Link href="/creator">Formateur / Créateur</Link>
               <Link href="/establishment">Espace Établissement</Link>
               <Link href="/settings">Profil &amp; sécurité</Link>
               <button type="button" className={styles.logoutButton} onClick={logoutKalatty}>

@@ -6,7 +6,12 @@ export default function NavigationBackButton() {
   const pathname = usePathname();
   const router = useRouter();
 
-  if (pathname === "/" || pathname?.startsWith("/establishment")) {
+  if (
+    pathname === "/" ||
+    pathname?.startsWith("/establishment") ||
+    pathname?.startsWith("/learn") ||
+    pathname?.startsWith("/creator")
+  ) {
     return null;
   }
 
