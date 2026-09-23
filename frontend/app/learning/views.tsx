@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Icon, Progress } from "../campus/ui";
+import { Icon, Progress } from "../establishment/ui";
 import styles from "./learning.module.css";
 
 const courses = [

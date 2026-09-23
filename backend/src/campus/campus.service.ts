@@ -27,14 +27,14 @@ type UploadedCampusFile = {
 
 
 
-type CampusRole = 'etudiant' | 'professeur' | 'pedagogie' | 'direction';
+type CampusRole = 'student' | 'teacher' | 'pedagogy' | 'admin';
 
 const ROLE_MAP: Record<string, CampusRole> = {
-  owner: 'direction',
-  admin: 'direction',
-  pedagogy: 'pedagogie',
-  teacher: 'professeur',
-  student: 'etudiant',
+  owner: 'admin',
+  admin: 'admin',
+  pedagogy: 'pedagogy',
+  teacher: 'teacher',
+  student: 'student',
 };
 
 const WEEKDAY_TIME_FORMAT = new Intl.DateTimeFormat('en-GB', {
@@ -120,13 +120,13 @@ export class CampusService {
   async getHome(user: AuthUser) {
     const context = await this.getContext(user);
     switch (context.campusRole) {
-      case 'etudiant':
+      case 'student':
         return { context, data: await this.getStudentHome(context) };
-      case 'professeur':
+      case 'teacher':
         return { context, data: await this.getTeacherHome(context) };
-      case 'pedagogie':
+      case 'pedagogy':
         return { context, data: await this.getPedagogyHome(context) };
-      case 'direction':
+      case 'admin':
         return { context, data: await this.getDirectionHome(context) };
       default:
         throw new ForbiddenException('Role non pris en charge.');
@@ -135,7 +135,7 @@ export class CampusService {
 
   async getStudentOverview(user: AuthUser) {
     const context = await this.getContext(user);
-    if (context.campusRole !== 'etudiant') {
+    if (context.campusRole !== 'student') {
       throw new ForbiddenException('Espace réservé aux étudiants.');
     }
 
@@ -210,7 +210,7 @@ export class CampusService {
 
   async getStudentAnnouncements(user: AuthUser) {
     const context = await this.getContext(user);
-    if (context.campusRole !== 'etudiant') {
+    if (context.campusRole !== 'student') {
       throw new ForbiddenException('Espace réservé aux étudiants.');
     }
     const { data: memberships, error: membershipError } = await this.client
@@ -235,7 +235,7 @@ export class CampusService {
   // ------------------------------------------------------------ horloge partagee (fuseau Europe/Paris)
   async getStudentAttendance(user: AuthUser) {
     const context = await this.getContext(user);
-    if (context.campusRole !== 'etudiant') {
+    if (context.campusRole !== 'student') {
       throw new ForbiddenException('Espace réservé aux étudiants.');
     }
 
@@ -348,7 +348,7 @@ export class CampusService {
     file?: UploadedCampusFile,
   ) {
     const context = await this.getContext(user);
-    if (context.campusRole !== 'etudiant') {
+    if (context.campusRole !== 'student') {
       throw new ForbiddenException('Espace réservé aux étudiants.');
     }
 
@@ -484,7 +484,7 @@ export class CampusService {
         type: 'institution',
         title: "Nouveau justificatif d'absence",
         message: `${context.displayName} a transmis un justificatif à examiner.`,
-        href: '/campus/pedagogie/vie-scolaire',
+        href: '/establishment/pedagogy/attendance',
       },
     );
     await this.createNotifications(
@@ -495,7 +495,7 @@ export class CampusService {
         type: 'institution',
         title: "Nouveau justificatif d'absence",
         message: `${context.displayName} a transmis un justificatif à l'équipe pédagogique.`,
-        href: '/campus/direction',
+        href: '/establishment/admin',
       },
     );
     return data;
@@ -679,7 +679,7 @@ export class CampusService {
   // ------------------------------------------------------------ professeur
   async getTeacherSchedule(user: AuthUser) {
     const context = await this.getContext(user);
-    if (context.campusRole !== 'professeur') {
+    if (context.campusRole !== 'teacher') {
       throw new ForbiddenException('Espace réservé aux professeurs.');
     }
     const { data: memberships, error: membershipError } = await this.client
@@ -706,11 +706,11 @@ export class CampusService {
 
   async getStaffSchedule(user: AuthUser) {
     const context = await this.getContext(user);
-    if (context.campusRole !== 'pedagogie' && context.campusRole !== 'direction') {
+    if (context.campusRole !== 'pedagogy' && context.campusRole !== 'admin') {
       throw new ForbiddenException('Planning réservé au personnel autorisé.');
     }
     let roomIds: string[];
-    if (context.campusRole === 'pedagogie') {
+    if (context.campusRole === 'pedagogy') {
       roomIds = await this.pedagogyScopeRoomIds(user.id, context.institutionId);
     } else {
       const { data: allRooms, error: listError } = await this.client.from('rooms')
@@ -748,18 +748,18 @@ export class CampusService {
       .select('id, title, body, room_id, audience, created_at')
       .eq('institution_id', context.institutionId).order('created_at', { ascending: false }).limit(100);
     if (error) throw new BadRequestException(error.message);
-    const permittedAudience = context.campusRole === 'etudiant' ? ['all', 'students', 'room']
-      : context.campusRole === 'professeur' ? ['all', 'teachers', 'room'] : ['all', 'teachers', 'students', 'room'];
+    const permittedAudience = context.campusRole === 'student' ? ['all', 'students', 'room']
+      : context.campusRole === 'teacher' ? ['all', 'teachers', 'room'] : ['all', 'teachers', 'students', 'room'];
     return { announcements: (data ?? []).filter((row: any) => permittedAudience.includes(row.audience)
       && (row.audience !== 'room' || !!row.room_id)
       && (!row.room_id || (institutionIds.has(String(row.room_id)) &&
-        (context.campusRole === 'direction' || context.campusRole === 'pedagogie' || ownIds.has(String(row.room_id))))))
+        (context.campusRole === 'admin' || context.campusRole === 'pedagogy' || ownIds.has(String(row.room_id))))))
       .map((row: any) => ({ id: row.id, title: row.title, body: row.body, roomId: row.room_id, createdAt: row.created_at })) };
   }
 
   async createAnnouncement(user: AuthUser, payload: { title?: string; body?: string; audience?: string; roomId?: string }) {
     const context = await this.getContext(user);
-    if (context.campusRole !== 'direction') throw new ForbiddenException('Publication réservée à la direction.');
+    if (context.campusRole !== 'admin') throw new ForbiddenException('Publication réservée à la direction.');
     const title = payload.title?.trim();
     const body = payload.body?.trim();
     const audience = payload.audience ?? 'all';
@@ -782,7 +782,7 @@ export class CampusService {
 
   async getDocuments(user: AuthUser) {
     const context = await this.getContext(user);
-    if (context.campusRole !== 'pedagogie' && context.campusRole !== 'direction') {
+    if (context.campusRole !== 'pedagogy' && context.campusRole !== 'admin') {
       throw new ForbiddenException('Documents réservés au personnel autorisé.');
     }
     const { data, error } = await this.client.from('institution_documents')
@@ -802,18 +802,18 @@ export class CampusService {
 
   async getStaffAssignments(user: AuthUser) {
     const context = await this.getContext(user);
-    if (context.campusRole === 'etudiant') throw new ForbiddenException('Accès réservé au personnel.');
+    if (context.campusRole === 'student') throw new ForbiddenException('Accès réservé au personnel.');
     const { data: rooms, error: roomError } = await this.client.from('rooms')
       .select('id, name').eq('institution_id', context.institutionId);
     if (roomError) throw new BadRequestException(roomError.message);
     const eligible = new Set((rooms ?? []).map((room: any) => String(room.id)));
-    if (context.campusRole === 'professeur') {
+    if (context.campusRole === 'teacher') {
       const { data: memberships, error } = await this.client.from('room_members').select('room_id')
         .eq('user_id', user.id).eq('role', 'teacher');
       if (error) throw new BadRequestException(error.message);
       const own = new Set((memberships ?? []).map((row: any) => String(row.room_id)));
       for (const id of eligible) if (!own.has(id)) eligible.delete(id);
-    } else if (context.campusRole === 'pedagogie') {
+    } else if (context.campusRole === 'pedagogy') {
       const scope = new Set(await this.pedagogyScopeRoomIds(user.id, context.institutionId));
       for (const id of eligible) if (!scope.has(id)) eligible.delete(id);
     }
@@ -831,10 +831,10 @@ export class CampusService {
 
   async getJustifications(user: AuthUser) {
     const context = await this.getContext(user);
-    if (context.campusRole !== 'pedagogie' && context.campusRole !== 'direction') {
+    if (context.campusRole !== 'pedagogy' && context.campusRole !== 'admin') {
       throw new ForbiddenException('Vie scolaire réservée au personnel autorisé.');
     }
-    const scope = context.campusRole === 'pedagogie'
+    const scope = context.campusRole === 'pedagogy'
       ? await this.pedagogyScopeRoomIds(user.id, context.institutionId)
       : (await this.client.from('rooms').select('id').eq('institution_id', context.institutionId)).data?.map((row: any) => String(row.id)) ?? [];
     if (!scope.length) return { justifications: [] };
@@ -893,8 +893,8 @@ export class CampusService {
   ) {
     const context = await this.getContext(user);
     if (
-      context.campusRole !== 'pedagogie' &&
-      context.campusRole !== 'direction'
+      context.campusRole !== 'pedagogy' &&
+      context.campusRole !== 'admin'
     )
       throw new ForbiddenException('Décision non autorisée.');
     const reviewNote = payload.note?.trim() || null;
@@ -925,7 +925,7 @@ export class CampusService {
       .maybeSingle();
     if (!room || room.institution_id !== context.institutionId)
       throw new ForbiddenException('Justificatif hors établissement.');
-    if (context.campusRole === 'pedagogie') {
+    if (context.campusRole === 'pedagogy') {
       const scope = await this.pedagogyScopeRoomIds(
         user.id,
         context.institutionId,
@@ -980,7 +980,7 @@ export class CampusService {
           payload.status === 'approved'
             ? "Votre absence a été régularisée par l'établissement."
             : `Votre justificatif a été refusé : ${reviewNote}`,
-        href: '/campus/etudiant/presences',
+        href: '/establishment/student/attendance',
       },
     );
     return { ...data, notificationSent };
@@ -1010,7 +1010,7 @@ export class CampusService {
 
   async uploadDocument(user: AuthUser, file: { buffer: Buffer; mimetype: string; originalname: string; size: number }, payload: { title?: string; category?: string }) {
     const context = await this.getContext(user);
-    if (context.campusRole !== 'direction') throw new ForbiddenException('Publication réservée à la direction.');
+    if (context.campusRole !== 'admin') throw new ForbiddenException('Publication réservée à la direction.');
     const title = payload.title?.trim();
     if (!title || title.length > 160 || !file?.buffer?.length || file.size > 10 * 1024 * 1024) {
       throw new BadRequestException('Titre ou fichier invalide (10 Mo maximum).');

@@ -9,10 +9,10 @@ import styles from "./router.module.css";
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
 
 const CAMPUS_ROLE_ROUTES: Record<string, string> = {
-  etudiant: "/campus/etudiant",
-  professeur: "/campus/professeur",
-  pedagogie: "/campus/pedagogie",
-  direction: "/campus/direction",
+  student: "/establishment/student",
+  teacher: "/establishment/teacher",
+  pedagogy: "/establishment/pedagogy",
+  admin: "/establishment/admin",
 };
 
 export default function DashboardRouter() {
@@ -56,7 +56,7 @@ export default function DashboardRouter() {
         router.replace("/learning/apprenant");
         return;
       }
-      router.replace("/campus/direction");
+      router.replace("/establishment/admin");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Connexion au serveur impossible.");
     }

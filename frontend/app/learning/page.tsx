@@ -29,7 +29,7 @@ export default function LearningPicker() {
             <em>Ouvrir mon studio →</em>
           </Link>
         </div>
-        <Link href="/campus" className={styles.backCampus}>Accéder plutôt à l&apos;Espace Établissement</Link>
+        <Link href="/establishment" className={styles.backCampus}>Accéder plutôt à l&apos;Espace Établissement</Link>
       </section>
     </main>
   );

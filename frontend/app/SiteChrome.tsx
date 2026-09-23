@@ -9,7 +9,7 @@ export default function SiteChrome({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  if (pathname?.startsWith("/campus")) {
+  if (pathname?.startsWith("/establishment")) {
     return null;
   }
   return <>{children}</>;

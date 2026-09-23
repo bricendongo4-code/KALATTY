@@ -5,7 +5,7 @@ import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
-import { Avatar, Icon } from "../campus/ui";
+import { Avatar, Icon } from "../establishment/ui";
 import { logoutKalatty } from "../sessionSecurity";
 import NotificationBell from "../NotificationBell";
 import { useAccountIdentity } from "../useAccountIdentity";
@@ -51,7 +51,7 @@ export default function LearningShell({
         </nav>
         <div className={styles.sidebarFoot}>
           <p>{config.tagline}</p>
-          <Link href="/campus" className={styles.switchLink}>
+          <Link href="/establishment" className={styles.switchLink}>
             <Icon name="layers" />
             Espace Établissement
           </Link>
@@ -78,7 +78,7 @@ export default function LearningShell({
               <span>Changer d&apos;espace</span>
               <Link href="/learning/apprenant">Apprenant indépendant</Link>
               <Link href="/learning/formateur">Formateur / Créateur</Link>
-              <Link href="/campus">Espace Établissement</Link>
+              <Link href="/establishment">Espace Établissement</Link>
               <Link href="/settings">Profil &amp; sécurité</Link>
               <button type="button" className={styles.logoutButton} onClick={logoutKalatty}>
                 <Icon name="logout" />

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Icon, Progress } from "../campus/ui";
+import { Icon, Progress } from "../establishment/ui";
 import { LEARNING_ROLES, type LearningRole } from "./config";
 import type { LearningDashboardData } from "./views";
 import AccountSettings from "../AccountSettings";
@@ -114,7 +114,7 @@ export default function LearningSectionPage({ role, slug }: { role: LearningRole
   if (loading) return <section className={styles.loadingState}><span /><h1>Chargement de {details.title.toLowerCase()}</h1></section>;
   if (error) return <section className={styles.loadingState}><Icon name="alert" /><h1>Chargement impossible</h1><p>{error}</p><button onClick={load}>Réessayer</button></section>;
   if (!dashboard) return null;
-  if (dashboard.role !== expectedRole) return <section className={styles.loadingState}><h1>Espace non autorisé</h1><p>Ce profil correspond à un autre contexte Kalatty.</p><Link className={styles.primaryButton} href={dashboard.role === "teacher" ? "/learning/formateur" : dashboard.role === "student" ? "/learning/apprenant" : "/campus"}>Ouvrir mon espace</Link></section>;
+  if (dashboard.role !== expectedRole) return <section className={styles.loadingState}><h1>Espace non autorisé</h1><p>Ce profil correspond à un autre contexte Kalatty.</p><Link className={styles.primaryButton} href={dashboard.role === "teacher" ? "/learning/formateur" : dashboard.role === "student" ? "/learning/apprenant" : "/establishment"}>Ouvrir mon espace</Link></section>;
 
   const isCourseScreen = ["explorer", "formations", "certificats", "favoris"].includes(slug);
   const completedCourses = courses.filter((course) => Number(course.progress ?? 0) >= 100);

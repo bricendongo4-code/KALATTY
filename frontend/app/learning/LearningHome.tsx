@@ -52,7 +52,7 @@ export default function LearningHome({ role }: { role: LearningRole }) {
 
   const expected = role === "apprenant" ? "student" : "teacher";
   if (data.role !== expected) {
-    const target = data.role === "teacher" ? "/learning/formateur" : data.role === "student" ? "/learning/apprenant" : "/campus";
+    const target = data.role === "teacher" ? "/learning/formateur" : data.role === "student" ? "/learning/apprenant" : "/establishment";
     return <section className={styles.loadingState}><h1>Ce n&apos;est pas votre espace actif</h1><p>Votre profil actuel correspond à un autre contexte Kalatty.</p><Link href={target} className={styles.primaryButton}>Ouvrir mon espace</Link></section>;
   }
 

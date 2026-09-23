@@ -2,7 +2,7 @@
 
 import { ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Icon } from "../campus/ui";
+import { Icon } from "../establishment/ui";
 import styles from "./learning.module.css";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
