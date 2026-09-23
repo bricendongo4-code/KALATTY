@@ -75,7 +75,7 @@ export default function LearningShell({
           <details className={styles.profileMenu}>
             <summary>
               <Avatar name={identity.name} src={identity.avatarUrl} size={38} />
-              <span><strong>{identity.name}</strong><small>{config.userSub}</small></span>
+              <span className={styles.profileIdentity}><strong>{identity.name}</strong><small>{config.userSub}</small></span>
               <Icon name="chevron" />
             </summary>
             <div className={styles.profilePopover}>
