@@ -363,6 +363,71 @@ export class CoursesService {
     };
   }
 
+  async getTrainerProfile(teacherId: string) {
+    const [{ data: profile, error: profileError }, { data: courses, error: courseError }, { data: reviews, error: reviewError }] =
+      await Promise.all([
+        this.supabaseService.client
+          .from('profiles')
+          .select('id, fullname, bio, expertise, avatar_url, country')
+          .eq('id', teacherId)
+          .eq('role', 'teacher')
+          .maybeSingle(),
+        this.supabaseService.client
+          .from('courses')
+          .select('id, title, short_description, description, price_fcfa, thumbnail_url, lessons ( id ), enrollments ( id )')
+          .eq('teacher_id', teacherId)
+          .eq('status', 'published')
+          .order('created_at', { ascending: false }),
+        this.supabaseService.client
+          .from('teacher_reviews')
+          .select('id, rating, comment, created_at, profiles:student_id ( fullname )')
+          .eq('teacher_id', teacherId)
+          .order('created_at', { ascending: false })
+          .limit(20),
+      ]);
+
+    if (profileError || !profile) {
+      throw new BadRequestException(profileError?.message ?? 'Formateur introuvable.');
+    }
+    if (courseError) throw new BadRequestException(courseError.message);
+    if (reviewError && !this.isMissingTableError(reviewError)) {
+      throw new BadRequestException(reviewError.message);
+    }
+
+    const thumbnailUrls = await Promise.all(
+      (courses ?? []).map((course) => this.resolveStorageUrl('course-thumbnails', course.thumbnail_url ?? '')),
+    );
+    const formattedReviews = (reviews ?? []).map((review: any) => ({
+      id: review.id,
+      rating: Number(review.rating ?? 0),
+      comment: review.comment ?? '',
+      authorName: review.profiles?.fullname ?? 'Apprenant Kalatty',
+      createdAt: review.created_at,
+    }));
+
+    return {
+      id: profile.id,
+      name: profile.fullname ?? 'Formateur Kalatty',
+      bio: profile.bio ?? '',
+      expertise: profile.expertise ?? '',
+      country: profile.country ?? '',
+      avatarUrl: await this.resolveStorageUrl('profile-avatars', profile.avatar_url ?? ''),
+      rating: this.getAverageRating(formattedReviews),
+      reviewsCount: formattedReviews.length,
+      learnersCount: (courses ?? []).reduce((sum, course: any) => sum + (course.enrollments?.length ?? 0), 0),
+      courses: (courses ?? []).map((course: any, index) => ({
+        id: course.id,
+        title: course.title ?? 'Formation',
+        description: course.short_description ?? course.description ?? '',
+        priceFcfa: Number(course.price_fcfa ?? 0),
+        thumbnailUrl: thumbnailUrls[index],
+        lessonsCount: course.lessons?.length ?? 0,
+        learners: course.enrollments?.length ?? 0,
+      })),
+      reviews: formattedReviews,
+    };
+  }
+
   async getTeacherQuestions(user: AuthUser) {
     await this.assertTeacher(user);
     const { data: courses, error: courseError } =
@@ -1067,6 +1132,7 @@ export class CoursesService {
       teacherName:
         (course.profiles as { fullname?: string; expertise?: string } | null)
           ?.fullname ?? 'Formateur Kalatty',
+      teacherId: course.teacher_id,
       teacherExpertise:
         (course.profiles as { fullname?: string; expertise?: string } | null)
           ?.expertise ?? '',

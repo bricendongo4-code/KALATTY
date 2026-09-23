@@ -100,6 +100,12 @@ export class CoursesController {
   }
 
   @UseGuards(AuthGuard('jwt'))
+  @Get('trainers/:teacherId')
+  getTrainerProfile(@Param('teacherId') teacherId: string) {
+    return this.coursesService.getTrainerProfile(teacherId);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
   @Patch('teacher/activities/:submissionId')
   reviewTeacherActivity(
     @Req() req: RequestUser,
