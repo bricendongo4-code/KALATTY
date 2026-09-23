@@ -12,7 +12,6 @@ export const LEARNING_ROLES: Record<
     name: string;
     title: string;
     tagline: string;
-    user: string;
     userSub: string;
     search: string;
     nav: LearningNavItem[];
@@ -22,7 +21,6 @@ export const LEARNING_ROLES: Record<
     name: "Apprenant indépendant",
     title: "Espace apprenant",
     tagline: "Apprendre aujourd'hui, construire demain.",
-    user: "Joss Ndongo",
     userSub: "Apprenant",
     search: "Rechercher une formation ou un formateur...",
     nav: [
@@ -40,7 +38,6 @@ export const LEARNING_ROLES: Record<
     name: "Formateur / Créateur",
     title: "Espace formateur",
     tagline: "Partager le savoir, faire grandir les talents.",
-    user: "Prof. Martin E.T.",
     userSub: "Formateur",
     search: "Rechercher un apprenant ou une formation...",
     nav: [

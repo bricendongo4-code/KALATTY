@@ -95,7 +95,8 @@
 .activityList li { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid #edf2f2; }
 .activityList li:last-child { border-bottom: 0; }.activityList svg { width: 18px; color: var(--teal); }.activityList span { display: grid; }.activityList strong { font-size: 13px; }.activityList small { color: var(--muted); }.activityList b { color: #7a8d92; font-size: 11px; }
 .recommendations { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
-.recommendations > span { min-height: 96px; display: grid; align-content: end; padding: 12px; border-radius: 13px; background: linear-gradient(135deg,#d9f5f2,#fff0e2); font-weight: 850; font-size: 13px; }
+.recommendations > span, .recommendations > a { min-height: 96px; display: grid; align-content: end; padding: 12px; border-radius: 13px; background: linear-gradient(135deg,#d9f5f2,#fff0e2); color:var(--ink);font-weight:850;font-size:13px; }
+.recommendations > a:hover { box-shadow:inset 0 0 0 2px var(--teal);transform:translateY(-1px); }
 .recommendations small { display: block; margin-top: 4px; color: var(--muted); font-weight: 500; }
 .studioCallout { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-top: 18px; padding: 18px; border-radius: 16px; background: linear-gradient(110deg,#07545e,#087d7d); color: #fff; }
 .studioCallout > div { display: flex; align-items: center; gap: 14px; }.studioCallout svg { width: 32px; }.studioCallout span { display: grid; }.studioCallout small { margin-top: 3px; color: #c9e8e5; }

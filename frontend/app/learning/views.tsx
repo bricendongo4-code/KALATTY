@@ -2,12 +2,6 @@ import Link from "next/link";
 import { Icon, Progress } from "../establishment/ui";
 import styles from "./learning.module.css";
 
-const courses = [
-  { title: "Marketing digital", trainer: "Sarah K.", progress: 64, tone: "teal", image: "MK" },
-  { title: "Gestion de projet", trainer: "Thomas R.", progress: 28, tone: "orange", image: "GP" },
-  { title: "Design UX/UI", trainer: "Emma D.", progress: 12, tone: "purple", image: "UX" },
-];
-
 export type LearningDashboardData = {
   role: "student" | "teacher" | "institution";
   profile?: { fullname?: string; expertise?: string | null };
@@ -21,6 +15,23 @@ export type LearningDashboardData = {
     learners?: number;
     lessonsCount?: number;
   }>;
+  catalogCourses?: Array<{
+    id: string;
+    title: string;
+    teacherName?: string;
+    lessonsCount?: number;
+    level?: string;
+    enrolled?: boolean;
+  }>;
+  tasks?: Array<{ label: string; courseId?: string; roomId?: string; href?: string }>;
+  recentActivity?: Array<{
+    id: string;
+    type: "question" | "enrollment";
+    title: string;
+    detail: string;
+    createdAt: string;
+    href: string;
+  }>;
 };
 
 
@@ -28,7 +39,15 @@ function Stat({ icon, value, label, tone = "teal" }: { icon: string; value: stri
   return <article className={styles.stat}><span className={`${styles.statIcon} ${styles[`stat_${tone}`]}`}><Icon name={icon} /></span><span><strong>{value}</strong><small>{label}</small></span></article>;
 }
 
-type CourseView = (typeof courses)[number] & { id?: string; learners?: number };
+type CourseView = {
+  id?: string;
+  title: string;
+  trainer: string;
+  progress: number;
+  tone: string;
+  image: string;
+  learners?: number;
+};
 
 function CourseRow({ course, trainer = false }: { course: CourseView; trainer?: boolean }) {
   return <article className={styles.courseRow}>
@@ -39,20 +58,22 @@ function CourseRow({ course, trainer = false }: { course: CourseView; trainer?: 
   </article>;
 }
 
-export function LearnerHome({ data }: { data?: LearningDashboardData }) {
-  const liveCourses: CourseView[] = data
-    ? (data.courses ?? []).map((course, index) => ({
+export function LearnerHome({ data }: { data: LearningDashboardData }) {
+  const liveCourses: CourseView[] = (data.courses ?? []).map((course, index) => ({
         id: course.id,
         title: course.title ?? "Formation",
         trainer: course.teacherName ?? "Formateur Kalatty",
         progress: Number(course.progress ?? 0),
         tone: ["teal", "orange", "purple"][index % 3],
         image: (course.title ?? "KF").slice(0, 2).toUpperCase(),
-      }))
-    : courses;
+      }));
   const resume = liveCourses[0];
-  const name = data?.profile?.fullname?.split(" ")[0] ?? "Joss";
-  const average = Number(data?.stats?.progressAverage ?? resume?.progress ?? 0);
+  const name = data.profile?.fullname?.split(" ")[0] ?? "Apprenant";
+  const average = Number(data.stats?.progressAverage ?? resume?.progress ?? 0);
+  const tasks = data.tasks ?? [];
+  const recommendations = (data.catalogCourses ?? [])
+    .filter((course) => !course.enrolled)
+    .slice(0, 3);
   return <>
     <section className={styles.hero}>
       <div><span className={styles.eyebrow}>Bonjour {name} 👋</span><h1>Continuez là où vous vous êtes arrêté.</h1><p>Votre prochaine étape est prête. Quelques minutes aujourd&apos;hui suffisent pour avancer.</p></div>
@@ -67,15 +88,14 @@ export function LearnerHome({ data }: { data?: LearningDashboardData }) {
     <div className={styles.sectionHead}><h2>Mes formations en cours</h2><Link href="/learn/my-courses">Voir toutes</Link></div>
     <div className={styles.courseGrid}>{liveCourses.map((course) => <CourseRow key={course.id ?? course.title} course={course} />)}</div>
     <div className={styles.twoColumns}>
-      <section className={styles.panel}><div className={styles.sectionHead}><h2>Prochaines étapes</h2></div><ul className={styles.activityList}><li><Icon name="clipboard" /><span><strong>Quiz — Acquisition</strong><small>Marketing digital · 10 questions</small></span><b>Aujourd&apos;hui</b></li><li><Icon name="video" /><span><strong>Chapitre 5 — SEO</strong><small>Durée estimée : 18 min</small></span><b>À suivre</b></li><li><Icon name="award" /><span><strong>Objectif certification</strong><small>Encore 3 cours à terminer</small></span><b>75%</b></li></ul></section>
-      <section className={styles.panel}><div className={styles.sectionHead}><h2>Recommandations pour vous</h2><Link href="/learn/explore">Explorer</Link></div><div className={styles.recommendations}><span>Intelligence artificielle<small>1 164 apprenants</small></span><span>Entrepreneuriat<small>980 apprenants</small></span><span>Communication efficace<small>760 apprenants</small></span></div></section>
+      <section className={styles.panel}><div className={styles.sectionHead}><h2>Prochaines étapes</h2></div>{tasks.length ? <ul className={styles.activityList}>{tasks.map((task, index) => <li key={`${task.label}-${index}`}><Icon name={task.roomId ? "calendar" : "play"} /><span><strong>{task.label}</strong><small>Action proposée selon votre progression</small></span><Link href={task.courseId ? `/learn/courses/${task.courseId}` : "/learn/activities"}>Ouvrir</Link></li>)}</ul> : <div className={styles.empty}><Icon name="checkCircle" /><h3>Vous êtes à jour</h3><p>Commencez une formation pour recevoir vos prochaines étapes.</p></div>}</section>
+      <section className={styles.panel}><div className={styles.sectionHead}><h2>Recommandations pour vous</h2><Link href="/learn/explore">Explorer</Link></div>{recommendations.length ? <div className={styles.recommendations}>{recommendations.map((course) => <Link key={course.id} href={`/learn/catalog/${course.id}`}><strong>{course.title}</strong><small>{course.teacherName ?? "Formateur Kalatty"} · {course.lessonsCount ?? 0} leçon(s)</small></Link>)}</div> : <div className={styles.empty}><Icon name="book" /><h3>Catalogue parcouru</h3><p>De nouvelles formations seront proposées ici dès leur publication.</p></div>}</section>
     </div>
   </>;
 }
 
-export function TrainerHome({ data }: { data?: LearningDashboardData }) {
-  const liveCourses: CourseView[] = data
-    ? (data.courses ?? []).map((course, index) => ({
+export function TrainerHome({ data }: { data: LearningDashboardData }) {
+  const liveCourses: CourseView[] = (data.courses ?? []).map((course, index) => ({
         id: course.id,
         title: course.title ?? "Formation",
         trainer: "Vous",
@@ -83,17 +103,17 @@ export function TrainerHome({ data }: { data?: LearningDashboardData }) {
         learners: Number(course.learners ?? 0),
         tone: ["teal", "orange", "purple"][index % 3],
         image: (course.title ?? "KF").slice(0, 2).toUpperCase(),
-      }))
-    : courses;
-  const stats = data?.stats ?? {};
-  const name = data?.profile?.fullname ?? "Prof. Martin";
+      }));
+  const stats = data.stats ?? {};
+  const name = data.profile?.fullname ?? "Formateur";
+  const recentActivity = data.recentActivity ?? [];
   return <>
     <section className={`${styles.hero} ${styles.heroTrainer}`}><div><span className={styles.eyebrow}>Bonjour {name},</span><h1>Votre savoir avance, vos apprenants aussi.</h1><p>Voici les éléments prioritaires de vos formations aujourd&apos;hui.</p></div><Link href="/creator/courses/new" className={styles.primaryButton}><Icon name="plus" /> Créer une formation</Link></section>
     <div className={styles.stats}><Stat icon="users" value={String(stats.totalLearners ?? 0)} label="Apprenants" /><Stat icon="book" value={String(stats.publishedCourses ?? 0)} label="Formations" tone="blue" /><Stat icon="layers" value={String(stats.activeClasses ?? 0)} label="Classes actives" tone="orange" /><Stat icon="chart" value={String(stats.averageLearners ?? 0)} label="Apprenants / cours" tone="purple" /></div>
-    <div className={styles.stats}><Stat icon="euro" value={`${new Intl.NumberFormat("fr-FR").format(stats.monthRevenue ?? 0)} FCFA`} label="Revenus ce mois" /><Stat icon="euro" value={`${new Intl.NumberFormat("fr-FR").format(stats.totalRevenue ?? 0)} FCFA`} label="Revenus cumulés" tone="blue" /><Stat icon="video" value={String(liveCourses.reduce((sum, course) => sum + Math.round(course.progress / 12), 0))} label="Leçons publiées" tone="orange" /><Stat icon="mail" value="—" label="Questions à traiter" tone="purple" /></div>
+    <div className={styles.stats}><Stat icon="euro" value={`${new Intl.NumberFormat("fr-FR").format(stats.monthRevenue ?? 0)} FCFA`} label="Revenus ce mois" /><Stat icon="euro" value={`${new Intl.NumberFormat("fr-FR").format(stats.totalRevenue ?? 0)} FCFA`} label="Revenus cumulés" tone="blue" /><Stat icon="video" value={String(stats.totalLessons ?? 0)} label="Leçons créées" tone="orange" /><Stat icon="mail" value={String(stats.pendingQuestions ?? 0)} label="Questions à traiter" tone="purple" /></div>
     <div className={styles.twoColumns}>
       <section className={styles.panel}><div className={styles.sectionHead}><h2>Mes formations</h2><Link href="/creator/courses">Voir toutes</Link></div>{liveCourses.length ? liveCourses.map((course) => <CourseRow key={course.id ?? course.title} course={course} trainer />) : <p className={styles.mutedText}>Aucune formation créée pour le moment.</p>}</section>
-      <section className={styles.panel}><div className={styles.sectionHead}><h2>Activité récente</h2></div><ul className={styles.activityList}><li><Icon name="award" /><span><strong>Sophie M. a terminé le module 3</strong><small>Marketing digital</small></span><b>Il y a 2 min</b></li><li><Icon name="mail" /><span><strong>Nouvelle question sur « SEO »</strong><small>À traiter</small></span><b>12 min</b></li><li><Icon name="userPlus" /><span><strong>3 nouveaux inscrits aujourd&apos;hui</strong><small>Deux formations</small></span><b>1 h</b></li></ul></section>
+      <section className={styles.panel}><div className={styles.sectionHead}><h2>Activité récente</h2></div>{recentActivity.length ? <ul className={styles.activityList}>{recentActivity.map((activity) => <li key={activity.id}><Icon name={activity.type === "question" ? "mail" : "userPlus"} /><span><strong>{activity.title}</strong><small>{activity.detail}</small></span><Link href={activity.href}>Ouvrir</Link></li>)}</ul> : <div className={styles.empty}><Icon name="chart" /><h3>Aucune activité récente</h3><p>Les nouvelles inscriptions et questions apparaîtront ici.</p></div>}</section>
     </div>
     <section className={styles.studioCallout}><div><Icon name="video" /><span><strong>Créez votre prochain cours avec Kalatty Studio</strong><small>Enregistrez, montez, ajoutez des interactions et publiez facilement.</small></span></div><Link href="/creator/studio" className={styles.primaryButton}>Ouvrir le Studio →</Link></section>
   </>;

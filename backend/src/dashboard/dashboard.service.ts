@@ -790,8 +790,7 @@ export class DashboardService {
           lessons ( id, video_path )
         `,
       )
-      .eq('teacher_id', profile.id)
-      .neq('status', 'archived');
+      .eq('teacher_id', profile.id);
 
     const thumbnailUrls = await this.resolveStorageUrls(
       'course-thumbnails',
@@ -815,6 +814,53 @@ export class DashboardService {
 
     const revenueStats = await this.getTeacherRevenue(profile.id);
     const teacherRooms = await this.getTeacherRooms(profile.id);
+    const courseIds = coursesList.map((course: any) => String(course.id));
+    const [questionsResult, enrollmentsResult] = courseIds.length
+      ? await Promise.all([
+          this.supabaseService.client
+            .from('course_questions')
+            .select(
+              'id, course_id, body, status, created_at, profiles:author_id ( fullname )',
+            )
+            .in('course_id', courseIds)
+            .order('created_at', { ascending: false })
+            .limit(12),
+          this.supabaseService.client
+            .from('enrollments')
+            .select(
+              'id, course_id, enrolled_at, profiles:user_id ( fullname )',
+            )
+            .in('course_id', courseIds)
+            .order('enrolled_at', { ascending: false })
+            .limit(12),
+        ])
+      : [{ data: [] }, { data: [] }];
+    const courseTitleById = new Map(
+      coursesList.map((course: any) => [String(course.id), course.title]),
+    );
+    const questionRows = questionsResult.data ?? [];
+    const enrollmentRows = enrollmentsResult.data ?? [];
+    const recentActivity = [
+      ...questionRows.map((question: any) => ({
+        id: `question-${question.id}`,
+        type: 'question',
+        title: 'Nouvelle question d\'un apprenant',
+        detail: `${question.profiles?.fullname ?? 'Apprenant'} · ${courseTitleById.get(String(question.course_id)) ?? 'Formation'}`,
+        createdAt: question.created_at,
+        href: '/creator/assessments',
+      })),
+      ...enrollmentRows.map((enrollment: any) => ({
+        id: `enrollment-${enrollment.id}`,
+        type: 'enrollment',
+        title: 'Nouvelle inscription',
+        detail: `${enrollment.profiles?.fullname ?? 'Apprenant'} · ${courseTitleById.get(String(enrollment.course_id)) ?? 'Formation'}`,
+        createdAt: enrollment.enrolled_at,
+        href: '/creator/learners',
+      })),
+    ]
+      .filter((activity) => Boolean(activity.createdAt))
+      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+      .slice(0, 6);
     const totalLearners = coursesList.reduce(
       (sum: number, course: { learners: number }) => sum + course.learners,
       0,
@@ -825,7 +871,19 @@ export class DashboardService {
       workspace,
       profile,
       stats: {
-        publishedCourses: coursesList.length,
+        publishedCourses: coursesList.filter(
+          (course: any) => course.status === 'published',
+        ).length,
+        draftCourses: coursesList.filter(
+          (course: any) => course.status === 'draft',
+        ).length,
+        totalLessons: coursesList.reduce(
+          (sum: number, course: any) => sum + course.lessonsCount,
+          0,
+        ),
+        pendingQuestions: questionRows.filter(
+          (question: any) => question.status !== 'answered',
+        ).length,
         totalLearners,
         averageLearners:
           coursesList.length > 0
@@ -837,11 +895,30 @@ export class DashboardService {
       },
       courses: coursesList,
       teacherRooms,
+      recentActivity,
       tasks: [
-        { label: 'Publier une nouvelle lecon video.' },
-        { label: 'Ajouter un exercice corrige pour le prochain module.' },
-        { label: 'Suivre les inscriptions des derniers apprenants.' },
-      ],
+        ...questionRows
+          .filter((question: any) => question.status !== 'answered')
+          .slice(0, 1)
+          .map(() => ({
+            label: 'Repondre aux questions en attente.',
+            href: '/creator/assessments',
+          })),
+        ...coursesList
+          .filter((course: any) => course.status === 'draft')
+          .slice(0, 2)
+          .map((course: any) => ({
+            label: `Finaliser et publier ${course.title}.`,
+            href: `/creator/courses/${course.id}/builder`,
+          })),
+        ...coursesList
+          .filter((course: any) => course.lessonsCount === 0)
+          .slice(0, 1)
+          .map((course: any) => ({
+            label: `Ajouter une premiere lecon a ${course.title}.`,
+            href: `/creator/courses/${course.id}/builder`,
+          })),
+      ].slice(0, 4),
     };
   }
 

@@ -698,7 +698,7 @@ export class CampusService {
       .in('room_id', roomIds).order('weekday', { ascending: true }).order('starts_at', { ascending: true });
     if (error) throw new BadRequestException(error.message);
     return { schedule: (data ?? []).map((item: any) => ({
-      id: item.id, title: item.title, roomName: names.get(String(item.room_id)),
+      id: item.id, roomId: item.room_id, title: item.title, roomName: names.get(String(item.room_id)),
       weekday: Number(item.weekday), startsAt: String(item.starts_at).slice(0, 5),
       endsAt: item.ends_at ? String(item.ends_at).slice(0, 5) : null, location: item.location ?? '',
     })) };
@@ -728,7 +728,7 @@ export class CampusService {
     if (scheduleResult.error) throw new BadRequestException(scheduleResult.error.message);
     const names = new Map((roomsResult.data ?? []).map((room: any) => [String(room.id), String(room.name)]));
     return { schedule: (scheduleResult.data ?? []).filter((item: any) => names.has(String(item.room_id))).map((item: any) => ({
-      id: item.id, title: item.title, roomName: names.get(String(item.room_id)), weekday: Number(item.weekday),
+      id: item.id, roomId: item.room_id, title: item.title, roomName: names.get(String(item.room_id)), weekday: Number(item.weekday),
       startsAt: String(item.starts_at).slice(0, 5), endsAt: item.ends_at ? String(item.ends_at).slice(0, 5) : null,
       location: item.location ?? '',
     })) };

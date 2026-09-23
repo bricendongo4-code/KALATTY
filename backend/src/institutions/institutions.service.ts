@@ -1020,11 +1020,19 @@ export class InstitutionsService {
     },
   ) {
     const room = await this.getRoomOrThrow(roomId);
-    await this.assertInstitutionStaff(user.id, room.institution_id, [
+    const institutionRole = await this.assertInstitutionStaff(
+      user.id,
+      room.institution_id,
+      [
       'owner',
       'admin',
       'teacher',
-    ]);
+      'pedagogy',
+      ],
+    );
+    if (institutionRole === 'teacher') {
+      await this.assertTeacherRoomAssignment(user.id, roomId);
+    }
 
     const title = payload.title?.trim();
     if (!title) {
@@ -1092,11 +1100,19 @@ export class InstitutionsService {
       throw new NotFoundException('Creneau introuvable.');
     }
 
-    await this.assertInstitutionStaff(user.id, existing.institution_id, [
+    const institutionRole = await this.assertInstitutionStaff(
+      user.id,
+      existing.institution_id,
+      [
       'owner',
       'admin',
       'teacher',
-    ]);
+      'pedagogy',
+      ],
+    );
+    if (institutionRole === 'teacher') {
+      await this.assertTeacherRoomAssignment(user.id, existing.room_id);
+    }
 
     const updates: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
@@ -2243,6 +2259,25 @@ export class InstitutionsService {
     }
 
     return (data?.role as InstitutionRole | undefined) ?? null;
+  }
+
+  private async assertTeacherRoomAssignment(userId: string, roomId: string) {
+    const { data, error } = await this.supabaseService.client
+      .from('room_members')
+      .select('id')
+      .eq('room_id', roomId)
+      .eq('user_id', userId)
+      .eq('role', 'teacher')
+      .maybeSingle();
+
+    if (error) {
+      throw new BadRequestException(error.message);
+    }
+    if (!data) {
+      throw new ForbiddenException(
+        "Ce professeur n'est pas affecte a cette classe.",
+      );
+    }
   }
 
   private async getInstitutionOrThrow(institutionId: string) {
