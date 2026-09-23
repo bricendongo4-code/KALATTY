@@ -44,6 +44,7 @@ export const ROLES: Record<RoleSlug, RoleConfig> = {
       { slug: "evaluations", label: "Mes évaluations", icon: "clipboard" },
       { slug: "resultats", label: "Mes résultats", icon: "chart" },
       { slug: "classe", label: "Ma classe", icon: "users" },
+      { slug: "presences", label: "Mes présences", icon: "checkCircle" },
       { slug: "documents", label: "Mes documents", icon: "file" },
       { slug: "messagerie", label: "Notifications", icon: "bell" },
       { slug: "actualites", label: "Actualités", icon: "megaphone" },

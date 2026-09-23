@@ -181,11 +181,12 @@ export function useCampusContext(expectedRole: RoleSlug) {
 
 export async function campusFetch(path: string, init?: RequestInit) {
   const headers = authHeaders();
+  const isFormData = typeof FormData !== "undefined" && init?.body instanceof FormData;
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers: {
       ...(headers ?? {}),
-      ...(init?.body ? { "Content-Type": "application/json" } : {}),
+      ...(init?.body && !isFormData ? { "Content-Type": "application/json" } : {}),
       ...(init?.headers ?? {}),
     },
   });
