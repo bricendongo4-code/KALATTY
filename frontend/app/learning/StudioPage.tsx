@@ -30,7 +30,7 @@ export default function StudioPage({ projectId }: { projectId?: string }) {
   const [uploading, setUploading] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [aiAction, setAiAction] = useState<"outline" | "script">("outline");
+  const [aiAction, setAiAction] = useState<"outline" | "script" | "quiz">("outline");
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState<AiResult | null>(null);
@@ -180,10 +180,19 @@ export default function StudioPage({ projectId }: { projectId?: string }) {
     finally { setAiLoading(false); }
   };
 
-  const applyAi = () => {
+  const applyAi = async () => {
     if (!project || !aiResult) return;
     if (aiAction === "outline") updateProject({ scenes: aiResult.outline.map((scene) => ({ ...scene, id: crypto.randomUUID() })) });
     if (aiAction === "script") updateProject({ script: aiResult.script });
+    if (aiAction === "quiz") {
+      const quizText = aiResult.quiz.map((item, index) => {
+        const choices = item.choices.map((choice, choiceIndex) => `${choiceIndex + 1}. ${choice}`).join("\n");
+        return `${index + 1}. ${item.question}\n${choices}\nRéponse : ${item.choices[item.answerIndex] ?? "À vérifier"}\nExplication : ${item.explanation}`;
+      }).join("\n\n");
+      await navigator.clipboard.writeText(quizText);
+      setMessage("Quiz copié. Relisez-le puis ajoutez-le aux exercices de la formation.");
+      return;
+    }
     setMessage("Suggestion appliquée au brouillon. Relisez-la et adaptez-la avant de finaliser la vidéo.");
   };
 
@@ -246,7 +255,7 @@ export default function StudioPage({ projectId }: { projectId?: string }) {
         </section>
         <section className={styles.sceneEditor}><div className={styles.sectionHead}><div><div className={styles.studioSectionTitle}><b>Option</b><span><h2>Organiser le déroulé</h2><p>Découpez votre explication en parties courtes uniquement si cela vous aide à préparer le tournage.</p></span></div></div><button type="button" onClick={addScene}>+ Ajouter une partie</button></div>{project.scenes.length ? project.scenes.map((scene, index) => <article key={scene.id}><span>{String(index + 1).padStart(2, "0")}</span><input value={scene.title} onChange={(event) => updateScene(scene.id, { title: event.target.value })} aria-label={`Titre scène ${index + 1}`} /><textarea rows={2} value={scene.objective} onChange={(event) => updateScene(scene.id, { objective: event.target.value })} aria-label={`Objectif scène ${index + 1}`} /><label>Durée<input type="number" min={10} max={3600} value={scene.durationSeconds} onChange={(event) => updateScene(scene.id, { durationSeconds: Number(event.target.value) })} /></label><button type="button" aria-label={`Supprimer scène ${index + 1}`} onClick={() => updateProject({ scenes: project.scenes.filter((item) => item.id !== scene.id) })}>×</button></article>) : <div className={styles.studioEmptyStep}><Icon name="video" /><span><h3>Le découpage est facultatif</h3><p>Ajoutez des parties si vous souhaitez préparer votre tournage, ou importez directement une vidéo déjà terminée.</p></span><button type="button" onClick={addScene}>Créer la première partie</button></div>}</section>
       </main>
-      <aside className={styles.aiPanel}><span className={styles.aiBadge}>AIDE IA</span><h2>Besoin d&apos;un point de départ ?</h2><p>Cette aide est facultative. Elle propose un plan ou un script, mais ne publie rien automatiquement.</p><div className={styles.aiActions}>{(["outline", "script"] as const).map((action) => <button type="button" key={action} className={aiAction === action ? styles.aiActionActive : ""} onClick={() => { setAiAction(action); setAiResult(null); }}>{action === "outline" ? "Plan de la vidéo" : "Script"}</button>)}</div><textarea rows={5} value={aiPrompt} onChange={(event) => setAiPrompt(event.target.value)} placeholder="Exemple : niveau débutant, ton simple, expliquer les fractions…" /><button type="button" className={styles.primaryButton} disabled={aiLoading} onClick={() => void generateAi()}>{aiLoading ? "Génération…" : "Proposer une base"}</button>{aiResult ? <div className={styles.aiResult}><strong>{aiResult.title}</strong><p>{aiResult.summary}</p>{aiAction === "outline" ? <ol>{aiResult.outline.map((item) => <li key={item.title}>{item.title} · {item.durationSeconds}s</li>)}</ol> : null}{aiAction === "script" ? <p>{aiResult.script.slice(0, 500)}{aiResult.script.length > 500 ? "…" : ""}</p> : null}<button type="button" onClick={applyAi}>Utiliser cette proposition</button></div> : null}</aside>
+      <aside className={styles.aiPanel}><span className={styles.aiBadge}>ASSISTANT PÉDAGOGIQUE</span><h2>Préparer plus vite, garder le contrôle</h2><p>Choisissez une aide précise. L&apos;IA prépare une base que vous relisez avant toute utilisation.</p><div className={styles.aiActions}>{(["outline", "script", "quiz"] as const).map((action) => <button type="button" key={action} className={aiAction === action ? styles.aiActionActive : ""} onClick={() => { setAiAction(action); setAiResult(null); }}>{action === "outline" ? "Plan" : action === "script" ? "Script" : "Quiz"}</button>)}</div><textarea rows={5} value={aiPrompt} onChange={(event) => setAiPrompt(event.target.value)} placeholder="Exemple : niveau débutant, ton simple, expliquer les fractions…" /><button type="button" className={styles.primaryButton} disabled={aiLoading} onClick={() => void generateAi()}>{aiLoading ? "Génération…" : `Générer ${aiAction === "outline" ? "un plan" : aiAction === "script" ? "un script" : "un quiz"}`}</button>{aiResult ? <div className={styles.aiResult}><strong>{aiResult.title}</strong><p>{aiResult.summary}</p>{aiAction === "outline" ? <ol>{aiResult.outline.map((item) => <li key={item.title}>{item.title} · {item.durationSeconds}s</li>)}</ol> : null}{aiAction === "script" ? <p>{aiResult.script.slice(0, 500)}{aiResult.script.length > 500 ? "…" : ""}</p> : null}{aiAction === "quiz" ? <ol>{aiResult.quiz.map((item) => <li key={item.question}><strong>{item.question}</strong><span>{item.choices.length} choix · réponse : {item.choices[item.answerIndex] ?? "à vérifier"}</span></li>)}</ol> : null}<button type="button" onClick={() => void applyAi()}>{aiAction === "quiz" ? "Copier le quiz" : "Utiliser cette proposition"}</button></div> : null}</aside>
     </div>
   </>;
 }

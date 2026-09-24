@@ -331,6 +331,10 @@ export default function CoursePlayerPage({
         if (!checkoutResponse.ok)
           throw new Error(checkout.message ?? "Paiement impossible.");
         if (!checkout.alreadyEnrolled) {
+          if (checkout.paymentUrl) {
+            window.location.assign(checkout.paymentUrl);
+            return;
+          }
           setAccessMessage(
             checkout.instructions ??
               "Votre demande de paiement est enregistrée. L’accès sera activé après confirmation du paiement.",

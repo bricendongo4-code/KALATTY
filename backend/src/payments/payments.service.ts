@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 
@@ -48,7 +49,7 @@ export class PaymentsService {
   getPlans() {
     const provider =
       process.env.PAYMENT_PROVIDER?.trim() || 'pending_configuration';
-    const paymentsEnabled = provider !== 'pending_configuration';
+    const paymentsEnabled = this.isCinetPayConfigured();
     return {
       coursePayments: {
         provider,
@@ -70,7 +71,7 @@ export class PaymentsService {
       ),
       nextProviderIntegration: {
         status: 'ready_for_provider',
-        recommendedProviders: ['Mobile Money', 'Stripe', 'CinetPay'],
+        recommendedProviders: ['CinetPay Mobile Money'],
       },
     };
   }
@@ -220,10 +221,10 @@ export class PaymentsService {
       );
     }
 
-    const provider = process.env.PAYMENT_PROVIDER?.trim();
-    if (!provider || provider === 'pending_configuration') {
+    const provider = process.env.PAYMENT_PROVIDER?.trim()?.toLowerCase();
+    if (!this.isCinetPayConfigured()) {
       throw new BadRequestException(
-        "Le paiement n'est pas encore disponible. Aucun debit ni demande de paiement n'a ete cree.",
+        "Le paiement CinetPay n'est pas encore configuré. Aucun débit ni demande de paiement n'a été créé.",
       );
     }
 
@@ -290,6 +291,24 @@ export class PaymentsService {
       payment = createdPayment;
     }
 
+    let checkout: { paymentUrl: string };
+    try {
+      checkout = await this.initializeCinetPayCheckout({
+        paymentId: String(payment.id),
+        amountFcfa: Number(payment.amount_fcfa ?? 0),
+        courseId: String(course.id),
+        courseTitle: String(course.title ?? 'Cours Kalatty'),
+        userId: user.id,
+      });
+    } catch (error) {
+      await this.supabaseService.client
+        .from('payments')
+        .update({ status: 'failed' })
+        .eq('id', payment.id)
+        .neq('status', 'paid');
+      throw error;
+    }
+
     return {
       paymentId: payment.id,
       status: payment.status,
@@ -298,9 +317,10 @@ export class PaymentsService {
       teacherEarningFcfa: Number(payment.teacher_earning_fcfa ?? 0),
       createdAt: payment.created_at,
       provider,
-      providerLabel: 'Paiement sécurisé en attente',
+      providerLabel: 'CinetPay Mobile Money',
+      paymentUrl: checkout.paymentUrl,
       instructions:
-        "Votre demande est enregistrée. Aucun accès n'est accordé avant la confirmation sécurisée du prestataire de paiement.",
+        "Vous allez être redirigé vers CinetPay. L'accès sera activé uniquement après confirmation sécurisée du paiement.",
       course: {
         id: course.id,
         title: course.title ?? 'Cours Kalatty',
@@ -316,7 +336,7 @@ export class PaymentsService {
       );
     }
 
-    if (process.env.PAYMENTS_DEMO_MODE !== 'true' && role !== 'admin') {
+    if (process.env.PAYMENTS_DEMO_MODE !== 'true') {
       throw new ForbiddenException(
         'La confirmation manuelle est désactivée en production.',
       );
@@ -343,43 +363,7 @@ export class PaymentsService {
       );
     }
 
-    if (payment.status !== 'paid') {
-      const { error: updateError } = await this.supabaseService.client
-        .from('payments')
-        .update({
-          status: 'paid',
-        })
-        .eq('id', payment.id);
-
-      if (updateError) {
-        throw new BadRequestException(
-          updateError.message ?? 'Impossible de confirmer le paiement.',
-        );
-      }
-    }
-
-    const { data: enrollment } = await this.supabaseService.client
-      .from('enrollments')
-      .select('id')
-      .eq('user_id', payment.user_id)
-      .eq('course_id', payment.course_id)
-      .maybeSingle();
-
-    if (!enrollment?.id) {
-      const { error: enrollError } = await this.supabaseService.client
-        .from('enrollments')
-        .insert({
-          user_id: payment.user_id,
-          course_id: payment.course_id,
-        });
-
-      if (enrollError) {
-        throw new BadRequestException(
-          enrollError.message ??
-            "Impossible d'activer l'inscription apres paiement.",
-        );
-      }
-    }
+    await this.activateCoursePayment(payment);
 
     return {
       paymentId: payment.id,
@@ -388,6 +372,47 @@ export class PaymentsService {
       amountFcfa: Number(payment.amount_fcfa ?? 0),
       message: 'Paiement confirme et acces au cours active.',
     };
+  }
+
+  async handleCinetPayWebhook(transactionId?: string) {
+    if (!this.isCinetPayConfigured()) {
+      throw new ServiceUnavailableException('CinetPay n’est pas configuré.');
+    }
+    const paymentId = this.paymentIdFromTransactionId(transactionId);
+    const { data: payment, error } = await this.supabaseService.client
+      .from('payments')
+      .select(
+        'id, user_id, course_id, teacher_id, amount_fcfa, platform_fee_fcfa, teacher_earning_fcfa, status',
+      )
+      .eq('id', paymentId)
+      .maybeSingle();
+    if (error || !payment) {
+      throw new BadRequestException(error?.message ?? 'Transaction inconnue.');
+    }
+
+    const verification = await this.verifyCinetPayTransaction(
+      this.transactionIdFromPaymentId(paymentId),
+    );
+    const verifiedAmount = Number(verification.data?.amount ?? 0);
+    const accepted =
+      verification.code === '00' &&
+      verification.data?.status === 'ACCEPTED' &&
+      verification.data?.currency === 'XAF' &&
+      verifiedAmount === Number(payment.amount_fcfa);
+
+    if (!accepted) {
+      const nextStatus =
+        verification.data?.status === 'REFUSED' ? 'failed' : 'processing';
+      await this.supabaseService.client
+        .from('payments')
+        .update({ status: nextStatus })
+        .eq('id', payment.id)
+        .neq('status', 'paid');
+      return { received: true, paid: false, status: nextStatus };
+    }
+
+    await this.activateCoursePayment(payment);
+    return { received: true, paid: true, status: 'paid' };
   }
 
   async createInstitutionCheckout(
@@ -410,8 +435,9 @@ export class PaymentsService {
     const institution = await this.getInstitutionForBilling(institutionId);
 
     return {
-      provider: process.env.PAYMENT_PROVIDER ?? 'pending_configuration',
-      providerLabel: 'Abonnement sécurisé en attente',
+      enabled: false,
+      provider: 'pending_configuration',
+      providerLabel: 'Abonnement établissement bientôt disponible',
       institution: {
         id: institution.id,
         name: institution.name ?? 'Etablissement',
@@ -424,8 +450,138 @@ export class PaymentsService {
         maxRooms: plan.maxRooms,
       },
       instructions:
-        "La demande d'abonnement est préparée. L'activation intervient uniquement après confirmation sécurisée du prestataire de paiement.",
+        "Aucun paiement n'est demandé pour le moment. L'abonnement sera activé uniquement après l'intégration d'un parcours marchand dédié aux établissements.",
     };
+  }
+
+  private isCinetPayConfigured() {
+    return (
+      process.env.PAYMENT_PROVIDER?.trim().toLowerCase() === 'cinetpay' &&
+      Boolean(process.env.CINETPAY_API_KEY?.trim()) &&
+      Boolean(process.env.CINETPAY_SITE_ID?.trim()) &&
+      Boolean(this.publicApiUrl()) &&
+      Boolean(process.env.FRONTEND_URL?.trim())
+    );
+  }
+
+  private async initializeCinetPayCheckout(input: {
+    paymentId: string;
+    amountFcfa: number;
+    courseId: string;
+    courseTitle: string;
+    userId: string;
+  }) {
+    if (input.amountFcfa % 5 !== 0) {
+      throw new BadRequestException(
+        'Le prix du cours doit être un multiple de 5 FCFA pour le paiement Mobile Money.',
+      );
+    }
+    const transactionId = this.transactionIdFromPaymentId(input.paymentId);
+    const response = await fetch('https://api-checkout.cinetpay.com/v2/payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        apikey: process.env.CINETPAY_API_KEY,
+        site_id: process.env.CINETPAY_SITE_ID,
+        transaction_id: transactionId,
+        amount: input.amountFcfa,
+        currency: 'XAF',
+        description: `Cours Kalatty ${input.courseTitle}`
+          .replace(/[^a-zA-Z0-9À-ÿ ]/g, ' ')
+          .slice(0, 120),
+        notify_url: `${this.publicApiUrl()}/payments/cinetpay/notify`,
+        return_url: `${process.env.FRONTEND_URL?.replace(/\/$/, '')}/learn/courses/${input.courseId}?payment=return`,
+        channels: 'MOBILE_MONEY',
+        lang: 'FR',
+        metadata: JSON.stringify({ paymentId: input.paymentId, userId: input.userId }),
+      }),
+    });
+    const body = (await response.json().catch(() => ({}))) as {
+      code?: string;
+      message?: string;
+      description?: string;
+      data?: { payment_url?: string };
+    };
+    if (!response.ok || body.code !== '201' || !body.data?.payment_url) {
+      throw new ServiceUnavailableException(
+        body.description ?? body.message ?? 'CinetPay est momentanément indisponible.',
+      );
+    }
+    return { paymentUrl: body.data.payment_url };
+  }
+
+  private async verifyCinetPayTransaction(transactionId: string) {
+    const response = await fetch(
+      'https://api-checkout.cinetpay.com/v2/payment/check',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          apikey: process.env.CINETPAY_API_KEY,
+          site_id: process.env.CINETPAY_SITE_ID,
+          transaction_id: transactionId,
+        }),
+      },
+    );
+    const body = (await response.json().catch(() => ({}))) as {
+      code?: string;
+      message?: string;
+      data?: { amount?: string; currency?: string; status?: string };
+    };
+    if (!response.ok) {
+      throw new ServiceUnavailableException(
+        body.message ?? 'Vérification CinetPay indisponible.',
+      );
+    }
+    return body;
+  }
+
+  private async activateCoursePayment(payment: {
+    id: string;
+    user_id: string;
+    course_id: string;
+    status: string;
+  }) {
+    if (payment.status !== 'paid') {
+      const { error } = await this.supabaseService.client
+        .from('payments')
+        .update({ status: 'paid' })
+        .eq('id', payment.id);
+      if (error) throw new BadRequestException(error.message);
+    }
+    const { data: enrollment, error: lookupError } =
+      await this.supabaseService.client
+        .from('enrollments')
+        .select('id')
+        .eq('user_id', payment.user_id)
+        .eq('course_id', payment.course_id)
+        .maybeSingle();
+    if (lookupError) throw new BadRequestException(lookupError.message);
+    if (!enrollment) {
+      const { error } = await this.supabaseService.client
+        .from('enrollments')
+        .insert({ user_id: payment.user_id, course_id: payment.course_id });
+      if (error) throw new BadRequestException(error.message);
+    }
+  }
+
+  private transactionIdFromPaymentId(paymentId: string) {
+    return paymentId.replace(/-/g, '');
+  }
+
+  private paymentIdFromTransactionId(transactionId?: string) {
+    const value = transactionId?.trim().toLowerCase() ?? '';
+    if (!/^[a-f0-9]{32}$/.test(value)) {
+      throw new BadRequestException('Identifiant de transaction invalide.');
+    }
+    return `${value.slice(0, 8)}-${value.slice(8, 12)}-${value.slice(12, 16)}-${value.slice(16, 20)}-${value.slice(20)}`;
+  }
+
+  private publicApiUrl() {
+    const configured = process.env.PUBLIC_API_URL?.trim();
+    if (configured) return configured.replace(/\/$/, '');
+    const railwayDomain = process.env.RAILWAY_PUBLIC_DOMAIN?.trim();
+    return railwayDomain ? `https://${railwayDomain}` : '';
   }
 
   private async hasInstitutionCourseAccess(userId: string, courseId: string) {

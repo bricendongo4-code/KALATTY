@@ -83,3 +83,20 @@ export class PaymentsController {
     );
   }
 }
+
+@Controller('payments/cinetpay')
+export class PaymentsWebhookController {
+  constructor(private readonly paymentsService: PaymentsService) {}
+
+  @Post('notify')
+  notify(@Body() body: { cpm_trans_id?: string; transaction_id?: string }) {
+    return this.paymentsService.handleCinetPayWebhook(
+      body.cpm_trans_id ?? body.transaction_id,
+    );
+  }
+
+  @Get('notify')
+  health() {
+    return { status: 'ok' };
+  }
+}
