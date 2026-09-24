@@ -10,7 +10,7 @@ type Member = {
   id: string;
   role: string;
   joinedAt: string;
-  profile: { id: string; fullname: string; email: string; role: string } | null;
+  profile: { id: string; fullname: string; email: string; role: string; avatar_url?: string } | null;
   classNames?: string[];
 };
 
@@ -22,6 +22,7 @@ type ManagedUser = {
   status: string;
   must_reset_password: boolean;
   created_at: string;
+  profiles?: { avatar_url?: string } | null;
 };
 
 const ROLE_LABEL: Record<string, string> = {
@@ -185,7 +186,7 @@ export default function UsersPage({ section = "utilisateurs" }: { section?: "uti
                   {members.map((m) => (
                     <Row
                       key={m.id}
-                      lead={<Avatar name={m.profile?.fullname ?? "?"} />}
+                      lead={<Avatar name={m.profile?.fullname ?? "?"} src={m.profile?.avatar_url} />}
                       title={m.profile?.fullname ?? "Utilisateur"}
                       sub={m.profile?.email}
                       side={<Badge kind="info">{ROLE_LABEL[m.role] ?? m.role}</Badge>}
@@ -204,7 +205,7 @@ export default function UsersPage({ section = "utilisateurs" }: { section?: "uti
                 <ul className={styles.list}>
                   {managedUsers.filter((m) => section !== "inscriptions" || m.managed_role === "student").map((m) => (
                     <li key={m.id} className={styles.row}>
-                      <Avatar name={m.full_name} />
+                      <Avatar name={m.full_name} src={m.profiles?.avatar_url} />
                       <span className={styles.rowMain}>
                         <strong>{m.full_name}</strong>
                         <small>

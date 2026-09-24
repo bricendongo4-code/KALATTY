@@ -11,7 +11,7 @@ type RoomDetails = {
   id: string;
   name: string;
   courses: Array<{ id: string; course: { id: string; title: string; description?: string } | null }>;
-  members: Array<{ id: string; role: string; profile: { id: string; fullname: string; email: string } | null }>;
+  members: Array<{ id: string; role: string; profile: { id: string; fullname: string; email: string; avatar_url?: string } | null }>;
   assignments: Array<{
     id: string;
     title: string;
@@ -235,7 +235,7 @@ export default function ClassesPage({ section = "classes" }: { section?: "classe
                       {room.members
                         .filter((m) => m.role === "student")
                         .map((m) => (
-                          <Row key={m.id} lead={<Avatar name={m.profile?.fullname ?? "?"} />} title={m.profile?.fullname ?? "Étudiant"} sub={m.profile?.email} />
+                          <Row key={m.id} lead={<Avatar name={m.profile?.fullname ?? "?"} src={m.profile?.avatar_url} />} title={m.profile?.fullname ?? "Étudiant"} sub={m.profile?.email} />
                         ))}
                     </ul>
                   )}

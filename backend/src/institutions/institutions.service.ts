@@ -264,7 +264,7 @@ export class InstitutionsService {
         .order('created_at', { ascending: false }),
       this.supabaseService.client
         .from('institution_members')
-        .select('id, role, joined_at, profiles ( id, fullname, email, role )')
+        .select('id, role, joined_at, profiles ( id, fullname, email, role, avatar_url )')
         .eq('institution_id', institutionId)
         .order('joined_at', { ascending: false }),
       this.supabaseService.client
@@ -828,7 +828,7 @@ export class InstitutionsService {
     ] = await Promise.all([
       this.supabaseService.client
         .from('room_members')
-        .select('id, role, joined_at, profiles ( id, fullname, email, role )')
+        .select('id, role, joined_at, profiles ( id, fullname, email, role, avatar_url )')
         .eq('room_id', roomId)
         .order('joined_at', { ascending: false }),
       this.supabaseService.client
@@ -2444,7 +2444,8 @@ export class InstitutionsService {
             email,
             level,
             expertise,
-            school_name
+            school_name,
+            avatar_url
           )
         `,
       )
