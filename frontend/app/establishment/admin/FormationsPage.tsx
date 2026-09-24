@@ -8,6 +8,8 @@ import { Card, Icon } from "../ui";
 
 type RoomSummary = { id: string; name: string; studentsCount: number; teacherNames: string[] };
 type Formation = { id: string; name: string; level: string | null; rooms: RoomSummary[] };
+type Subject = { id: string; name: string };
+type Teacher = { id: string; name: string };
 
 export default function FormationsPage() {
   const { loading, error, context, mismatch } = useCampusContext("admin");
@@ -24,14 +26,32 @@ export default function FormationsPage() {
 
   const [roomFormFor, setRoomFormFor] = useState<string | null>(null);
   const [roomName, setRoomName] = useState("");
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [subjectName, setSubjectName] = useState("");
+  const [selectedSubjectId, setSelectedSubjectId] = useState("");
+  const [selectedTeacherId, setSelectedTeacherId] = useState("");
 
   const load = async (institutionId: string) => {
     setLoadingList(true);
     setListError(null);
     try {
-      const result = await campusFetch(`/campus/institutions/${institutionId}/formations`);
+      const [result, subjectResult, institution] = await Promise.all([
+        campusFetch(`/campus/institutions/${institutionId}/formations`),
+        campusFetch(`/campus/institutions/${institutionId}/subjects`),
+        campusFetch(`/institutions/${institutionId}`),
+      ]);
       setFormations(result.formations ?? []);
       setUnassignedRooms(result.unassignedRooms ?? []);
+      const subjectList = subjectResult.subjects ?? [];
+      const teacherList = (institution.members ?? [])
+        .filter((member: { role: string }) => member.role === "teacher")
+        .map((member: { profile?: { id: string; fullname?: string } | null }) => ({ id: member.profile?.id ?? "", name: member.profile?.fullname ?? "Professeur" }))
+        .filter((teacher: Teacher) => teacher.id);
+      setSubjects(subjectList);
+      setTeachers(teacherList);
+      setSelectedSubjectId((current) => current || subjectList[0]?.id || "");
+      setSelectedTeacherId((current) => current || teacherList[0]?.id || "");
     } catch (e) {
       setListError(e instanceof Error ? e.message : "Impossible de charger les formations.");
     } finally {
@@ -100,6 +120,43 @@ export default function FormationsPage() {
     }
   };
 
+  const createSubject = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!context || !subjectName.trim()) return;
+    setBusy(true);
+    setFormError(null);
+    try {
+      const created = await campusFetch(`/campus/institutions/${context.institutionId}/subjects`, {
+        method: "POST",
+        body: JSON.stringify({ name: subjectName }),
+      });
+      setSubjectName("");
+      setSelectedSubjectId(created.id);
+      await load(context.institutionId);
+    } catch (reason) {
+      setFormError(reason instanceof Error ? reason.message : "Impossible de créer la matière.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const assignSubject = async (roomId: string) => {
+    if (!context || !selectedSubjectId || !selectedTeacherId) return;
+    setBusy(true);
+    setFormError(null);
+    try {
+      await campusFetch(`/campus/rooms/${roomId}/subjects`, {
+        method: "POST",
+        body: JSON.stringify({ subject_id: selectedSubjectId, teacher_id: selectedTeacherId }),
+      });
+      await load(context.institutionId);
+    } catch (reason) {
+      setFormError(reason instanceof Error ? reason.message : "Impossible d’affecter la matière et le professeur.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (mismatch) {
     return (
       <section className={`${styles.card} ${styles.soon}`} style={{ margin: 24 }}>
@@ -159,6 +216,19 @@ export default function FormationsPage() {
           {formError ? <p className={styles.inlineError}>{formError}</p> : null}
           {listError ? <p className={styles.inlineError}>{listError}</p> : null}
 
+          <Card title="Matières et professeurs">
+            <p className={styles.headSub}>Créez une matière, choisissez son professeur puis affectez-les à la classe concernée.</p>
+            <form onSubmit={createSubject} className={styles.fieldRow} style={{ marginTop: 12 }}>
+              <label className={styles.field}>Nouvelle matière<input className={styles.input} value={subjectName} onChange={(event) => setSubjectName(event.target.value)} placeholder="Ex. Algorithmique" /></label>
+              <button type="submit" className={`${styles.btn} ${styles.btnGhost}`} disabled={busy || !subjectName.trim()}>Créer la matière</button>
+            </form>
+            <div className={styles.fieldRow} style={{ marginTop: 12 }}>
+              <label className={styles.field}>Matière<select className={styles.select} value={selectedSubjectId} onChange={(event) => setSelectedSubjectId(event.target.value)}><option value="">Choisir une matière</option>{subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</select></label>
+              <label className={styles.field}>Professeur<select className={styles.select} value={selectedTeacherId} onChange={(event) => setSelectedTeacherId(event.target.value)}><option value="">Choisir un professeur</option>{teachers.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.name}</option>)}</select></label>
+            </div>
+            {!teachers.length ? <p className={styles.inlineError}>Créez d’abord un compte professeur depuis « Utilisateurs ».</p> : null}
+          </Card>
+
           {loadingList ? (
             <p>Chargement...</p>
           ) : !formations || formations.length === 0 ? (
@@ -184,6 +254,7 @@ export default function FormationsPage() {
                               {r.teacherNames.length ? ` • ${r.teacherNames.join(", ")}` : ""}
                             </small>
                           </span>
+                          <button type="button" className={styles.quickBtn} disabled={busy || !selectedSubjectId || !selectedTeacherId} onClick={() => void assignSubject(r.id)}>Affecter la matière</button>
                         </li>
                       ))}
                     </ul>

@@ -23,6 +23,7 @@ import {
   CreateFormationDto,
   CreateFormationRoomDto,
 } from './dto/formation.dto';
+import { AssignRoomSubjectDto, CreateSubjectDto } from './dto/subject.dto';
 
 import {
   ReviewAbsenceJustificationDto,
@@ -201,6 +202,32 @@ export class CampusController {
       formationId,
       body,
     );
+  }
+
+  @Get('institutions/:institutionId/subjects')
+  listSubjects(
+    @Req() req: RequestUser,
+    @Param('institutionId') institutionId: string,
+  ) {
+    return this.campusService.listSubjects(req.user, institutionId);
+  }
+
+  @Post('institutions/:institutionId/subjects')
+  createSubject(
+    @Req() req: RequestUser,
+    @Param('institutionId') institutionId: string,
+    @Body() body: CreateSubjectDto,
+  ) {
+    return this.campusService.createSubject(req.user, institutionId, body);
+  }
+
+  @Post('rooms/:roomId/subjects')
+  assignRoomSubject(
+    @Req() req: RequestUser,
+    @Param('roomId') roomId: string,
+    @Body() body: AssignRoomSubjectDto,
+  ) {
+    return this.campusService.assignRoomSubject(req.user, roomId, body);
   }
 
   @Patch('rooms/:roomId/formation')

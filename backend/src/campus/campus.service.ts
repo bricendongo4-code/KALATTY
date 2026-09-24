@@ -1941,6 +1941,126 @@ export class CampusService {
     return data;
   }
 
+  async listSubjects(user: AuthUser, institutionId: string) {
+    await this.assertInstitutionStaff(user.id, institutionId, [
+      'owner',
+      'admin',
+      'pedagogy',
+      'teacher',
+    ]);
+    const { data, error } = await this.client
+      .from('subjects')
+      .select('id, name, course_id, created_at')
+      .eq('institution_id', institutionId)
+      .order('name', { ascending: true });
+    if (error) throw new BadRequestException(error.message);
+    return { subjects: data ?? [] };
+  }
+
+  async createSubject(
+    user: AuthUser,
+    institutionId: string,
+    payload: { name: string; course_id?: string },
+  ) {
+    await this.assertInstitutionStaff(user.id, institutionId);
+    const name = payload.name?.trim();
+    if (!name) {
+      throw new BadRequestException('Le nom de la matière est obligatoire.');
+    }
+    const { data, error } = await this.client
+      .from('subjects')
+      .insert({
+        institution_id: institutionId,
+        name,
+        course_id: payload.course_id?.trim() || null,
+        created_by: user.id,
+      })
+      .select('id, name, course_id')
+      .single();
+    if (error || !data) {
+      throw new BadRequestException(
+        error?.message ?? 'Impossible de créer la matière.',
+      );
+    }
+    return data;
+  }
+
+  async assignRoomSubject(
+    user: AuthUser,
+    roomId: string,
+    payload: { subject_id: string; teacher_id: string },
+  ) {
+    const { data: room, error: roomError } = await this.client
+      .from('rooms')
+      .select('id, institution_id')
+      .eq('id', roomId)
+      .maybeSingle();
+    if (roomError) throw new BadRequestException(roomError.message);
+    if (!room) throw new NotFoundException('Classe introuvable.');
+    const institutionId = String(room.institution_id);
+    await this.assertInstitutionStaff(user.id, institutionId);
+
+    const [subjectResult, teacherResult] = await Promise.all([
+      this.client
+        .from('subjects')
+        .select('id')
+        .eq('id', payload.subject_id)
+        .eq('institution_id', institutionId)
+        .maybeSingle(),
+      this.client
+        .from('institution_members')
+        .select('user_id')
+        .eq('institution_id', institutionId)
+        .eq('user_id', payload.teacher_id)
+        .eq('role', 'teacher')
+        .maybeSingle(),
+    ]);
+    if (subjectResult.error) {
+      throw new BadRequestException(subjectResult.error.message);
+    }
+    if (teacherResult.error) {
+      throw new BadRequestException(teacherResult.error.message);
+    }
+    if (!subjectResult.data) {
+      throw new BadRequestException(
+        'Cette matière n’appartient pas à l’établissement.',
+      );
+    }
+    if (!teacherResult.data) {
+      throw new BadRequestException('Le professeur sélectionné est invalide.');
+    }
+
+    const { error: membershipError } = await this.client
+      .from('room_members')
+      .upsert(
+        { room_id: roomId, user_id: payload.teacher_id, role: 'teacher' },
+        { onConflict: 'room_id,user_id' },
+      );
+    if (membershipError) {
+      throw new BadRequestException(membershipError.message);
+    }
+
+    const { data, error } = await this.client
+      .from('room_subjects')
+      .upsert(
+        {
+          room_id: roomId,
+          subject_id: payload.subject_id,
+          teacher_id: payload.teacher_id,
+          created_by: user.id,
+        },
+        { onConflict: 'room_id,subject_id' },
+      )
+      .select('id, room_id, subject_id, teacher_id')
+      .single();
+    if (error || !data) {
+      throw new BadRequestException(
+        error?.message ?? 'Impossible d’affecter la matière.',
+      );
+    }
+    return data;
+  }
+
   async assignRoomToFormation(
     user: AuthUser,
     roomId: string,
