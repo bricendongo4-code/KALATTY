@@ -34,7 +34,7 @@ const BUILT_SECTIONS: Record<string, () => React.JSX.Element> = {
   "student/announcements": () => <ActivityPage role="student" section="announcements" />,
   "teacher/classes": TeacherClassesPage,
   "teacher/assignments": () => <TeacherClassesPage section="travaux" />,
-  "teacher/assessments": () => <TeacherClassesPage section="travaux" />,
+  "teacher/assessments": () => <TeacherClassesPage section="evaluations" />,
   "teacher/progress": () => <TeacherClassesPage section="suivi" />,
   "teacher/resources": () => <TeacherClassesPage section="ressources" />,
   "teacher/lesson-plans": () => <TeacherClassesPage section="preparer" />,
