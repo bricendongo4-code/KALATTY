@@ -1146,6 +1146,41 @@ export class InstitutionsService {
     return data;
   }
 
+  async deleteScheduleItem(user: AuthUser, scheduleItemId: string) {
+    const { data: existing, error: existingError } =
+      await this.supabaseService.client
+        .from('room_schedule_items')
+        .select('id, room_id, institution_id')
+        .eq('id', scheduleItemId)
+        .maybeSingle();
+
+    if (existingError) {
+      throw new BadRequestException(existingError.message);
+    }
+    if (!existing) {
+      throw new NotFoundException('Créneau introuvable.');
+    }
+
+    const institutionRole = await this.assertInstitutionStaff(
+      user.id,
+      existing.institution_id,
+      ['owner', 'admin', 'teacher', 'pedagogy'],
+    );
+    if (institutionRole === 'teacher') {
+      await this.assertTeacherRoomAssignment(user.id, existing.room_id);
+    }
+
+    const { error } = await this.supabaseService.client
+      .from('room_schedule_items')
+      .delete()
+      .eq('id', scheduleItemId)
+      .eq('institution_id', existing.institution_id);
+    if (error) {
+      throw new BadRequestException(error.message);
+    }
+    return { deleted: true, id: scheduleItemId };
+  }
+
   async createAttendanceSession(
     user: AuthUser,
     roomId: string,

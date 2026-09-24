@@ -634,6 +634,40 @@
   font-size: 12px;
 }
 
+.detailPanel {
+  display: grid;
+  gap: 16px;
+  margin-top: 20px;
+  padding: 20px;
+  border: 1px solid #bcded9;
+  border-radius: 18px;
+  background: linear-gradient(145deg, #f4fbfa, #fffaf3);
+}
+
+.detailPanelHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.detailPanelHead small {
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .09em;
+}
+
+.detailPanelHead h2 {
+  margin: 4px 0;
+}
+
+.detailPanelHead p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .inlineOk {
   color: #0b7a4b;
   font-size: 12px;

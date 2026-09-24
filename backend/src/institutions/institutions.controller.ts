@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -239,6 +240,17 @@ export class InstitutionsController {
       req.user,
       scheduleItemId,
       body,
+    );
+  }
+
+  @Delete('schedule/:scheduleItemId')
+  deleteScheduleItem(
+    @Req() req: RequestUser,
+    @Param('scheduleItemId') scheduleItemId: string,
+  ) {
+    return this.institutionsService.deleteScheduleItem(
+      req.user,
+      scheduleItemId,
     );
   }
 

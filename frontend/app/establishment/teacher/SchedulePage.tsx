@@ -33,6 +33,7 @@ export default function TeacherSchedulePage({ role = "teacher" }: { role?: Sched
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ScheduleForm>(() => emptyForm(new Date().getDay() || 7));
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -103,6 +104,23 @@ export default function TeacherSchedulePage({ role = "teacher" }: { role?: Sched
     }
   };
 
+  const remove = async (slot: Slot) => {
+    if (!window.confirm(`Supprimer le créneau « ${slot.title} » ?`)) return;
+    setDeletingId(slot.id);
+    setError(null);
+    setNotice(null);
+    try {
+      await campusFetch(`/institutions/schedule/${slot.id}`, { method: "DELETE" });
+      setNotice("Créneau supprimé de l’emploi du temps.");
+      if (editingId === slot.id) resetForm(slot.weekday);
+      await load();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Suppression impossible.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   if (mismatch) return <section className={styles.standalone}>Cette page ne correspond pas à votre rôle. <Link href={`/establishment/${mismatch.campusRole}`}>Ouvrir mon espace</Link></section>;
   const daily = schedule?.filter((item) => item.weekday === day) ?? [];
 
@@ -123,6 +141,6 @@ export default function TeacherSchedulePage({ role = "teacher" }: { role?: Sched
     </form> : !contextLoading ? <section className={styles.state}><Icon name="layers" /><h2>Aucune classe disponible</h2><p>Une classe doit d’abord être créée et affectée à votre périmètre.</p></section> : null}
     {error || contextError ? <div className={styles.state} role="alert"><p>{error ?? contextError}</p><button type="button" onClick={() => void load()}>Réessayer</button></div> : null}
     <nav className={styles.days} aria-label="Jours de la semaine">{DAYS.map((label, index) => <button type="button" key={label} className={day === index + 1 ? styles.selected : ""} onClick={() => setDay(index + 1)}>{label}</button>)}</nav>
-    {contextLoading || !schedule && !error && !contextError ? <div className={styles.state}>Chargement du planning…</div> : daily.length ? <div className={styles.stack}>{daily.map((slot) => <article className={styles.card} key={slot.id}><time>{slot.startsAt} – {slot.endsAt ?? "—"}</time><div><h2>{slot.title}</h2><p>{slot.roomName}{slot.location ? ` · ${slot.location}` : ""}</p></div><button type="button" className={styles.editScheduleButton} onClick={() => edit(slot)}><Icon name="edit" /> Modifier</button></article>)}</div> : <section className={styles.state}><h2>Aucun créneau {DAYS[day - 1].toLowerCase()}</h2><p>Utilisez le formulaire pour publier le planning de la semaine.</p></section>}
+    {contextLoading || !schedule && !error && !contextError ? <div className={styles.state}>Chargement du planning…</div> : daily.length ? <div className={styles.stack}>{daily.map((slot) => <article className={styles.card} key={slot.id}><time>{slot.startsAt} – {slot.endsAt ?? "—"}</time><div><h2>{slot.title}</h2><p>{slot.roomName}{slot.location ? ` · ${slot.location}` : ""}</p></div><div className={styles.scheduleActions}><button type="button" className={styles.editScheduleButton} onClick={() => edit(slot)}><Icon name="edit" /> Modifier</button><button type="button" className={styles.deleteScheduleButton} disabled={deletingId === slot.id} onClick={() => void remove(slot)}>{deletingId === slot.id ? "Suppression…" : "Supprimer"}</button></div></article>)}</div> : <section className={styles.state}><h2>Aucun créneau {DAYS[day - 1].toLowerCase()}</h2><p>Utilisez le formulaire pour publier le planning de la semaine.</p></section>}
   </Shell>;
 }

@@ -140,6 +140,7 @@ export const ROLES: Record<RoleSlug, RoleConfig> = {
         label: "Évaluations & travaux",
         icon: "clipboard",
       },
+      { slug: "attendance", label: "Vie scolaire", icon: "shield" },
       { slug: "documents", label: "Documents officiels", icon: "file" },
       { slug: "communication", label: "Communication", icon: "megaphone" },
       { slug: "reports", label: "Rapports", icon: "list" },

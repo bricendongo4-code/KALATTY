@@ -1131,7 +1131,7 @@ export function DirectionHome({ data }: { data: DirectionHomeData }) {
                 <Todo
                   icon="shield"
                   tone="blue"
-                  action={{ label: "Voir", href: "/establishment/admin/reports" }}
+                  action={{ label: "Superviser", href: "/establishment/admin/attendance" }}
                 >
                   Traiter les justificatifs d&apos;absence (
                   {data.pendingJustifications})

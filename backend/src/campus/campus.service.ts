@@ -824,9 +824,24 @@ export class CampusService {
       .select('id, title, room_id, status, due_at, max_score, created_at').in('room_id', ids)
       .order('created_at', { ascending: false }).limit(100);
     if (error) throw new BadRequestException(error.message);
-    return { assignments: (data ?? []).map((item: any) => ({ id: item.id, title: item.title,
-      roomName: names.get(String(item.room_id)), status: item.status, dueAt: item.due_at,
-      maxScore: item.max_score, createdAt: item.created_at })) };
+    const assignmentIds = (data ?? []).map((item: any) => String(item.id));
+    const { data: submissions, error: submissionsError } = assignmentIds.length
+      ? await this.client.from('assignment_submissions')
+          .select('assignment_id, status, published')
+          .in('assignment_id', assignmentIds)
+      : { data: [], error: null };
+    if (submissionsError) throw new BadRequestException(submissionsError.message);
+    return { assignments: (data ?? []).map((item: any) => {
+      const related = (submissions ?? []).filter((submission: any) => String(submission.assignment_id) === String(item.id));
+      return { id: item.id, title: item.title,
+        roomName: names.get(String(item.room_id)), status: item.status, dueAt: item.due_at,
+        maxScore: item.max_score, createdAt: item.created_at,
+        submissionCount: related.length,
+        pendingCount: related.filter((submission: any) => submission.status === 'submitted').length,
+        reviewedCount: related.filter((submission: any) => submission.status === 'reviewed').length,
+        publishedCount: related.filter((submission: any) => submission.published === true).length,
+      };
+    }) };
   }
 
   async getJustifications(user: AuthUser) {

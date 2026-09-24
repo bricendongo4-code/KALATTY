@@ -6,6 +6,7 @@ import Shell from "../Shell";
 import { campusFetch, useCampusContext } from "../useEstablishment";
 import { Icon } from "../ui";
 import styles from "../student/student-pages.module.css";
+import type { RoleSlug } from "../roles";
 
 type ReviewStatus = "pending" | "approved" | "rejected";
 type Justification = {
@@ -27,8 +28,8 @@ const STATUS_LABELS: Record<ReviewStatus, string> = {
   rejected: "Refusé",
 };
 
-export default function AttendancePage() {
-  const { context, loading, error: contextError, mismatch } = useCampusContext("pedagogy");
+export default function AttendancePage({ role = "pedagogy" }: { role?: Extract<RoleSlug, "pedagogy" | "admin"> }) {
+  const { context, loading, error: contextError, mismatch } = useCampusContext(role);
   const [items, setItems] = useState<Justification[] | null>(null);
   const [filter, setFilter] = useState<"pending" | "all">("pending");
   const [rejectingId, setRejectingId] = useState<string | null>(null);
@@ -76,10 +77,10 @@ export default function AttendancePage() {
   const pendingCount = items?.filter((item) => item.status === "pending").length ?? 0;
   const visible = filter === "pending" ? items?.filter((item) => item.status === "pending") : items;
 
-  return <Shell role="pedagogy" activeSlug="vie-scolaire" displayName={context?.displayName} institutionName={context?.institutionName} note={contextError ?? null}>
+  return <Shell role={role} activeSlug="attendance" displayName={context?.displayName} institutionName={context?.institutionName} note={contextError ?? null}>
     <header className={styles.head}>
-      <div><small>RESPONSABLE PÉDAGOGIQUE</small><h1>Justificatifs d’absence</h1><p>Contrôlez les pièces et régularisez les présences des classes de votre périmètre.</p></div>
-      <Link href="/establishment/pedagogy" className={styles.back}>← Accueil</Link>
+      <div><small>{role === "admin" ? "SUPERVISION DIRECTION" : "RESPONSABLE PÉDAGOGIQUE"}</small><h1>Justificatifs d’absence</h1><p>{role === "admin" ? "Consultez la situation globale. Les décisions restent traitées par le responsable pédagogique." : "Contrôlez les pièces et régularisez les présences des classes de votre périmètre."}</p></div>
+      <Link href={`/establishment/${role}`} className={styles.back}>← Accueil</Link>
     </header>
 
     <section className={styles.reviewToolbar} aria-label="Filtres des justificatifs">
@@ -95,7 +96,7 @@ export default function AttendancePage() {
       <blockquote>{item.reason}</blockquote>
       <div className={styles.reviewMeta}><small>Envoyé le {new Date(item.createdAt).toLocaleDateString("fr-FR")}</small>{item.attachmentUrl ? <a href={item.attachmentUrl} target="_blank" rel="noreferrer"><Icon name="file" /> Consulter la pièce</a> : <small>Aucune pièce jointe</small>}</div>
       {item.note ? <p className={styles.reviewDecision}><strong>Décision :</strong> {item.note}</p> : null}
-      {item.status === "pending" ? rejectingId === item.id ? <div className={styles.rejectForm}>
+      {item.status === "pending" && role === "pedagogy" ? rejectingId === item.id ? <div className={styles.rejectForm}>
         <label htmlFor={`rejection-${item.id}`}>Motif du refus</label>
         <textarea id={`rejection-${item.id}`} value={rejectionNote} onChange={(event) => setRejectionNote(event.target.value)} minLength={3} maxLength={1000} rows={3} placeholder="Expliquez clairement ce qui manque ou pourquoi la demande est refusée." />
         <div><button type="button" disabled={busy === item.id || rejectionNote.trim().length < 3} onClick={() => void review(item.id, "rejected", rejectionNote)}>Confirmer le refus</button><button type="button" className={styles.secondaryButton} onClick={() => { setRejectingId(null); setRejectionNote(""); }}>Annuler</button></div>
