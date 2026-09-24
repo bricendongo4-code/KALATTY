@@ -64,7 +64,7 @@ export default function RootLayout({
               <p>
                 La plateforme e-learning qui connecte les apprenants, les
                 formateurs indépendants et les établissements dans un espace
-                clair, suivi et évolutif.
+                clair, accessible et organisé.
               </p>
               <div
                 className="siteFooterBadges"
@@ -104,19 +104,18 @@ export default function RootLayout({
                 <div className="siteFooterDropdownPanel">
                   <span>Vidéos hébergées sur Kalatty</span>
                   <span>Accès par rôle utilisateur</span>
-                  <span>Paiement en préparation</span>
+                  <span>Progression enregistrée</span>
                   <span>Support local Cameroun</span>
                 </div>
               </details>
             </nav>
 
             <section className="siteFooterCta" aria-label="Invitation Kalatty">
-              <span className="siteFooterCtaLabel">Prochaine étape</span>
-              <h2>Construire une expérience mobile et IA solide.</h2>
+              <span className="siteFooterCtaLabel">Pour les établissements</span>
+              <h2>Prolongez la vie de votre établissement en ligne.</h2>
               <p>
-                Kalatty peut devenir un vrai assistant d&apos;apprentissage avec
-                des recommandations, des résumés et un accompagnement par
-                profil.
+                Réunissez vos classes, vos enseignants, vos emplois du temps,
+                vos devoirs et le suivi de vos apprenants dans un campus dédié.
               </p>
               <Link
                 href="/register/institution"
@@ -128,9 +127,7 @@ export default function RootLayout({
           </div>
           <div className="siteFooterBottom">
             <span>© {currentYear} Kalatty. Tous droits réservés.</span>
-            <span>
-              Prototype avancé pour apprentissage, cours et campus en ligne.
-            </span>
+            <span>Apprentissage, cours et campus en ligne.</span>
           </div>
         </footer>
         </SiteChrome>

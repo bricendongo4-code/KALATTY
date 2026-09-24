@@ -1890,3 +1890,252 @@
     max-width: none;
   }
 }
+
+/* Public home: compact, user-facing and aligned with the Kalatty interface. */
+.hero {
+  min-height: auto;
+  padding: clamp(0.9rem, 2vw, 1.4rem);
+  border: 1px solid rgba(0, 158, 154, 0.2);
+  color: var(--foreground);
+  background:
+    radial-gradient(circle at 88% 14%, rgba(255, 106, 31, 0.2), transparent 17rem),
+    radial-gradient(circle at 64% 100%, rgba(0, 211, 194, 0.2), transparent 22rem),
+    linear-gradient(140deg, #fffaf3 0%, #f4fbf8 54%, #e4f6f2 100%);
+  box-shadow: 0 20px 60px rgba(4, 61, 70, 0.1);
+}
+
+.hero::before {
+  opacity: 0.32;
+  background:
+    linear-gradient(115deg, transparent 0 49%, rgba(0, 158, 154, 0.12) 49% 49.3%, transparent 49.3%),
+    repeating-linear-gradient(90deg, rgba(0, 80, 86, 0.04) 0 1px, transparent 1px 76px);
+}
+
+.topbar {
+  padding: 0.55rem 0.7rem;
+  border-color: rgba(0, 158, 154, 0.16);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 10px 30px rgba(4, 61, 70, 0.08);
+}
+
+.brandLogo {
+  background: #ffffff;
+  box-shadow: 0 8px 20px rgba(0, 90, 92, 0.12);
+}
+
+.brandName,
+.heroCopy h1 {
+  color: var(--foreground);
+}
+
+.brandTag,
+.kicker {
+  color: var(--secondary);
+}
+
+.navLink,
+.secondaryCta {
+  border-color: rgba(0, 158, 154, 0.16);
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--primary-dark);
+}
+
+.navLink:hover {
+  background: var(--surface-soft);
+  color: var(--primary-dark);
+}
+
+.heroGrid {
+  grid-template-columns: minmax(0, 1.05fr) minmax(22rem, 0.85fr);
+  gap: clamp(1.5rem, 4vw, 3.5rem);
+  align-items: center;
+}
+
+.heroCopy {
+  gap: 0.9rem;
+  padding: clamp(1.4rem, 4vw, 3rem) clamp(0.25rem, 1vw, 0.75rem);
+}
+
+.heroCopy h1 {
+  max-width: 17ch;
+  font-size: clamp(2.5rem, 4.6vw, 4.35rem);
+  line-height: 0.98;
+  letter-spacing: -0.045em;
+}
+
+.heroCopy p {
+  max-width: 58ch;
+  color: var(--muted);
+  font-size: clamp(1rem, 1.6vw, 1.12rem);
+  line-height: 1.62;
+}
+
+.ctas {
+  margin-top: 0.2rem;
+}
+
+.primaryCta,
+.secondaryCta {
+  min-height: 3.15rem;
+}
+
+.heroStats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin-top: 0.25rem;
+}
+
+.heroStats div {
+  min-width: 0;
+  padding: 0.8rem;
+  border-color: rgba(0, 158, 154, 0.14);
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(12px);
+}
+
+.heroStats strong {
+  color: var(--primary-dark);
+  font-size: 0.92rem;
+  line-height: 1.2;
+}
+
+.heroStats span {
+  color: var(--muted);
+  font-size: 0.74rem;
+  line-height: 1.4;
+}
+
+.heroPanel {
+  max-width: 38rem;
+  justify-self: end;
+}
+
+.productWindow,
+.productWindow:hover {
+  transform: none;
+}
+
+.productWindow {
+  border-color: rgba(0, 158, 154, 0.2);
+  box-shadow: 0 24px 55px rgba(4, 61, 70, 0.16);
+}
+
+.windowBody {
+  min-height: 20rem;
+}
+
+.windowMain {
+  gap: 0.7rem;
+  padding: 0.8rem;
+}
+
+.windowHeader,
+.scheduleList div,
+.windowMetrics span {
+  padding: 0.7rem;
+}
+
+.marketCommandBar {
+  position: relative;
+  z-index: 2;
+  margin-top: -0.35rem;
+}
+
+.catalogShowcase {
+  scroll-margin-top: 1rem;
+}
+
+.catalogShowcase .courseRailSection:first-child {
+  border-color: rgba(255, 106, 31, 0.22);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 106, 31, 0.1), transparent 18rem),
+    #ffffff;
+}
+
+@media (max-width: 980px) {
+  .heroGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .heroCopy {
+    padding-bottom: 0.5rem;
+  }
+
+  .heroCopy h1 {
+    max-width: 15ch;
+  }
+
+  .heroPanel {
+    width: 100%;
+    max-width: none;
+    justify-self: stretch;
+  }
+}
+
+@media (max-width: 640px) {
+  .hero {
+    padding: 0.75rem;
+    border-radius: 24px;
+  }
+
+  .topbar {
+    align-items: center;
+  }
+
+  .topbar .nav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+    overflow: visible;
+  }
+
+  .topbar .navLink:nth-child(-n + 3) {
+    display: none;
+  }
+
+  .topbar .navLink,
+  .topbar .navButton {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 0.75rem;
+  }
+
+  .brandLogo {
+    width: 3rem;
+    height: 3rem;
+  }
+
+  .heroCopy {
+    gap: 0.85rem;
+    padding: 1.25rem 0.2rem 0.35rem;
+  }
+
+  .heroCopy h1 {
+    max-width: 12ch;
+    font-size: clamp(2.35rem, 12vw, 3.45rem);
+  }
+
+  .heroStats {
+    display: none;
+  }
+
+  .heroPanel {
+    display: none;
+  }
+
+  .windowBody {
+    min-height: auto;
+  }
+
+  .windowMain {
+    padding: 0.7rem;
+  }
+
+  .marketCommandBar {
+    margin-top: 0;
+  }
+
+  .courseRailSection {
+    padding: 1rem;
+  }
+}

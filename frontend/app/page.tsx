@@ -39,35 +39,10 @@ type HomeDiscovery = {
   }>;
 };
 
-const benefits = [
-  {
-    title: "Apprenants",
-    text: "Un tableau de bord personnel pour reprendre les cours, suivre les devoirs et garder le rythme.",
-    href: "/register/student",
-  },
-  {
-    title: "Formateurs",
-    text: "Un studio clair pour publier les contenus, structurer les modules et suivre les retours.",
-    href: "/register/teacher",
-  },
-  {
-    title: "Établissements",
-    text: "Une console campus pour inviter, organiser les salles, affecter les cours et piloter les devoirs.",
-    href: "/register/institution",
-  },
-];
-
-const highlights = [
-  "Cours vidéo hébergés",
-  "Classes avec invitations",
-  "Devoirs et corrections",
-  "Roles et permissions",
-];
-
 const heroStats = [
-  { value: "3", label: "espaces connectes" },
-  { value: "24/7", label: "accès aux cours" },
-  { value: "1", label: "campus unifie" },
+  { value: "À votre rythme", label: "reprenez exactement où vous vous êtes arrêté" },
+  { value: "Suivi clair", label: "retrouvez cours, devoirs et progression" },
+  { value: "Campus complet", label: "apprenez avec votre établissement" },
 ];
 
 const productLinks = [
@@ -98,98 +73,16 @@ const mockSchedule = [
 ];
 
 const trustSignals = [
-  "Interface responsive",
-  "Backend NestJS",
-  "Auth par role",
-  "Catalogue dynamique",
+  "Conçu pour le mobile",
+  "Progression enregistrée",
+  "Accès adapté à chaque profil",
+  "Cours et classes au même endroit",
 ];
 
 const marketplaceActions = [
-  { label: "Comparer les cours", href: "#catalogue" },
-  { label: "Creer un compte", href: "/register" },
+  { label: "Explorer les cours", href: "#catalogue" },
+  { label: "Créer un compte", href: "/register" },
   { label: "Voir les tarifs", href: "/pricing" },
-];
-
-const benchmarkBadges = [
-  "Recherche et categories",
-  "Avis visibles",
-  "Parcours campus",
-  "Mobile-first",
-];
-
-const competitiveSignals = [
-  {
-    label: "Catalogue",
-    title: "Cours comparables en un regard",
-    href: "#catalogue",
-    text: "Miniature, note, prix, avis, nombre de leçons et accès sécurisé sont visibles avant de choisir.",
-  },
-  {
-    label: "Progression",
-    title: "Reprise et suivi de parcours",
-    href: "/login",
-    text: "L'apprenant retrouve ses cours, sa progression, ses devoirs et ses notes personnelles depuis son espace.",
-  },
-  {
-    label: "Campus",
-    href: "/register/institution",
-    title: "Un LMS pour les établissements",
-    text: "Classes, comptes internes, planning, présences, devoirs PDF et cours affectés sans paiement individuel.",
-  },
-  {
-    label: "Mobile",
-    href: "/about",
-    title: "Pensé pour le téléphone",
-    text: "Les cours coulissent en rails, les actions restent accessibles et les cartes gardent une structure stable.",
-  },
-];
-
-const launchPillars = [
-  {
-    title: "Learning marketplace",
-    metric: "Cours publics",
-    href: "#catalogue",
-    text: "Une vitrine claire avec miniatures, prix, notes, avis et accès contrôlé avant paiement.",
-  },
-  {
-    title: "Studio formateur",
-    metric: "Creation guidee",
-    href: "/register/teacher",
-    text: "Un parcours de publication qui garde les brouillons, les vidéos, les modules et les revenus au même endroit.",
-  },
-  {
-    title: "Campus établissement",
-    metric: "Gestion complete",
-    href: "/register/institution",
-    text: "Classes, comptes internes, professeurs, devoirs, planning et suivi reunis dans une console d'administration.",
-  },
-];
-
-const productProof = [
-  { value: "Role-based", label: "chaque profil a son espace" },
-  { value: "Mobile-first", label: "cours et dashboards lisibles sur téléphone" },
-  { value: "Campus-ready", label: "mode établissement séparé du catalogue public" },
-  { value: "Vidéo native", label: "contenus chargés dans Kalatty, pas par lien externe" },
-];
-
-const marketCapabilities = [
-  {
-    title: "Catalogue prêt à vendre",
-    text: "Des fiches de cours avec miniature, prix, note, nombre d'avis et accès bloqué tant que l'utilisateur n'est pas connecté.",
-  },
-  {
-    title: "Campus autonome",
-    href: "/register/institution",
-    text: "Un établissement peut gérer ses propres comptes, classes, enseignants, emplois du temps, devoirs et présences.",
-  },
-  {
-    title: "Expérience mobile prioritaire",
-    text: "Les cours coulissent horizontalement, les menus sont compacts et les actions importantes restent faciles à atteindre.",
-  },
-  {
-    title: "Socle prêt pour paiement",
-    text: "La séparation entre cours publics, cours affectés à une classe et abonnements établissement prépare une monétisation claire.",
-  },
 ];
 
 const fallbackGuides = [
@@ -217,18 +110,6 @@ const formatPrice = (priceFcfa: number) =>
   priceFcfa > 0
     ? `${new Intl.NumberFormat("fr-FR").format(priceFcfa)} FCFA`
     : "Gratuit";
-
-const resolveMarketHref = (title: string, fallbackHref?: string) => {
-  if (fallbackHref) return fallbackHref;
-  const normalizedTitle = title.toLowerCase();
-  if (normalizedTitle.includes("catalogue")) return "#catalogue";
-  if (normalizedTitle.includes("campus")) return "/register/institution";
-  if (normalizedTitle.includes("paiement") || normalizedTitle.includes("tarif")) {
-    return "/pricing";
-  }
-  if (normalizedTitle.includes("mobile")) return "/about";
-  return "/register";
-};
 
 const resolvePromoHref = (title: string, fallbackHref?: string) => {
   if (fallbackHref) return fallbackHref;
@@ -282,7 +163,7 @@ function CourseShowcaseCard({ course }: { course: DiscoveryCourse }) {
         <span className={styles.courseImageBadge}>
           {course.lessonsCount} leçon{course.lessonsCount > 1 ? "s" : ""}
         </span>
-        <span className={styles.coursePreviewBadge}>Apercu</span>
+        <span className={styles.coursePreviewBadge}>Aperçu</span>
       </div>
 
       <div className={styles.courseCardBody}>
@@ -469,30 +350,22 @@ export default function Home() {
 
         <div className={styles.heroGrid}>
           <div className={styles.heroCopy}>
-            <span className={styles.kicker}>Campus digital prêt à évoluer</span>
+            <span className={styles.kicker}>Apprendre. Enseigner. Faire réussir.</span>
             <h1>
-              Kalatty transforme les cours en véritable expérience
-              d&apos;apprentissage.
+              L&apos;éducation en ligne, pensée pour avancer ensemble.
             </h1>
             <p>
-              Une application web pour apprendre, enseigner et administrer un
-              établissement avec des parcours clairs, des contenus vidéo, des
-              classes, des devoirs et un suivi par rôle.
+              Découvrez des cours, progressez à votre rythme ou retrouvez toute
+              la vie de votre établissement dans un espace simple et organisé.
             </p>
 
             <div className={styles.ctas}>
-              <Link href="/register" className={styles.primaryCta}>
-                Lancer Kalatty
-              </Link>
+              <a href="#catalogue" className={styles.primaryCta}>
+                Découvrir les cours
+              </a>
               <Link href="/login" className={styles.secondaryCta}>
-                Ouvrir mon espace
+                Se connecter
               </Link>
-            </div>
-
-            <div className={styles.benchmarkBadges} aria-label="Standards e-learning couverts">
-              {benchmarkBadges.map((badge) => (
-                <span key={badge}>{badge}</span>
-              ))}
             </div>
 
             <div className={styles.heroStats} aria-label="Indicateurs Kalatty">
@@ -504,14 +377,9 @@ export default function Home() {
               ))}
             </div>
 
-            <div className={styles.highlightList}>
-              {highlights.map((item) => (
-                <span key={item}>{item}</span>
-              ))}
-            </div>
           </div>
 
-          <div className={styles.heroPanel} aria-label="Apercu du produit Kalatty">
+          <div className={styles.heroPanel} aria-label="Aperçu d'un espace établissement Kalatty">
             <div className={styles.productWindow}>
               <div className={styles.windowTop}>
                 <span />
@@ -519,7 +387,7 @@ export default function Home() {
                   <small>En ligne</small>
               </div>
               <div className={styles.windowBody}>
-                <aside className={styles.windowNav} aria-label="Navigation de demonstration">
+                <aside className={styles.windowNav} aria-label="Navigation de démonstration">
                   <span className={styles.navActive}>Accueil</span>
                   <span>Cours</span>
                   <span>Classes</span>
@@ -559,7 +427,7 @@ export default function Home() {
                     </span>
                     <span>
                       <strong>91%</strong>
-                      assiduite
+                      assiduité
                     </span>
                   </div>
                 </div>
@@ -571,8 +439,8 @@ export default function Home() {
 
       <section className={styles.marketCommandBar} aria-label="Actions principales Kalatty">
         <div>
-          <span>Choisir rapidement</span>
-          <strong>Apprendre, enseigner ou administrer un campus</strong>
+          <span>Bienvenue sur Kalatty</span>
+          <strong>Quel espace souhaitez-vous rejoindre ?</strong>
         </div>
         <nav aria-label="Actions rapides de la page d'accueil">
           {marketplaceActions.map((action) =>
@@ -589,13 +457,28 @@ export default function Home() {
         </nav>
       </section>
 
+      <section id="catalogue" className={styles.catalogShowcase}>
+        <CourseRail
+          eyebrow="Sélection Kalatty"
+          title="Cours à découvrir"
+          description="Comparez les programmes, les formateurs et les avis avant de faire votre choix."
+          courses={featuredCourses}
+        />
+        <CourseRail
+          eyebrow="Recommandés par les apprenants"
+          title="Les cours les mieux notés"
+          description="Retrouvez les formations qui ont le plus convaincu la communauté Kalatty."
+          courses={topRatedCourses}
+        />
+      </section>
+
       <section className={styles.productSection}>
         <div className={styles.sectionIntro}>
-          <span>Experience produit</span>
-          <h2>Trois parcours reliés dans une application cohérente.</h2>
+          <span>Votre espace Kalatty</span>
+          <h2>Une expérience adaptée à votre façon d&apos;apprendre ou d&apos;enseigner.</h2>
           <p>
-            Kalatty ne se limite pas à afficher des pages. Chaque rôle arrive
-            dans son espace, avec les actions importantes au premier plan.
+            Choisissez votre profil pour accéder directement aux outils et aux
+            informations qui vous concernent.
           </p>
         </div>
 
@@ -605,123 +488,26 @@ export default function Home() {
               <span>{item.label}</span>
               <h3>{item.title}</h3>
               <p>{item.text}</p>
-              <b>Entrer dans ce parcours</b>
+              <b>Découvrir cet espace</b>
             </Link>
           ))}
         </div>
 
-        <div className={styles.trustBar} aria-label="Socle technique et produit">
+        <div className={styles.trustBar} aria-label="Avantages de Kalatty">
           {trustSignals.map((signal) => (
             <span key={signal}>{signal}</span>
           ))}
         </div>
       </section>
 
-      <section className={styles.competitiveSection}>
-        <div className={styles.sectionIntro}>
-          <span>Standard marché</span>
-          <h2>Les codes d&apos;une vraie plateforme e-learning moderne.</h2>
-          <p>
-            Les références du marché rassurent vite : recherche claire, cartes
-            comparables, avis visibles, progression, certificats potentiels et
-            outils d&apos;administration. Kalatty reprend ces repères en les adaptant
-            au contexte des apprenants et établissements camerounais.
-          </p>
-        </div>
-        <div className={styles.competitiveGrid}>
-          {competitiveSignals.map((signal) => (
-            <Link key={signal.title} href={signal.href} className={styles.competitiveCard}>
-              <span>{signal.label}</span>
-              <h3>{signal.title}</h3>
-              <p>{signal.text}</p>
-              <b>Ouvrir</b>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      <section className={styles.launchSection}>
-        <div className={styles.launchIntro}>
-          <span>Vision lancement</span>
-          <h2>Une plateforme qui doit rassurer des vrais utilisateurs.</h2>
-          <p>
-            Pour etre lancee, Kalatty doit donner confiance des les premieres
-            secondes : parcours net, actions visibles, valeur immédiate et
-            interface qui respire le sérieux.
-          </p>
-        </div>
-
-        <div className={styles.launchGrid}>
-          {launchPillars.map((pillar) => (
-            <Link key={pillar.title} href={pillar.href} className={styles.launchCard}>
-              <span>{pillar.metric}</span>
-              <h3>{pillar.title}</h3>
-              <p>{pillar.text}</p>
-              <b>Continuer</b>
-            </Link>
-          ))}
-        </div>
-
-        <div className={styles.proofStrip} aria-label="Preuves produit Kalatty">
-          {productProof.map((item) => (
-            <div key={item.value}>
-              <strong>{item.value}</strong>
-              <span>{item.label}</span>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className={styles.marketSection}>
-        <div className={styles.marketPanel}>
-          <span className={styles.marketEyebrow}>Objectif marché</span>
-          <h2>Kalatty doit donner confiance avant même l&apos;inscription.</h2>
-          <p>
-            Un produit lançable doit être clair pour l&apos;apprenant, crédible pour
-            le formateur et rassurant pour l&apos;administration d&apos;un établissement.
-            Cette base permet ensuite d&apos;ajouter paiement, IA, application mobile
-            et analytics sans casser l&apos;expérience.
-          </p>
-        </div>
-        <div className={styles.marketGrid}>
-          {marketCapabilities.map((capability) => (
-            <Link
-              key={capability.title}
-              href={resolveMarketHref(capability.title, capability.href)}
-              className={styles.marketCard}
-            >
-              <span />
-              <h3>{capability.title}</h3>
-              <p>{capability.text}</p>
-              <b>Explorer</b>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      <section id="catalogue" className={styles.catalogShowcase}>
-        <CourseRail
-          eyebrow="Sélection Kalatty"
-          title="Cours tendance"
-          description="Les formations publiées qui attirent actuellement le plus l'attention."
-          courses={featuredCourses}
-        />
-        <CourseRail
-          eyebrow="Recommandes par les apprenants"
-          title="Les cours les mieux notés"
-          description="Compare les avis, les formateurs et les programmes avant de choisir."
-          courses={topRatedCourses}
-        />
-      </section>
-
       <section className={styles.promoSection}>
         <div className={styles.promoColumn}>
           <div className={styles.sectionIntro}>
-            <span>Promotions</span>
-            <h2>Actualites et opportunites Kalatty</h2>
+            <span>À la une</span>
+            <h2>Actualités et opportunités Kalatty</h2>
           </div>
           <div className={styles.promoList}>
-            {(promos.length > 0 ? promos : [{ id: "promo-default", title: "Campagnes Kalatty", description: "Cet espace peut mettre en avant une offre établissement, un nouveau cours ou une campagne de rentrée." }]).map((promo) => (
+            {(promos.length > 0 ? promos : [{ id: "promo-default", title: "Votre établissement sur Kalatty", description: "Réunissez vos classes, vos enseignants, vos emplois du temps et le suivi des apprenants dans un même campus en ligne.", href: "/register/institution" }]).map((promo) => (
               <Link
                 key={promo.id}
                 href={resolvePromoHref(promo.title, promo.href)}
@@ -733,28 +519,6 @@ export default function Home() {
               </Link>
             ))}
           </div>
-        </div>
-      </section>
-
-      <section className={styles.benefitSection}>
-        <div className={styles.sectionIntro}>
-          <span>Pourquoi Kalatty</span>
-          <h2>Une expérience complète, pas juste un dépôt de cours</h2>
-          <p>
-            La plateforme évolue autour de trois besoins : apprendre facilement,
-            publier proprement et administrer des groupes avec précision.
-          </p>
-        </div>
-
-        <div className={styles.benefitGrid}>
-          {benefits.map((benefit) => (
-            <Link key={benefit.title} href={benefit.href} className={styles.benefitCard}>
-              <span>{benefit.title}</span>
-              <h3>{benefit.title}</h3>
-              <p>{benefit.text}</p>
-              <b>Decouvrir cet espace</b>
-            </Link>
-          ))}
         </div>
       </section>
 
