@@ -234,7 +234,9 @@ export class InstitutionsService {
   async getInstitutionDetails(user: AuthUser, institutionId: string) {
     const role = await this.assertInstitutionAccess(user.id, institutionId);
     if (!['owner', 'admin', 'pedagogy'].includes(role)) {
-      throw new ForbiddenException('Les détails de l’établissement sont réservés à la direction et à la pédagogie.');
+      throw new ForbiddenException(
+        'Les détails de l’établissement sont réservés à la direction et à la pédagogie.',
+      );
     }
     const roomIds = await this.getInstitutionRoomIds(institutionId);
     const assignmentIds = await this.getAssignmentIdsForRooms(roomIds);
@@ -264,7 +266,9 @@ export class InstitutionsService {
         .order('created_at', { ascending: false }),
       this.supabaseService.client
         .from('institution_members')
-        .select('id, role, joined_at, profiles ( id, fullname, email, role, avatar_url )')
+        .select(
+          'id, role, joined_at, profiles ( id, fullname, email, role, avatar_url )',
+        )
         .eq('institution_id', institutionId)
         .order('joined_at', { ascending: false }),
       this.supabaseService.client
@@ -375,10 +379,8 @@ export class InstitutionsService {
     }
     const roomsWithSummary = (roomsRes.data ?? []).map((room: any) => ({
       ...room,
-      teacherNames:
-        roomSummaryById.get(String(room.id))?.teacherNames ?? [],
-      studentsCount:
-        roomSummaryById.get(String(room.id))?.studentsCount ?? 0,
+      teacherNames: roomSummaryById.get(String(room.id))?.teacherNames ?? [],
+      studentsCount: roomSummaryById.get(String(room.id))?.studentsCount ?? 0,
     }));
 
     const roomNameById = new Map<string, string>(
@@ -770,7 +772,6 @@ export class InstitutionsService {
     await this.assertInstitutionStaff(user.id, institutionId, [
       'owner',
       'admin',
-      'teacher',
     ]);
 
     const name = payload.name?.trim();
@@ -803,16 +804,28 @@ export class InstitutionsService {
 
   async getRoomDetails(user: AuthUser, roomId: string) {
     const room = await this.getRoomOrThrow(roomId);
-    const institutionRole = await this.assertInstitutionAccess(user.id, room.institution_id);
+    const institutionRole = await this.assertInstitutionAccess(
+      user.id,
+      room.institution_id,
+    );
     if (institutionRole === 'student') {
-      throw new ForbiddenException('Les détails de cette classe sont réservés au personnel.');
+      throw new ForbiddenException(
+        'Les détails de cette classe sont réservés au personnel.',
+      );
     }
     if (institutionRole === 'teacher') {
-      const { data: membership, error: membershipError } = await this.supabaseService.client
-        .from('room_members').select('id').eq('room_id', roomId).eq('user_id', user.id)
-        .eq('role', 'teacher').maybeSingle();
-      if (membershipError) throw new BadRequestException(membershipError.message);
-      if (!membership) throw new ForbiddenException('Vous n’êtes pas affecté à cette classe.');
+      const { data: membership, error: membershipError } =
+        await this.supabaseService.client
+          .from('room_members')
+          .select('id')
+          .eq('room_id', roomId)
+          .eq('user_id', user.id)
+          .eq('role', 'teacher')
+          .maybeSingle();
+      if (membershipError)
+        throw new BadRequestException(membershipError.message);
+      if (!membership)
+        throw new ForbiddenException('Vous n’êtes pas affecté à cette classe.');
     }
 
     const assignmentIds = await this.getRoomAssignmentIds(roomId);
@@ -825,10 +838,13 @@ export class InstitutionsService {
       scheduleRes,
       attendanceRes,
       controlsRes,
+      roomSubjectsRes,
     ] = await Promise.all([
       this.supabaseService.client
         .from('room_members')
-        .select('id, role, joined_at, profiles ( id, fullname, email, role, avatar_url )')
+        .select(
+          'id, role, joined_at, profiles ( id, fullname, email, role, avatar_url )',
+        )
         .eq('room_id', roomId)
         .order('joined_at', { ascending: false }),
       this.supabaseService.client
@@ -855,6 +871,13 @@ export class InstitutionsService {
       this.loadScheduleItemsForRooms([roomId]),
       this.loadAttendanceSessionsForRooms([roomId]),
       this.loadRoomMemberControls(roomId),
+      this.supabaseService.client
+        .from('room_subjects')
+        .select(
+          'id, subject_id, teacher_id, subjects ( id, name, course_id ), profiles:teacher_id ( id, fullname, email, avatar_url )',
+        )
+        .eq('room_id', roomId)
+        .order('created_at', { ascending: true }),
     ]);
 
     const submissionsRes = assignmentIds.length
@@ -918,6 +941,10 @@ export class InstitutionsService {
       throw new BadRequestException(controlsRes.error.message);
     }
 
+    if (roomSubjectsRes.error) {
+      throw new BadRequestException(roomSubjectsRes.error.message);
+    }
+
     const submissions = submissionsRes.data ?? [];
     const controlsByUserId = new Map(
       (controlsRes.data ?? []).map((control: any) => [
@@ -947,6 +974,11 @@ export class InstitutionsService {
         id: row.id,
         assignedAt: row.created_at,
         course: Array.isArray(row.courses) ? row.courses[0] : row.courses,
+      })),
+      subjects: (roomSubjectsRes.data ?? []).map((row: any) => ({
+        id: row.id,
+        subject: Array.isArray(row.subjects) ? row.subjects[0] : row.subjects,
+        teacher: Array.isArray(row.profiles) ? row.profiles[0] : row.profiles,
       })),
       assignments: (assignmentsRes.data ?? []).map((assignment: any) => {
         const assignmentSubmissions = submissions.filter(
@@ -1023,12 +1055,7 @@ export class InstitutionsService {
     const institutionRole = await this.assertInstitutionStaff(
       user.id,
       room.institution_id,
-      [
-      'owner',
-      'admin',
-      'teacher',
-      'pedagogy',
-      ],
+      ['owner', 'admin', 'teacher', 'pedagogy'],
     );
     if (institutionRole === 'teacher') {
       await this.assertTeacherRoomAssignment(user.id, roomId);
@@ -1103,12 +1130,7 @@ export class InstitutionsService {
     const institutionRole = await this.assertInstitutionStaff(
       user.id,
       existing.institution_id,
-      [
-      'owner',
-      'admin',
-      'teacher',
-      'pedagogy',
-      ],
+      ['owner', 'admin', 'teacher', 'pedagogy'],
     );
     if (institutionRole === 'teacher') {
       await this.assertTeacherRoomAssignment(user.id, existing.room_id);
@@ -1195,11 +1217,14 @@ export class InstitutionsService {
     },
   ) {
     const room = await this.getRoomOrThrow(roomId);
-    await this.assertInstitutionStaff(user.id, room.institution_id, [
-      'owner',
-      'admin',
-      'teacher',
-    ]);
+    const institutionRole = await this.assertInstitutionStaff(
+      user.id,
+      room.institution_id,
+      ['owner', 'admin', 'teacher'],
+    );
+    if (institutionRole === 'teacher') {
+      await this.assertTeacherRoomAssignment(user.id, roomId);
+    }
 
     const sessionDate = payload.session_date?.trim()
       ? new Date(payload.session_date)
@@ -1531,8 +1556,14 @@ export class InstitutionsService {
     if (existingError) {
       throw new BadRequestException(existingError.message);
     }
-    if (existing && existing.status !== 'returned' && existing.status !== 'draft') {
-      throw new ForbiddenException('Cette remise a déjà été envoyée et ne peut pas être modifiée.');
+    if (
+      existing &&
+      existing.status !== 'returned' &&
+      existing.status !== 'draft'
+    ) {
+      throw new ForbiddenException(
+        'Cette remise a déjà été envoyée et ne peut pas être modifiée.',
+      );
     }
 
     const submissionPayload = {
@@ -1672,8 +1703,23 @@ export class InstitutionsService {
     await this.assertInstitutionStaff(user.id, room.institution_id, [
       'owner',
       'admin',
-      'teacher',
     ]);
+
+    const { data: membership, error: membershipError } =
+      await this.supabaseService.client
+        .from('room_members')
+        .select('role')
+        .eq('room_id', roomId)
+        .eq('user_id', memberUserId.trim())
+        .maybeSingle();
+    if (membershipError) {
+      throw new BadRequestException(membershipError.message);
+    }
+    if (!membership || membership.role !== 'student') {
+      throw new BadRequestException(
+        'Seul le statut d’un étudiant de cette classe peut être modifié.',
+      );
+    }
 
     const status = payload.status === 'blocked' ? 'blocked' : 'active';
 
@@ -1711,11 +1757,34 @@ export class InstitutionsService {
     await this.assertInstitutionStaff(user.id, room.institution_id, [
       'owner',
       'admin',
-      'teacher',
     ]);
 
     if (!['teacher', 'student', 'assistant'].includes(payload.role)) {
       throw new BadRequestException('Le role fourni est invalide.');
+    }
+
+    const { data: institutionMember, error: institutionMemberError } =
+      await this.supabaseService.client
+        .from('institution_members')
+        .select('role')
+        .eq('institution_id', room.institution_id)
+        .eq('user_id', payload.user_id.trim())
+        .maybeSingle();
+    if (institutionMemberError) {
+      throw new BadRequestException(institutionMemberError.message);
+    }
+    if (!institutionMember) {
+      throw new BadRequestException(
+        'Cet utilisateur n’appartient pas à l’établissement.',
+      );
+    }
+    if (
+      payload.role !== 'assistant' &&
+      String(institutionMember.role) !== payload.role
+    ) {
+      throw new BadRequestException(
+        'Le rôle choisi ne correspond pas au compte de cet utilisateur.',
+      );
     }
 
     const { data, error } = await this.supabaseService.client
@@ -1740,6 +1809,56 @@ export class InstitutionsService {
     return data;
   }
 
+  async removeRoomMember(user: AuthUser, roomId: string, memberUserId: string) {
+    const room = await this.getRoomOrThrow(roomId);
+    await this.assertInstitutionStaff(user.id, room.institution_id, [
+      'owner',
+      'admin',
+    ]);
+
+    const userId = memberUserId.trim();
+    const { data: membership, error: membershipError } =
+      await this.supabaseService.client
+        .from('room_members')
+        .select('id, role')
+        .eq('room_id', roomId)
+        .eq('user_id', userId)
+        .maybeSingle();
+    if (membershipError) {
+      throw new BadRequestException(membershipError.message);
+    }
+    if (!membership) {
+      throw new NotFoundException('Ce membre n’est pas affecté à la classe.');
+    }
+
+    if (membership.role === 'teacher') {
+      const { error: subjectError } = await this.supabaseService.client
+        .from('room_subjects')
+        .update({ teacher_id: null })
+        .eq('room_id', roomId)
+        .eq('teacher_id', userId);
+      if (subjectError) {
+        throw new BadRequestException(subjectError.message);
+      }
+    }
+
+    const { error } = await this.supabaseService.client
+      .from('room_members')
+      .delete()
+      .eq('id', membership.id);
+    if (error) {
+      throw new BadRequestException(error.message);
+    }
+
+    await this.supabaseService.client
+      .from('room_member_controls')
+      .delete()
+      .eq('room_id', roomId)
+      .eq('user_id', userId);
+
+    return { message: 'Le membre a été retiré de la classe.' };
+  }
+
   async assignCourseToRoom(
     user: AuthUser,
     roomId: string,
@@ -1749,7 +1868,6 @@ export class InstitutionsService {
     await this.assertInstitutionStaff(user.id, room.institution_id, [
       'owner',
       'admin',
-      'teacher',
     ]);
 
     const courseId = payload.course_id?.trim();
@@ -1795,11 +1913,14 @@ export class InstitutionsService {
     },
   ) {
     const room = await this.getRoomOrThrow(roomId);
-    await this.assertInstitutionStaff(user.id, room.institution_id, [
-      'owner',
-      'admin',
-      'teacher',
-    ]);
+    const institutionRole = await this.assertInstitutionStaff(
+      user.id,
+      room.institution_id,
+      ['owner', 'admin', 'teacher'],
+    );
+    if (institutionRole === 'teacher') {
+      await this.assertTeacherRoomAssignment(user.id, roomId);
+    }
 
     const title = payload.title?.trim();
     if (!title) {
@@ -1870,11 +1991,14 @@ export class InstitutionsService {
     file: UploadedAsset,
   ) {
     const room = await this.getRoomOrThrow(roomId);
-    await this.assertInstitutionStaff(user.id, room.institution_id, [
-      'owner',
-      'admin',
-      'teacher',
-    ]);
+    const institutionRole = await this.assertInstitutionStaff(
+      user.id,
+      room.institution_id,
+      ['owner', 'admin', 'teacher'],
+    );
+    if (institutionRole === 'teacher') {
+      await this.assertTeacherRoomAssignment(user.id, roomId);
+    }
 
     if (!file?.buffer?.length) {
       throw new BadRequestException('Le fichier envoye est vide.');
@@ -1932,7 +2056,6 @@ export class InstitutionsService {
     await this.assertInstitutionStaff(user.id, room.institution_id, [
       'owner',
       'admin',
-      'teacher',
     ]);
 
     if (!['teacher', 'student', 'assistant'].includes(payload.invite_role)) {
@@ -2174,11 +2297,17 @@ export class InstitutionsService {
     }
 
     const room = await this.getRoomOrThrow(String(assignment.room_id));
-    await this.assertInstitutionStaff(user.id, room.institution_id, [
-      'owner',
-      'admin',
-      'teacher',
-    ]);
+    const institutionRole = await this.assertInstitutionStaff(
+      user.id,
+      room.institution_id,
+      ['owner', 'admin', 'teacher'],
+    );
+    if (institutionRole === 'teacher') {
+      await this.assertTeacherRoomAssignment(
+        user.id,
+        String(assignment.room_id),
+      );
+    }
 
     const nextStatus = payload.status === 'returned' ? 'returned' : 'reviewed';
     const score =

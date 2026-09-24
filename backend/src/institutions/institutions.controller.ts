@@ -152,6 +152,19 @@ export class InstitutionsController {
     return this.institutionsService.addRoomMember(req.user, roomId, body);
   }
 
+  @Delete('rooms/:roomId/members/:memberUserId')
+  removeRoomMember(
+    @Req() req: RequestUser,
+    @Param('roomId') roomId: string,
+    @Param('memberUserId') memberUserId: string,
+  ) {
+    return this.institutionsService.removeRoomMember(
+      req.user,
+      roomId,
+      memberUserId,
+    );
+  }
+
   @Post('rooms/:roomId/courses')
   assignCourseToRoom(
     @Req() req: RequestUser,

@@ -25,8 +25,6 @@ type UploadedCampusFile = {
   size: number;
 };
 
-
-
 type CampusRole = 'student' | 'teacher' | 'pedagogy' | 'admin';
 
 const ROLE_MAP: Record<string, CampusRole> = {
@@ -91,9 +89,15 @@ export class CampusService {
     // plusieurs campus, par exemple) : on retient celui touche le plus
     // recemment plutot qu'un ordre arbitraire.
     const membership = [...memberships].sort((a: any, b: any) => {
-      const instA = Array.isArray(a.institutions) ? a.institutions[0] : a.institutions;
-      const instB = Array.isArray(b.institutions) ? b.institutions[0] : b.institutions;
-      return String(instB?.updated_at ?? '').localeCompare(String(instA?.updated_at ?? ''));
+      const instA = Array.isArray(a.institutions)
+        ? a.institutions[0]
+        : a.institutions;
+      const instB = Array.isArray(b.institutions)
+        ? b.institutions[0]
+        : b.institutions;
+      return String(instB?.updated_at ?? '').localeCompare(
+        String(instA?.updated_at ?? ''),
+      );
     })[0];
 
     const institution = Array.isArray(membership.institutions)
@@ -145,8 +149,11 @@ export class CampusService {
       .eq('user_id', user.id)
       .eq('role', 'student');
     if (membershipError) throw new BadRequestException(membershipError.message);
-    const memberRoomIds = [...new Set((memberships ?? []).map((row: any) => String(row.room_id)))];
-    if (!memberRoomIds.length) return { context, rooms: [], schedule: [], courses: [], grades: [] };
+    const memberRoomIds = [
+      ...new Set((memberships ?? []).map((row: any) => String(row.room_id))),
+    ];
+    if (!memberRoomIds.length)
+      return { context, rooms: [], schedule: [], courses: [], grades: [] };
 
     const { data: rooms, error: roomError } = await this.client
       .from('rooms')
@@ -155,54 +162,116 @@ export class CampusService {
       .eq('institution_id', context.institutionId);
     if (roomError) throw new BadRequestException(roomError.message);
     const roomIds = (rooms ?? []).map((room: any) => String(room.id));
-    if (!roomIds.length) return { context, rooms: [], schedule: [], courses: [], grades: [] };
+    if (!roomIds.length)
+      return { context, rooms: [], schedule: [], courses: [], grades: [] };
 
-    const [scheduleResult, coursesResult, teachersResult, gradesResult] = await Promise.all([
-      this.client.from('room_schedule_items')
-        .select('id, room_id, title, weekday, starts_at, ends_at, location')
-        .in('room_id', roomIds)
-        .order('weekday', { ascending: true })
-        .order('starts_at', { ascending: true }),
-      this.client.from('room_courses')
-        .select('id, room_id, courses ( id, title, description, short_description )')
-        .in('room_id', roomIds),
-      this.client.from('room_members')
-        .select('room_id, profiles ( fullname )')
-        .in('room_id', roomIds)
-        .eq('role', 'teacher'),
-      this.client.from('assignment_submissions')
-        .select('id, status, score, feedback, submitted_at, reviewed_at, assignments ( title, max_score, room_id )')
-        .eq('student_id', user.id)
-        .eq('status', 'reviewed')
-        .eq('published', true)
-        .order('submitted_at', { ascending: false })
-        .limit(50),
-    ]);
-    for (const result of [scheduleResult, coursesResult, teachersResult, gradesResult]) {
+    const [scheduleResult, coursesResult, teachersResult, gradesResult] =
+      await Promise.all([
+        this.client
+          .from('room_schedule_items')
+          .select('id, room_id, title, weekday, starts_at, ends_at, location')
+          .in('room_id', roomIds)
+          .order('weekday', { ascending: true })
+          .order('starts_at', { ascending: true }),
+        this.client
+          .from('room_courses')
+          .select(
+            'id, room_id, courses ( id, title, description, short_description )',
+          )
+          .in('room_id', roomIds),
+        this.client
+          .from('room_members')
+          .select('room_id, profiles ( fullname )')
+          .in('room_id', roomIds)
+          .eq('role', 'teacher'),
+        this.client
+          .from('assignment_submissions')
+          .select(
+            'id, status, score, feedback, submitted_at, reviewed_at, assignments ( title, max_score, room_id )',
+          )
+          .eq('student_id', user.id)
+          .eq('status', 'reviewed')
+          .eq('published', true)
+          .order('submitted_at', { ascending: false })
+          .limit(50),
+      ]);
+    for (const result of [
+      scheduleResult,
+      coursesResult,
+      teachersResult,
+      gradesResult,
+    ]) {
       if (result.error) throw new BadRequestException(result.error.message);
     }
 
-    const names = new Map((rooms ?? []).map((room: any) => [String(room.id), String(room.name)]));
+    const names = new Map(
+      (rooms ?? []).map((room: any) => [String(room.id), String(room.name)]),
+    );
     const teachers = new Map<string, string[]>();
     for (const row of teachersResult.data ?? []) {
-      const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+      const profile = Array.isArray(row.profiles)
+        ? row.profiles[0]
+        : row.profiles;
       if (!profile?.fullname) continue;
       const roomId = String(row.room_id);
-      teachers.set(roomId, [...(teachers.get(roomId) ?? []), String(profile.fullname)]);
+      teachers.set(roomId, [
+        ...(teachers.get(roomId) ?? []),
+        String(profile.fullname),
+      ]);
     }
 
     return {
       context,
-      rooms: (rooms ?? []).map((room: any) => ({ id: room.id, name: room.name, description: room.description ?? '', teachers: teachers.get(String(room.id)) ?? [] })),
-      schedule: (scheduleResult.data ?? []).map((row: any) => ({ id: row.id, roomId: row.room_id, roomName: names.get(String(row.room_id)), title: row.title, weekday: Number(row.weekday), startsAt: String(row.starts_at).slice(0, 5), endsAt: row.ends_at ? String(row.ends_at).slice(0, 5) : null, location: row.location ?? '' })),
+      rooms: (rooms ?? []).map((room: any) => ({
+        id: room.id,
+        name: room.name,
+        description: room.description ?? '',
+        teachers: teachers.get(String(room.id)) ?? [],
+      })),
+      schedule: (scheduleResult.data ?? []).map((row: any) => ({
+        id: row.id,
+        roomId: row.room_id,
+        roomName: names.get(String(row.room_id)),
+        title: row.title,
+        weekday: Number(row.weekday),
+        startsAt: String(row.starts_at).slice(0, 5),
+        endsAt: row.ends_at ? String(row.ends_at).slice(0, 5) : null,
+        location: row.location ?? '',
+      })),
       courses: (coursesResult.data ?? []).flatMap((row: any) => {
-        const course = Array.isArray(row.courses) ? row.courses[0] : row.courses;
-        return course?.id ? [{ id: course.id, title: course.title, description: course.short_description ?? course.description ?? '', roomName: names.get(String(row.room_id)) }] : [];
+        const course = Array.isArray(row.courses)
+          ? row.courses[0]
+          : row.courses;
+        return course?.id
+          ? [
+              {
+                id: course.id,
+                title: course.title,
+                description:
+                  course.short_description ?? course.description ?? '',
+                roomName: names.get(String(row.room_id)),
+              },
+            ]
+          : [];
       }),
       grades: (gradesResult.data ?? []).flatMap((row: any) => {
-        const assignment = Array.isArray(row.assignments) ? row.assignments[0] : row.assignments;
-        return assignment && roomIds.includes(String(assignment.room_id)) && row.score !== null
-          ? [{ id: row.id, title: assignment.title, roomName: names.get(String(assignment.room_id)), score: Number(row.score), maxScore: Number(assignment.max_score ?? 0), feedback: row.feedback ?? '', reviewedAt: row.reviewed_at }]
+        const assignment = Array.isArray(row.assignments)
+          ? row.assignments[0]
+          : row.assignments;
+        return assignment &&
+          roomIds.includes(String(assignment.room_id)) &&
+          row.score !== null
+          ? [
+              {
+                id: row.id,
+                title: assignment.title,
+                roomName: names.get(String(assignment.room_id)),
+                score: Number(row.score),
+                maxScore: Number(assignment.max_score ?? 0),
+                feedback: row.feedback ?? '',
+                reviewedAt: row.reviewed_at,
+              },
+            ]
           : [];
       }),
     };
@@ -214,22 +283,44 @@ export class CampusService {
       throw new ForbiddenException('Espace réservé aux étudiants.');
     }
     const { data: memberships, error: membershipError } = await this.client
-      .from('room_members').select('room_id').eq('user_id', user.id).eq('role', 'student');
+      .from('room_members')
+      .select('room_id')
+      .eq('user_id', user.id)
+      .eq('role', 'student');
     if (membershipError) throw new BadRequestException(membershipError.message);
     const roomIds = (memberships ?? []).map((row: any) => String(row.room_id));
     const { data: rooms, error: roomsError } = roomIds.length
-      ? await this.client.from('rooms').select('id').in('id', roomIds).eq('institution_id', context.institutionId)
+      ? await this.client
+          .from('rooms')
+          .select('id')
+          .in('id', roomIds)
+          .eq('institution_id', context.institutionId)
       : { data: [], error: null };
     if (roomsError) throw new BadRequestException(roomsError.message);
-    const allowedRooms = new Set((rooms ?? []).map((row: any) => String(row.id)));
-    const { data, error } = await this.client.from('announcements')
+    const allowedRooms = new Set(
+      (rooms ?? []).map((row: any) => String(row.id)),
+    );
+    const { data, error } = await this.client
+      .from('announcements')
       .select('id, title, body, room_id, created_at')
       .eq('institution_id', context.institutionId)
       .in('audience', ['all', 'students'])
-      .order('created_at', { ascending: false }).limit(100);
+      .order('created_at', { ascending: false })
+      .limit(100);
     if (error) throw new BadRequestException(error.message);
-    return { announcements: (data ?? []).filter((row: any) => !row.room_id || allowedRooms.has(String(row.room_id)))
-      .map((row: any) => ({ id: row.id, title: row.title, body: row.body, createdAt: row.created_at, roomId: row.room_id })) };
+    return {
+      announcements: (data ?? [])
+        .filter(
+          (row: any) => !row.room_id || allowedRooms.has(String(row.room_id)),
+        )
+        .map((row: any) => ({
+          id: row.id,
+          title: row.title,
+          body: row.body,
+          createdAt: row.created_at,
+          roomId: row.room_id,
+        })),
+    };
   }
 
   // ------------------------------------------------------------ horloge partagee (fuseau Europe/Paris)
@@ -489,7 +580,9 @@ export class CampusService {
     );
     await this.createNotifications(
       (staffMembers ?? [])
-        .filter((member: any) => ['owner', 'admin'].includes(String(member.role)))
+        .filter((member: any) =>
+          ['owner', 'admin'].includes(String(member.role)),
+        )
         .map((member: any) => String(member.user_id)),
       {
         type: 'institution',
@@ -543,7 +636,9 @@ export class CampusService {
       .select('room_id')
       .eq('user_id', ctx.userId)
       .eq('role', 'student');
-    const memberRoomIds = (memberships ?? []).map((m: any) => String(m.room_id));
+    const memberRoomIds = (memberships ?? []).map((m: any) =>
+      String(m.room_id),
+    );
 
     if (memberRoomIds.length === 0) {
       return this.emptyStudentHome();
@@ -639,7 +734,9 @@ export class CampusService {
       .order('created_at', { ascending: false })
       .limit(30);
 
-    const visibleAnnouncement = (announcements ?? []).find((item: any) => !item.room_id || roomIds.includes(String(item.room_id)));
+    const visibleAnnouncement = (announcements ?? []).find(
+      (item: any) => !item.room_id || roomIds.includes(String(item.room_id)),
+    );
 
     return {
       today,
@@ -683,25 +780,43 @@ export class CampusService {
       throw new ForbiddenException('Espace réservé aux professeurs.');
     }
     const { data: memberships, error: membershipError } = await this.client
-      .from('room_members').select('room_id').eq('user_id', user.id).eq('role', 'teacher');
+      .from('room_members')
+      .select('room_id')
+      .eq('user_id', user.id)
+      .eq('role', 'teacher');
     if (membershipError) throw new BadRequestException(membershipError.message);
     const ids = (memberships ?? []).map((row: any) => String(row.room_id));
     if (!ids.length) return { schedule: [] };
-    const { data: rooms, error: roomError } = await this.client.from('rooms')
-      .select('id, name').in('id', ids).eq('institution_id', context.institutionId);
+    const { data: rooms, error: roomError } = await this.client
+      .from('rooms')
+      .select('id, name')
+      .in('id', ids)
+      .eq('institution_id', context.institutionId);
     if (roomError) throw new BadRequestException(roomError.message);
     const roomIds = (rooms ?? []).map((room: any) => String(room.id));
     if (!roomIds.length) return { schedule: [] };
-    const names = new Map((rooms ?? []).map((room: any) => [String(room.id), String(room.name)]));
-    const { data, error } = await this.client.from('room_schedule_items')
+    const names = new Map(
+      (rooms ?? []).map((room: any) => [String(room.id), String(room.name)]),
+    );
+    const { data, error } = await this.client
+      .from('room_schedule_items')
       .select('id, room_id, title, weekday, starts_at, ends_at, location')
-      .in('room_id', roomIds).order('weekday', { ascending: true }).order('starts_at', { ascending: true });
+      .in('room_id', roomIds)
+      .order('weekday', { ascending: true })
+      .order('starts_at', { ascending: true });
     if (error) throw new BadRequestException(error.message);
-    return { schedule: (data ?? []).map((item: any) => ({
-      id: item.id, roomId: item.room_id, title: item.title, roomName: names.get(String(item.room_id)),
-      weekday: Number(item.weekday), startsAt: String(item.starts_at).slice(0, 5),
-      endsAt: item.ends_at ? String(item.ends_at).slice(0, 5) : null, location: item.location ?? '',
-    })) };
+    return {
+      schedule: (data ?? []).map((item: any) => ({
+        id: item.id,
+        roomId: item.room_id,
+        title: item.title,
+        roomName: names.get(String(item.room_id)),
+        weekday: Number(item.weekday),
+        startsAt: String(item.starts_at).slice(0, 5),
+        endsAt: item.ends_at ? String(item.ends_at).slice(0, 5) : null,
+        location: item.location ?? '',
+      })),
+    };
   }
 
   async getStaffSchedule(user: AuthUser) {
@@ -713,69 +828,156 @@ export class CampusService {
     if (context.campusRole === 'pedagogy') {
       roomIds = await this.pedagogyScopeRoomIds(user.id, context.institutionId);
     } else {
-      const { data: allRooms, error: listError } = await this.client.from('rooms')
-        .select('id').eq('institution_id', context.institutionId);
+      const { data: allRooms, error: listError } = await this.client
+        .from('rooms')
+        .select('id')
+        .eq('institution_id', context.institutionId);
       if (listError) throw new BadRequestException(listError.message);
       roomIds = (allRooms ?? []).map((room: any) => String(room.id));
     }
     if (!roomIds.length) return { schedule: [] };
     const [roomsResult, scheduleResult] = await Promise.all([
-      this.client.from('rooms').select('id, name').in('id', roomIds).eq('institution_id', context.institutionId),
-      this.client.from('room_schedule_items').select('id, room_id, title, weekday, starts_at, ends_at, location')
-        .in('room_id', roomIds).order('weekday', { ascending: true }).order('starts_at', { ascending: true }),
+      this.client
+        .from('rooms')
+        .select('id, name')
+        .in('id', roomIds)
+        .eq('institution_id', context.institutionId),
+      this.client
+        .from('room_schedule_items')
+        .select('id, room_id, title, weekday, starts_at, ends_at, location')
+        .in('room_id', roomIds)
+        .order('weekday', { ascending: true })
+        .order('starts_at', { ascending: true }),
     ]);
-    if (roomsResult.error) throw new BadRequestException(roomsResult.error.message);
-    if (scheduleResult.error) throw new BadRequestException(scheduleResult.error.message);
-    const names = new Map((roomsResult.data ?? []).map((room: any) => [String(room.id), String(room.name)]));
-    return { schedule: (scheduleResult.data ?? []).filter((item: any) => names.has(String(item.room_id))).map((item: any) => ({
-      id: item.id, roomId: item.room_id, title: item.title, roomName: names.get(String(item.room_id)), weekday: Number(item.weekday),
-      startsAt: String(item.starts_at).slice(0, 5), endsAt: item.ends_at ? String(item.ends_at).slice(0, 5) : null,
-      location: item.location ?? '',
-    })) };
+    if (roomsResult.error)
+      throw new BadRequestException(roomsResult.error.message);
+    if (scheduleResult.error)
+      throw new BadRequestException(scheduleResult.error.message);
+    const names = new Map(
+      (roomsResult.data ?? []).map((room: any) => [
+        String(room.id),
+        String(room.name),
+      ]),
+    );
+    return {
+      schedule: (scheduleResult.data ?? [])
+        .filter((item: any) => names.has(String(item.room_id)))
+        .map((item: any) => ({
+          id: item.id,
+          roomId: item.room_id,
+          title: item.title,
+          roomName: names.get(String(item.room_id)),
+          weekday: Number(item.weekday),
+          startsAt: String(item.starts_at).slice(0, 5),
+          endsAt: item.ends_at ? String(item.ends_at).slice(0, 5) : null,
+          location: item.location ?? '',
+        })),
+    };
   }
 
   async getAnnouncements(user: AuthUser) {
     const context = await this.getContext(user);
-    const { data: memberships, error: membershipError } = await this.client.from('room_members')
-      .select('room_id').eq('user_id', user.id);
+    const { data: memberships, error: membershipError } = await this.client
+      .from('room_members')
+      .select('room_id')
+      .eq('user_id', user.id);
     if (membershipError) throw new BadRequestException(membershipError.message);
-    const ownIds = new Set((memberships ?? []).map((row: any) => String(row.room_id)));
-    const { data: rooms, error: roomsError } = await this.client.from('rooms').select('id')
+    const ownIds = new Set(
+      (memberships ?? []).map((row: any) => String(row.room_id)),
+    );
+    const { data: rooms, error: roomsError } = await this.client
+      .from('rooms')
+      .select('id')
       .eq('institution_id', context.institutionId);
     if (roomsError) throw new BadRequestException(roomsError.message);
-    const institutionIds = new Set((rooms ?? []).map((row: any) => String(row.id)));
-    const { data, error } = await this.client.from('announcements')
+    const institutionIds = new Set(
+      (rooms ?? []).map((row: any) => String(row.id)),
+    );
+    const { data, error } = await this.client
+      .from('announcements')
       .select('id, title, body, room_id, audience, created_at')
-      .eq('institution_id', context.institutionId).order('created_at', { ascending: false }).limit(100);
+      .eq('institution_id', context.institutionId)
+      .order('created_at', { ascending: false })
+      .limit(100);
     if (error) throw new BadRequestException(error.message);
-    const permittedAudience = context.campusRole === 'student' ? ['all', 'students', 'room']
-      : context.campusRole === 'teacher' ? ['all', 'teachers', 'room'] : ['all', 'teachers', 'students', 'room'];
-    return { announcements: (data ?? []).filter((row: any) => permittedAudience.includes(row.audience)
-      && (row.audience !== 'room' || !!row.room_id)
-      && (!row.room_id || (institutionIds.has(String(row.room_id)) &&
-        (context.campusRole === 'admin' || context.campusRole === 'pedagogy' || ownIds.has(String(row.room_id))))))
-      .map((row: any) => ({ id: row.id, title: row.title, body: row.body, roomId: row.room_id, createdAt: row.created_at })) };
+    const permittedAudience =
+      context.campusRole === 'student'
+        ? ['all', 'students', 'room']
+        : context.campusRole === 'teacher'
+          ? ['all', 'teachers', 'room']
+          : ['all', 'teachers', 'students', 'room'];
+    return {
+      announcements: (data ?? [])
+        .filter(
+          (row: any) =>
+            permittedAudience.includes(row.audience) &&
+            (row.audience !== 'room' || !!row.room_id) &&
+            (!row.room_id ||
+              (institutionIds.has(String(row.room_id)) &&
+                (context.campusRole === 'admin' ||
+                  context.campusRole === 'pedagogy' ||
+                  ownIds.has(String(row.room_id))))),
+        )
+        .map((row: any) => ({
+          id: row.id,
+          title: row.title,
+          body: row.body,
+          roomId: row.room_id,
+          createdAt: row.created_at,
+        })),
+    };
   }
 
-  async createAnnouncement(user: AuthUser, payload: { title?: string; body?: string; audience?: string; roomId?: string }) {
+  async createAnnouncement(
+    user: AuthUser,
+    payload: {
+      title?: string;
+      body?: string;
+      audience?: string;
+      roomId?: string;
+    },
+  ) {
     const context = await this.getContext(user);
-    if (context.campusRole !== 'admin') throw new ForbiddenException('Publication réservée à la direction.');
+    if (context.campusRole !== 'admin')
+      throw new ForbiddenException('Publication réservée à la direction.');
     const title = payload.title?.trim();
     const body = payload.body?.trim();
     const audience = payload.audience ?? 'all';
-    if (!title || !body || title.length > 160 || body.length > 5000 || !['all', 'students', 'teachers', 'room'].includes(audience) || (audience === 'room' && !payload.roomId)) {
+    if (
+      !title ||
+      !body ||
+      title.length > 160 ||
+      body.length > 5000 ||
+      !['all', 'students', 'teachers', 'room'].includes(audience) ||
+      (audience === 'room' && !payload.roomId)
+    ) {
       throw new BadRequestException('Titre, message ou audience invalide.');
     }
     if (payload.roomId) {
-      const { data: room, error: roomError } = await this.client.from('rooms').select('id')
-        .eq('id', payload.roomId).eq('institution_id', context.institutionId).maybeSingle();
+      const { data: room, error: roomError } = await this.client
+        .from('rooms')
+        .select('id')
+        .eq('id', payload.roomId)
+        .eq('institution_id', context.institutionId)
+        .maybeSingle();
       if (roomError) throw new BadRequestException(roomError.message);
-      if (!room) throw new NotFoundException('Classe introuvable dans cet établissement.');
+      if (!room)
+        throw new NotFoundException(
+          'Classe introuvable dans cet établissement.',
+        );
     }
-    const { data, error } = await this.client.from('announcements').insert({
-      institution_id: context.institutionId, author_id: user.id, title, body,
-      audience, room_id: payload.roomId ?? null,
-    }).select('id, title, body, audience, room_id, created_at').single();
+    const { data, error } = await this.client
+      .from('announcements')
+      .insert({
+        institution_id: context.institutionId,
+        author_id: user.id,
+        title,
+        body,
+        audience,
+        room_id: payload.roomId ?? null,
+      })
+      .select('id, title, body, audience, room_id, created_at')
+      .single();
     if (error) throw new BadRequestException(error.message);
     return data;
   }
@@ -785,119 +987,200 @@ export class CampusService {
     if (context.campusRole !== 'pedagogy' && context.campusRole !== 'admin') {
       throw new ForbiddenException('Documents réservés au personnel autorisé.');
     }
-    const { data, error } = await this.client.from('institution_documents')
-      .select('id, title, category, file_path, created_at').eq('institution_id', context.institutionId)
-      .order('created_at', { ascending: false }).limit(100);
+    const { data, error } = await this.client
+      .from('institution_documents')
+      .select('id, title, category, file_path, created_at')
+      .eq('institution_id', context.institutionId)
+      .order('created_at', { ascending: false })
+      .limit(100);
     if (error) throw new BadRequestException(error.message);
-    const documents = await Promise.all((data ?? []).map(async (item: any) => {
-      const path = String(item.file_path);
-      if (!path.startsWith(`${context.institutionId}/`)) return null;
-      const { data: signed, error: signError } = await this.client.storage.from('institution-documents')
-        .createSignedUrl(path, 60 * 15);
-      return { id: item.id, title: item.title, category: item.category,
-        createdAt: item.created_at, url: signError ? null : signed?.signedUrl ?? null };
-    }));
+    const documents = await Promise.all(
+      (data ?? []).map(async (item: any) => {
+        const path = String(item.file_path);
+        if (!path.startsWith(`${context.institutionId}/`)) return null;
+        const { data: signed, error: signError } = await this.client.storage
+          .from('institution-documents')
+          .createSignedUrl(path, 60 * 15);
+        return {
+          id: item.id,
+          title: item.title,
+          category: item.category,
+          createdAt: item.created_at,
+          url: signError ? null : (signed?.signedUrl ?? null),
+        };
+      }),
+    );
     return { documents: documents.filter(Boolean) };
   }
 
   async getStaffAssignments(user: AuthUser) {
     const context = await this.getContext(user);
-    if (context.campusRole === 'student') throw new ForbiddenException('Accès réservé au personnel.');
-    const { data: rooms, error: roomError } = await this.client.from('rooms')
-      .select('id, name').eq('institution_id', context.institutionId);
+    if (context.campusRole === 'student')
+      throw new ForbiddenException('Accès réservé au personnel.');
+    const { data: rooms, error: roomError } = await this.client
+      .from('rooms')
+      .select('id, name')
+      .eq('institution_id', context.institutionId);
     if (roomError) throw new BadRequestException(roomError.message);
     const eligible = new Set((rooms ?? []).map((room: any) => String(room.id)));
     if (context.campusRole === 'teacher') {
-      const { data: memberships, error } = await this.client.from('room_members').select('room_id')
-        .eq('user_id', user.id).eq('role', 'teacher');
+      const { data: memberships, error } = await this.client
+        .from('room_members')
+        .select('room_id')
+        .eq('user_id', user.id)
+        .eq('role', 'teacher');
       if (error) throw new BadRequestException(error.message);
-      const own = new Set((memberships ?? []).map((row: any) => String(row.room_id)));
+      const own = new Set(
+        (memberships ?? []).map((row: any) => String(row.room_id)),
+      );
       for (const id of eligible) if (!own.has(id)) eligible.delete(id);
     } else if (context.campusRole === 'pedagogy') {
-      const scope = new Set(await this.pedagogyScopeRoomIds(user.id, context.institutionId));
+      const scope = new Set(
+        await this.pedagogyScopeRoomIds(user.id, context.institutionId),
+      );
       for (const id of eligible) if (!scope.has(id)) eligible.delete(id);
     }
     const ids = [...eligible];
     if (!ids.length) return { assignments: [] };
-    const names = new Map((rooms ?? []).map((room: any) => [String(room.id), String(room.name)]));
-    const { data, error } = await this.client.from('assignments')
-      .select('id, title, room_id, status, due_at, max_score, created_at').in('room_id', ids)
-      .order('created_at', { ascending: false }).limit(100);
+    const names = new Map(
+      (rooms ?? []).map((room: any) => [String(room.id), String(room.name)]),
+    );
+    const { data, error } = await this.client
+      .from('assignments')
+      .select('id, title, room_id, status, due_at, max_score, created_at')
+      .in('room_id', ids)
+      .order('created_at', { ascending: false })
+      .limit(100);
     if (error) throw new BadRequestException(error.message);
     const assignmentIds = (data ?? []).map((item: any) => String(item.id));
     const { data: submissions, error: submissionsError } = assignmentIds.length
-      ? await this.client.from('assignment_submissions')
+      ? await this.client
+          .from('assignment_submissions')
           .select('assignment_id, status, published')
           .in('assignment_id', assignmentIds)
       : { data: [], error: null };
-    if (submissionsError) throw new BadRequestException(submissionsError.message);
-    return { assignments: (data ?? []).map((item: any) => {
-      const related = (submissions ?? []).filter((submission: any) => String(submission.assignment_id) === String(item.id));
-      return { id: item.id, title: item.title,
-        roomName: names.get(String(item.room_id)), status: item.status, dueAt: item.due_at,
-        maxScore: item.max_score, createdAt: item.created_at,
-        submissionCount: related.length,
-        pendingCount: related.filter((submission: any) => submission.status === 'submitted').length,
-        reviewedCount: related.filter((submission: any) => submission.status === 'reviewed').length,
-        publishedCount: related.filter((submission: any) => submission.published === true).length,
-      };
-    }) };
+    if (submissionsError)
+      throw new BadRequestException(submissionsError.message);
+    return {
+      assignments: (data ?? []).map((item: any) => {
+        const related = (submissions ?? []).filter(
+          (submission: any) =>
+            String(submission.assignment_id) === String(item.id),
+        );
+        return {
+          id: item.id,
+          title: item.title,
+          roomName: names.get(String(item.room_id)),
+          status: item.status,
+          dueAt: item.due_at,
+          maxScore: item.max_score,
+          createdAt: item.created_at,
+          submissionCount: related.length,
+          pendingCount: related.filter(
+            (submission: any) => submission.status === 'submitted',
+          ).length,
+          reviewedCount: related.filter(
+            (submission: any) => submission.status === 'reviewed',
+          ).length,
+          publishedCount: related.filter(
+            (submission: any) => submission.published === true,
+          ).length,
+        };
+      }),
+    };
   }
 
   async getJustifications(user: AuthUser) {
     const context = await this.getContext(user);
     if (context.campusRole !== 'pedagogy' && context.campusRole !== 'admin') {
-      throw new ForbiddenException('Vie scolaire réservée au personnel autorisé.');
+      throw new ForbiddenException(
+        'Vie scolaire réservée au personnel autorisé.',
+      );
     }
-    const scope = context.campusRole === 'pedagogy'
-      ? await this.pedagogyScopeRoomIds(user.id, context.institutionId)
-      : (await this.client.from('rooms').select('id').eq('institution_id', context.institutionId)).data?.map((row: any) => String(row.id)) ?? [];
+    const scope =
+      context.campusRole === 'pedagogy'
+        ? await this.pedagogyScopeRoomIds(user.id, context.institutionId)
+        : ((
+            await this.client
+              .from('rooms')
+              .select('id')
+              .eq('institution_id', context.institutionId)
+          ).data?.map((row: any) => String(row.id)) ?? []);
     if (!scope.length) return { justifications: [] };
-    const { data: records, error: recordsError } = await this.client.from('room_attendance_records')
-      .select('id, room_id, session_id').in('room_id', scope);
+    const { data: records, error: recordsError } = await this.client
+      .from('room_attendance_records')
+      .select('id, room_id, session_id')
+      .in('room_id', scope);
     if (recordsError) throw new BadRequestException(recordsError.message);
     const allowed = new Set((records ?? []).map((row: any) => String(row.id)));
     if (!allowed.size) return { justifications: [] };
-    const { data, error } = await this.client.from('absence_justifications')
-      .select('id, record_id, reason, file_path, status, review_note, created_at, profiles:student_id ( fullname )')
-      .eq('institution_id', context.institutionId).in('record_id', [...allowed])
-      .order('created_at', { ascending: false }).limit(100);
+    const { data, error } = await this.client
+      .from('absence_justifications')
+      .select(
+        'id, record_id, reason, file_path, status, review_note, created_at, profiles:student_id ( fullname )',
+      )
+      .eq('institution_id', context.institutionId)
+      .in('record_id', [...allowed])
+      .order('created_at', { ascending: false })
+      .limit(100);
     if (error) throw new BadRequestException(error.message);
-    const roomIds = [...new Set((records ?? []).map((row: any) => String(row.room_id)))];
-    const sessionIds = [...new Set((records ?? []).map((row: any) => String(row.session_id)))];
+    const roomIds = [
+      ...new Set((records ?? []).map((row: any) => String(row.room_id))),
+    ];
+    const sessionIds = [
+      ...new Set((records ?? []).map((row: any) => String(row.session_id))),
+    ];
     const [roomsResult, sessionsResult] = await Promise.all([
       this.client.from('rooms').select('id, name').in('id', roomIds),
-      this.client.from('room_attendance_sessions').select('id, title, session_date').in('id', sessionIds),
+      this.client
+        .from('room_attendance_sessions')
+        .select('id, title, session_date')
+        .in('id', sessionIds),
     ]);
-    if (roomsResult.error) throw new BadRequestException(roomsResult.error.message);
-    if (sessionsResult.error) throw new BadRequestException(sessionsResult.error.message);
-    const recordsById = new Map((records ?? []).map((row: any) => [String(row.id), row]));
-    const roomNames = new Map((roomsResult.data ?? []).map((row: any) => [String(row.id), String(row.name)]));
-    const sessionsById = new Map((sessionsResult.data ?? []).map((row: any) => [String(row.id), row]));
-    const justifications = await Promise.all((data ?? []).map(async (item: any) => {
-      const record = recordsById.get(String(item.record_id));
-      const session = sessionsById.get(String(record?.session_id));
-      const filePath = item.file_path ? String(item.file_path) : null;
-      let attachmentUrl: string | null = null;
-      if (filePath?.startsWith(`${context.institutionId}/`)) {
-        const { data: signed } = await this.client.storage
-          .from('absence-justifications')
-          .createSignedUrl(filePath, 60 * 15);
-        attachmentUrl = signed?.signedUrl ?? null;
-      }
-      return {
-        id: item.id,
-        reason: item.reason,
-        status: item.status,
-        note: item.review_note,
-        createdAt: item.created_at,
-        attachmentUrl,
-        roomName: roomNames.get(String(record?.room_id)) ?? 'Classe',
-        sessionTitle: session?.title ?? 'Séance',
-        sessionDate: session?.session_date ?? null,
-        studentName: (Array.isArray(item.profiles) ? item.profiles[0] : item.profiles)?.fullname ?? 'Étudiant',
-      };
-    }));
+    if (roomsResult.error)
+      throw new BadRequestException(roomsResult.error.message);
+    if (sessionsResult.error)
+      throw new BadRequestException(sessionsResult.error.message);
+    const recordsById = new Map(
+      (records ?? []).map((row: any) => [String(row.id), row]),
+    );
+    const roomNames = new Map(
+      (roomsResult.data ?? []).map((row: any) => [
+        String(row.id),
+        String(row.name),
+      ]),
+    );
+    const sessionsById = new Map(
+      (sessionsResult.data ?? []).map((row: any) => [String(row.id), row]),
+    );
+    const justifications = await Promise.all(
+      (data ?? []).map(async (item: any) => {
+        const record = recordsById.get(String(item.record_id));
+        const session = sessionsById.get(String(record?.session_id));
+        const filePath = item.file_path ? String(item.file_path) : null;
+        let attachmentUrl: string | null = null;
+        if (filePath?.startsWith(`${context.institutionId}/`)) {
+          const { data: signed } = await this.client.storage
+            .from('absence-justifications')
+            .createSignedUrl(filePath, 60 * 15);
+          attachmentUrl = signed?.signedUrl ?? null;
+        }
+        return {
+          id: item.id,
+          reason: item.reason,
+          status: item.status,
+          note: item.review_note,
+          createdAt: item.created_at,
+          attachmentUrl,
+          roomName: roomNames.get(String(record?.room_id)) ?? 'Classe',
+          sessionTitle: session?.title ?? 'Séance',
+          sessionDate: session?.session_date ?? null,
+          studentName:
+            (Array.isArray(item.profiles) ? item.profiles[0] : item.profiles)
+              ?.fullname ?? 'Étudiant',
+        };
+      }),
+    );
     return { justifications };
   }
 
@@ -907,10 +1190,7 @@ export class CampusService {
     payload: ReviewAbsenceJustificationDto,
   ) {
     const context = await this.getContext(user);
-    if (
-      context.campusRole !== 'pedagogy' &&
-      context.campusRole !== 'admin'
-    )
+    if (context.campusRole !== 'pedagogy' && context.campusRole !== 'admin')
       throw new ForbiddenException('Décision non autorisée.');
     const reviewNote = payload.note?.trim() || null;
     if (payload.status === 'rejected' && !reviewNote) {
@@ -1023,28 +1303,57 @@ export class CampusService {
     return !error;
   }
 
-  async uploadDocument(user: AuthUser, file: { buffer: Buffer; mimetype: string; originalname: string; size: number }, payload: { title?: string; category?: string }) {
+  async uploadDocument(
+    user: AuthUser,
+    file: {
+      buffer: Buffer;
+      mimetype: string;
+      originalname: string;
+      size: number;
+    },
+    payload: { title?: string; category?: string },
+  ) {
     const context = await this.getContext(user);
-    if (context.campusRole !== 'admin') throw new ForbiddenException('Publication réservée à la direction.');
+    if (context.campusRole !== 'admin')
+      throw new ForbiddenException('Publication réservée à la direction.');
     const title = payload.title?.trim();
-    if (!title || title.length > 160 || !file?.buffer?.length || file.size > 10 * 1024 * 1024) {
-      throw new BadRequestException('Titre ou fichier invalide (10 Mo maximum).');
+    if (
+      !title ||
+      title.length > 160 ||
+      !file?.buffer?.length ||
+      file.size > 10 * 1024 * 1024
+    ) {
+      throw new BadRequestException(
+        'Titre ou fichier invalide (10 Mo maximum).',
+      );
     }
     const extensions: Record<string, string> = {
-      'application/pdf': 'pdf', 'image/png': 'png', 'image/jpeg': 'jpg',
+      'application/pdf': 'pdf',
+      'image/png': 'png',
+      'image/jpeg': 'jpg',
       'application/msword': 'doc',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+        'docx',
     };
     const ext = extensions[file.mimetype];
-    if (!ext) throw new BadRequestException('Format accepté : PDF, image ou Word.');
+    if (!ext)
+      throw new BadRequestException('Format accepté : PDF, image ou Word.');
     const path = `${context.institutionId}/${crypto.randomUUID()}.${ext}`;
-    const { error: uploadError } = await this.client.storage.from('institution-documents')
+    const { error: uploadError } = await this.client.storage
+      .from('institution-documents')
       .upload(path, file.buffer, { contentType: file.mimetype, upsert: false });
     if (uploadError) throw new BadRequestException(uploadError.message);
-    const { data, error } = await this.client.from('institution_documents').insert({
-      institution_id: context.institutionId, title, category: payload.category?.trim() || 'general',
-      file_path: path, uploaded_by: user.id,
-    }).select('id, title, category, created_at').single();
+    const { data, error } = await this.client
+      .from('institution_documents')
+      .insert({
+        institution_id: context.institutionId,
+        title,
+        category: payload.category?.trim() || 'general',
+        file_path: path,
+        uploaded_by: user.id,
+      })
+      .select('id, title, category, created_at')
+      .single();
     if (error) {
       await this.client.storage.from('institution-documents').remove([path]);
       throw new BadRequestException(error.message);
@@ -1832,16 +2141,14 @@ export class CampusService {
         (m: any) => String(m.room_id) === roomId,
       );
       return {
-        studentsCount: members.filter((m: any) => m.role === 'student')
-          .length,
+        studentsCount: members.filter((m: any) => m.role === 'student').length,
         teacherNames: members
           .filter((m: any) => m.role === 'teacher')
-          .map(
-            (m: any) =>
-              String(
-                (Array.isArray(m.profiles) ? m.profiles[0] : m.profiles)
-                  ?.fullname ?? 'Professeur',
-              ),
+          .map((m: any) =>
+            String(
+              (Array.isArray(m.profiles) ? m.profiles[0] : m.profiles)
+                ?.fullname ?? 'Professeur',
+            ),
           ),
       };
     };
@@ -2061,6 +2368,33 @@ export class CampusService {
     return data;
   }
 
+  async removeRoomSubject(
+    user: AuthUser,
+    roomId: string,
+    roomSubjectId: string,
+  ) {
+    const { data: room, error: roomError } = await this.client
+      .from('rooms')
+      .select('id, institution_id')
+      .eq('id', roomId)
+      .maybeSingle();
+    if (roomError) throw new BadRequestException(roomError.message);
+    if (!room) throw new NotFoundException('Classe introuvable.');
+    await this.assertInstitutionStaff(user.id, String(room.institution_id));
+
+    const { data, error } = await this.client
+      .from('room_subjects')
+      .delete()
+      .eq('id', roomSubjectId)
+      .eq('room_id', roomId)
+      .select('id')
+      .maybeSingle();
+    if (error) throw new BadRequestException(error.message);
+    if (!data) throw new NotFoundException('Affectation introuvable.');
+
+    return { message: 'La matière a été retirée de la classe.' };
+  }
+
   async assignRoomToFormation(
     user: AuthUser,
     roomId: string,
@@ -2106,68 +2440,80 @@ export class CampusService {
       .select('room_id')
       .eq('user_id', user.id)
       .eq('role', 'student');
-    const roomIds = [...new Set((memberships ?? []).map((m: any) => String(m.room_id)))];
+    const roomIds = [
+      ...new Set((memberships ?? []).map((m: any) => String(m.room_id))),
+    ];
     if (roomIds.length === 0) return { assignments: [] };
 
     const { data: rooms } = await this.client
       .from('rooms')
       .select('id, name')
       .in('id', roomIds);
-    const roomName = new Map((rooms ?? []).map((r: any) => [String(r.id), String(r.name)]));
+    const roomName = new Map(
+      (rooms ?? []).map((r: any) => [String(r.id), String(r.name)]),
+    );
 
     const { data: assignments } = await this.client
       .from('assignments')
-      .select('id, room_id, title, instructions, due_at, max_score, status, assignment_files ( id, name, file_path, file_type )')
+      .select(
+        'id, room_id, title, instructions, due_at, max_score, status, assignment_files ( id, name, file_path, file_type )',
+      )
       .in('room_id', roomIds)
       .eq('status', 'published')
       .order('due_at', { ascending: true, nullsFirst: false });
 
     const { data: submissions } = await this.client
       .from('assignment_submissions')
-      .select('id, assignment_id, status, content, file_path, score, feedback, published, submitted_at')
+      .select(
+        'id, assignment_id, status, content, file_path, score, feedback, published, submitted_at',
+      )
       .eq('student_id', user.id);
     const submissionByAssignment = new Map(
       (submissions ?? []).map((s: any) => [String(s.assignment_id), s]),
     );
 
     return {
-      assignments: await Promise.all((assignments ?? []).map(async (a: any) => {
-        const sub = submissionByAssignment.get(String(a.id));
-        const attachments = await Promise.all((a.assignment_files ?? []).map(async (file: any) => {
-          const path = String(file.file_path ?? '');
-          if (!path) return null;
-          const { data: signed, error } = await this.client.storage
-            .from('assignment-files')
-            .createSignedUrl(path, 60 * 15);
+      assignments: await Promise.all(
+        (assignments ?? []).map(async (a: any) => {
+          const sub = submissionByAssignment.get(String(a.id));
+          const attachments = await Promise.all(
+            (a.assignment_files ?? []).map(async (file: any) => {
+              const path = String(file.file_path ?? '');
+              if (!path) return null;
+              const { data: signed, error } = await this.client.storage
+                .from('assignment-files')
+                .createSignedUrl(path, 60 * 15);
+              return {
+                id: String(file.id),
+                name: String(file.name ?? 'Pièce jointe'),
+                type: String(file.file_type ?? 'document'),
+                url: error ? null : (signed?.signedUrl ?? null),
+              };
+            }),
+          );
           return {
-            id: String(file.id),
-            name: String(file.name ?? 'Pièce jointe'),
-            type: String(file.file_type ?? 'document'),
-            url: error ? null : signed?.signedUrl ?? null,
+            id: String(a.id),
+            roomId: String(a.room_id),
+            roomName: roomName.get(String(a.room_id)) ?? 'Salle',
+            title: String(a.title),
+            instructions: a.instructions ?? null,
+            dueAt: a.due_at ?? null,
+            maxScore: a.max_score ?? null,
+            attachments: attachments.filter(Boolean),
+            submission: sub
+              ? {
+                  id: String(sub.id),
+                  status: String(sub.status),
+                  content: sub.content ?? null,
+                  filePath: sub.file_path ?? null,
+                  score: sub.published ? (sub.score ?? null) : null,
+                  feedback: sub.published ? (sub.feedback ?? null) : null,
+                  submittedAt: sub.submitted_at ?? null,
+                }
+              : null,
           };
-        }));
-        return {
-          id: String(a.id),
-          roomId: String(a.room_id),
-          roomName: roomName.get(String(a.room_id)) ?? 'Salle',
-          title: String(a.title),
-          instructions: a.instructions ?? null,
-          dueAt: a.due_at ?? null,
-          maxScore: a.max_score ?? null,
-          attachments: attachments.filter(Boolean),
-          submission: sub
-            ? {
-                id: String(sub.id),
-                status: String(sub.status),
-                content: sub.content ?? null,
-                filePath: sub.file_path ?? null,
-                score: sub.published ? (sub.score ?? null) : null,
-                feedback: sub.published ? (sub.feedback ?? null) : null,
-                submittedAt: sub.submitted_at ?? null,
-              }
-            : null,
-        };
-      })),
+        }),
+      ),
     };
   }
 }

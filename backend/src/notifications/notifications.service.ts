@@ -197,31 +197,60 @@ export class NotificationsService {
           id: `assignment-${assignment.id}`,
           type: 'assignment',
           title: 'Nouveau devoir',
-          message: `${assignment.title ?? 'Un devoir'} a ete publie dans une classe.`,
-          href: '/dashboard',
+          message: `${assignment.title ?? 'Un devoir'} a été publié dans votre classe.`,
+          href: '/establishment/student/assignments',
           createdAt: String(assignment.created_at ?? new Date().toISOString()),
+          read: false,
+        });
+      }
+
+      const { data: reviewedSubmissions } = await this.supabaseService.client
+        .from('assignment_submissions')
+        .select('id, score, reviewed_at, updated_at, assignments ( title )')
+        .eq('student_id', userId)
+        .eq('status', 'reviewed')
+        .order('reviewed_at', { ascending: false })
+        .limit(5);
+
+      for (const submission of reviewedSubmissions ?? []) {
+        const assignment = Array.isArray((submission as any).assignments)
+          ? (submission as any).assignments[0]
+          : (submission as any).assignments;
+        notifications.push({
+          id: `grade-${submission.id}-${submission.reviewed_at ?? submission.updated_at}`,
+          type: 'assignment',
+          title: 'Copie corrigée',
+          message: `${assignment?.title ?? 'Votre devoir'} a été corrigé${submission.score !== null ? ` : ${submission.score} point(s)` : ''}.`,
+          href: '/establishment/student/results',
+          createdAt: String(
+            submission.reviewed_at ??
+              submission.updated_at ??
+              new Date().toISOString(),
+          ),
           read: false,
         });
       }
     }
 
-    const { data: courses } = await this.supabaseService.client
-      .from('courses')
-      .select('id, title, created_at')
-      .eq('status', 'published')
-      .order('created_at', { ascending: false })
-      .limit(3);
+    if (roomIds.length === 0) {
+      const { data: courses } = await this.supabaseService.client
+        .from('courses')
+        .select('id, title, created_at')
+        .eq('status', 'published')
+        .order('created_at', { ascending: false })
+        .limit(3);
 
-    for (const course of courses ?? []) {
-      notifications.push({
-        id: `course-${course.id}`,
-        type: 'course',
-        title: 'Cours disponible',
-        message: `${course.title ?? 'Un nouveau cours'} est visible dans la vitrine.`,
-        href: `/courses/${course.id}`,
-        createdAt: String(course.created_at ?? new Date().toISOString()),
-        read: false,
-      });
+      for (const course of courses ?? []) {
+        notifications.push({
+          id: `course-${course.id}`,
+          type: 'course',
+          title: 'Cours disponible',
+          message: `${course.title ?? 'Un nouveau cours'} est visible dans la vitrine.`,
+          href: `/courses/${course.id}`,
+          createdAt: String(course.created_at ?? new Date().toISOString()),
+          read: false,
+        });
+      }
     }
 
     const resumeNotifications = await this.buildResumeNotifications(userId);
@@ -305,6 +334,8 @@ export class NotificationsService {
   private async buildTeacherNotifications(
     userId: string,
   ): Promise<NotificationItem[]> {
+    const institutionNotifications =
+      await this.buildInstitutionTeacherNotifications(userId);
     const { data: courses } = await this.supabaseService.client
       .from('courses')
       .select('id, title, status, created_at')
@@ -336,7 +367,7 @@ export class NotificationsService {
     );
 
     if (courseIds.length === 0) {
-      return courseNotifications;
+      return [...institutionNotifications, ...courseNotifications];
     }
 
     const [courseReviews, teacherReviews] = await Promise.all([
@@ -365,7 +396,69 @@ export class NotificationsService {
         courseTitle: courseTitleById.get(review.courseId) ?? 'Cours Kalatty',
       }));
 
-    return [...reviewNotifications, ...courseNotifications];
+    return [
+      ...institutionNotifications,
+      ...reviewNotifications,
+      ...courseNotifications,
+    ];
+  }
+
+  private async buildInstitutionTeacherNotifications(
+    userId: string,
+  ): Promise<NotificationItem[]> {
+    const { data: memberships } = await this.supabaseService.client
+      .from('room_members')
+      .select('room_id, rooms ( name )')
+      .eq('user_id', userId)
+      .eq('role', 'teacher');
+    const roomIds = (memberships ?? []).map((row: any) => String(row.room_id));
+    if (roomIds.length === 0) return [];
+
+    const roomNameById = new Map(
+      (memberships ?? []).map((row: any) => {
+        const room = Array.isArray(row.rooms) ? row.rooms[0] : row.rooms;
+        return [String(row.room_id), String(room?.name ?? 'Classe')];
+      }),
+    );
+    const { data: assignments } = await this.supabaseService.client
+      .from('assignments')
+      .select('id, title, room_id')
+      .in('room_id', roomIds);
+    const assignmentIds = (assignments ?? []).map((row: any) => String(row.id));
+    if (assignmentIds.length === 0) return [];
+
+    const assignmentById = new Map(
+      (assignments ?? []).map((row: any) => [String(row.id), row]),
+    );
+    const { data: submissions } = await this.supabaseService.client
+      .from('assignment_submissions')
+      .select(
+        'id, assignment_id, submitted_at, updated_at, profiles:student_id ( fullname )',
+      )
+      .in('assignment_id', assignmentIds)
+      .in('status', ['submitted', 'returned'])
+      .order('submitted_at', { ascending: false })
+      .limit(10);
+
+    return (submissions ?? []).map((submission: any) => {
+      const assignment = assignmentById.get(String(submission.assignment_id));
+      const student = Array.isArray(submission.profiles)
+        ? submission.profiles[0]
+        : submission.profiles;
+      return {
+        id: `institution-submission-${submission.id}-${submission.updated_at}`,
+        type: 'assignment' as const,
+        title: 'Nouvelle copie à corriger',
+        message: `${student?.fullname ?? 'Un étudiant'} a remis « ${assignment?.title ?? 'un devoir'} » dans ${roomNameById.get(String(assignment?.room_id)) ?? 'une classe'}.`,
+        href: '/establishment/teacher/assignments',
+        createdAt: String(
+          submission.submitted_at ??
+            submission.updated_at ??
+            new Date().toISOString(),
+        ),
+        read: false,
+      };
+    });
   }
 
   private async loadCourseReviewsForTeacher(courseIds: string[]) {

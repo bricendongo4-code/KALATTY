@@ -684,6 +684,84 @@
   font-size: 13px;
 }
 
+.roomRowActions,
+.memberActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.adminRoomDetail {
+  scroll-margin-top: 90px;
+}
+
+.classKpi {
+  display: grid;
+  gap: 3px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.classKpi strong {
+  color: var(--accent-ink);
+  font-size: 26px;
+}
+
+.classKpi span,
+.classMetric {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.memberAssign {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.classDetailGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.memberActions button,
+.dangerAction {
+  padding: 7px 10px;
+  border: 1px solid #cce2df;
+  border-radius: 8px;
+  background: #f3f9f8;
+  color: #087f7b;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.memberActions .dangerAction,
+.dangerAction {
+  border-color: #f1c9c5;
+  background: #fff3f2;
+  color: #ad3731;
+}
+
+.memberActions button:disabled,
+.dangerAction:disabled {
+  opacity: .55;
+  cursor: wait;
+}
+
+.classMetric strong {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--accent-ink);
+  font-size: 28px;
+}
+
 .assignmentAttachments {
   display: flex;
   flex-wrap: wrap;
@@ -1653,6 +1731,31 @@
 
   .tlItem > :last-child {
     grid-column: 3;
+  }
+
+  .classDetailGrid,
+  .memberAssign {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .memberAssign .btn {
+    width: 100%;
+  }
+
+  .roomRowActions,
+  .memberActions {
+    width: 100%;
+  }
+
+  .roomRowActions button,
+  .memberActions button {
+    flex: 1 1 0;
+  }
+
+  .memberRow,
+  .detailPanelHead {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 

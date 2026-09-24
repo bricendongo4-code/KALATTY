@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -108,7 +109,11 @@ export class CampusController {
   }
 
   @Post('announcements')
-  createAnnouncement(@Req() req: RequestUser, @Body() body: { title?: string; body?: string; audience?: string; roomId?: string }) {
+  createAnnouncement(
+    @Req() req: RequestUser,
+    @Body()
+    body: { title?: string; body?: string; audience?: string; roomId?: string },
+  ) {
     return this.campusService.createAnnouncement(req.user, body);
   }
 
@@ -137,8 +142,20 @@ export class CampusController {
   }
 
   @Post('documents')
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
-  uploadDocument(@Req() req: RequestUser, @UploadedFile() file: { buffer: Buffer; mimetype: string; originalname: string; size: number }, @Body() body: { title?: string; category?: string }) {
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }),
+  )
+  uploadDocument(
+    @Req() req: RequestUser,
+    @UploadedFile()
+    file: {
+      buffer: Buffer;
+      mimetype: string;
+      originalname: string;
+      size: number;
+    },
+    @Body() body: { title?: string; category?: string },
+  ) {
     return this.campusService.uploadDocument(req.user, file, body);
   }
 
@@ -228,6 +245,19 @@ export class CampusController {
     @Body() body: AssignRoomSubjectDto,
   ) {
     return this.campusService.assignRoomSubject(req.user, roomId, body);
+  }
+
+  @Delete('rooms/:roomId/subjects/:roomSubjectId')
+  removeRoomSubject(
+    @Req() req: RequestUser,
+    @Param('roomId') roomId: string,
+    @Param('roomSubjectId') roomSubjectId: string,
+  ) {
+    return this.campusService.removeRoomSubject(
+      req.user,
+      roomId,
+      roomSubjectId,
+    );
   }
 
   @Patch('rooms/:roomId/formation')
