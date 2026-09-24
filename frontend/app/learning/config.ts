@@ -43,7 +43,7 @@ export const LEARNING_ROLES: Record<
     nav: [
       { slug: "", label: "Accueil", icon: "home" },
       { slug: "courses", label: "Mes formations", icon: "book" },
-      { slug: "studio", label: "Studio", icon: "video" },
+      { slug: "studio", label: "Studio vidéo", icon: "video" },
       { slug: "media", label: "Médiathèque", icon: "folder" },
       { slug: "learners", label: "Apprenants", icon: "users" },
       { slug: "assessments", label: "Évaluations", icon: "clipboard" },

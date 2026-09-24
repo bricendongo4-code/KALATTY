@@ -79,9 +79,8 @@ export default function LearningShell({
               <Icon name="chevron" />
             </summary>
             <div className={styles.profilePopover}>
-              <span>Changer d&apos;espace</span>
-              <Link href="/learn">Apprenant indépendant</Link>
-              <Link href="/creator">Formateur / Créateur</Link>
+              <span>Mon compte</span>
+              <strong className={styles.currentSpace}>{config.name}</strong>
               <Link href="/settings">Profil &amp; sécurité</Link>
               <button type="button" className={styles.logoutButton} onClick={logoutKalatty}>
                 <Icon name="logout" />

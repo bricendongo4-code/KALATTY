@@ -131,10 +131,8 @@ export default function Shell({
                 <Icon name="chevron" className={styles.contextChevron} />
               </summary>
               <div className={styles.contextPopover}>
-                <span>Changer d&apos;espace</span>
-                <Link href="/establishment">Espace Établissement</Link>
-                <Link href="/learn">Apprenant indépendant</Link>
-                <Link href="/creator">Formateur / Créateur</Link>
+                <span>Mon compte</span>
+                <strong className={styles.currentSpace}>{cfg.topTitle}</strong>
                 <Link href="/settings">Profil &amp; sécurité</Link>
                 <button type="button" className={styles.logoutButton} onClick={logoutKalatty}>
                   <Icon name="logout" />
