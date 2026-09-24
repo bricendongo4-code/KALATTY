@@ -18,30 +18,53 @@ type NotificationItem = {
 
 export default function NotificationBell({ allHref }: { allHref: string }) {
   const detailsRef = useRef<HTMLDetailsElement>(null);
+  const requestIdRef = useRef(0);
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [unread, setUnread] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (announce = false) => {
     const token = localStorage.getItem("kalatty_token");
-    if (!token) return;
+    if (!token) {
+      if (announce) setError("Votre session a expiré. Reconnectez-vous.");
+      return;
+    }
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     setError(null);
+    if (announce) setRefreshMessage(null);
     try {
-      const response = await fetch(`${API_BASE}/notifications`, { headers: { Authorization: `Bearer ${token}` } });
-      const body = await response.json();
+      const response = await fetch(`${API_BASE}/notifications?refresh=${Date.now()}`, {
+        cache: "no-store",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.message ?? "Notifications indisponibles.");
+      if (requestId !== requestIdRef.current) return;
       setItems((body.notifications ?? []).filter((item: NotificationItem) => !item.read).slice(0, 6));
       setUnread(Number(body.unreadCount ?? 0));
+      if (announce) {
+        setRefreshMessage(
+          `Actualisé à ${new Intl.DateTimeFormat("fr-FR", {
+            hour: "2-digit",
+            minute: "2-digit",
+          }).format(new Date())}`,
+        );
+      }
     } catch (reason) {
+      if (requestId !== requestIdRef.current) return;
       setError(reason instanceof Error ? reason.message : "Notifications indisponibles.");
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) setLoading(false);
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   const close = () => {
     if (detailsRef.current) detailsRef.current.open = false;
@@ -79,14 +102,30 @@ export default function NotificationBell({ allHref }: { allHref: string }) {
     close();
   };
 
-  return <details ref={detailsRef} className={styles.root} onToggle={(event) => { if (event.currentTarget.open) load(); }}>
+  return <details ref={detailsRef} className={styles.root} onToggle={(event) => { if (event.currentTarget.open) void load(); }}>
     <summary className={styles.bell} aria-label={`${unread} notification${unread > 1 ? "s" : ""}`}><Icon name="bell" />{unread > 0 ? <span>{unread > 9 ? "9+" : unread}</span> : null}</summary>
     <div className={styles.popover}>
       <header>
-        <div><strong>Notifications</strong><small>{unread ? `${unread} non lue${unread > 1 ? "s" : ""}` : "Tout est à jour"}</small></div>
+        <div>
+          <strong>Notifications</strong>
+          <small role="status" aria-live="polite">
+            {loading
+              ? "Actualisation…"
+              : refreshMessage ?? (unread ? `${unread} non lue${unread > 1 ? "s" : ""}` : "Tout est à jour")}
+          </small>
+        </div>
         <div className={styles.headerActions}>
           {unread > 0 ? <button type="button" className={styles.readAll} onClick={markAllRead}>Tout lire</button> : null}
-          <button type="button" onClick={load} aria-label="Actualiser"><Icon name="refresh" /></button>
+          <button
+            type="button"
+            className={loading ? styles.refreshing : undefined}
+            onClick={() => void load(true)}
+            aria-label={loading ? "Actualisation en cours" : "Actualiser les notifications"}
+            title="Actualiser les notifications"
+            disabled={loading}
+          >
+            <Icon name="refresh" />
+          </button>
           <button type="button" className={styles.close} onClick={close} aria-label="Fermer"><Icon name="x" /></button>
         </div>
       </header>
