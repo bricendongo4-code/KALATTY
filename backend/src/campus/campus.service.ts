@@ -1997,7 +1997,7 @@ export class CampusService {
 
     const { data: assignments } = await this.client
       .from('assignments')
-      .select('id, room_id, title, instructions, due_at, max_score, status')
+      .select('id, room_id, title, instructions, due_at, max_score, status, assignment_files ( id, name, file_path, file_type )')
       .in('room_id', roomIds)
       .eq('status', 'published')
       .order('due_at', { ascending: true, nullsFirst: false });
@@ -2011,8 +2011,21 @@ export class CampusService {
     );
 
     return {
-      assignments: (assignments ?? []).map((a: any) => {
+      assignments: await Promise.all((assignments ?? []).map(async (a: any) => {
         const sub = submissionByAssignment.get(String(a.id));
+        const attachments = await Promise.all((a.assignment_files ?? []).map(async (file: any) => {
+          const path = String(file.file_path ?? '');
+          if (!path) return null;
+          const { data: signed, error } = await this.client.storage
+            .from('assignment-files')
+            .createSignedUrl(path, 60 * 15);
+          return {
+            id: String(file.id),
+            name: String(file.name ?? 'Pièce jointe'),
+            type: String(file.file_type ?? 'document'),
+            url: error ? null : signed?.signedUrl ?? null,
+          };
+        }));
         return {
           id: String(a.id),
           roomId: String(a.room_id),
@@ -2021,6 +2034,7 @@ export class CampusService {
           instructions: a.instructions ?? null,
           dueAt: a.due_at ?? null,
           maxScore: a.max_score ?? null,
+          attachments: attachments.filter(Boolean),
           submission: sub
             ? {
                 id: String(sub.id),
@@ -2033,7 +2047,7 @@ export class CampusService {
               }
             : null,
         };
-      }),
+      })),
     };
   }
 }

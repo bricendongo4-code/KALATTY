@@ -24,6 +24,7 @@ type Assignment = {
   instructions: string | null;
   dueAt: string | null;
   maxScore: number | null;
+  attachments: Array<{ id: string; name: string; type: string; url: string | null }>;
   submission: Submission | null;
 };
 
@@ -134,6 +135,7 @@ export default function AssignmentsPage() {
                     <small>{a.roomName} • {dueLabel(a.dueAt)}</small>
                   </div>
                   {a.instructions ? <p style={{ fontSize: 13, marginBottom: 8 }}>{a.instructions}</p> : null}
+                  {a.attachments?.length ? <div className={styles.assignmentAttachments}>{a.attachments.map((file) => file.url ? <a key={file.id} href={file.url} target="_blank" rel="noreferrer"><Icon name="file" className={styles.navIcon} /> {file.name}</a> : <span key={file.id}><Icon name="file" className={styles.navIcon} /> {file.name} indisponible</span>)}</div> : null}
                   <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                     {statusBadge(a)}
                     {a.submission?.feedback ? <small style={{ color: "var(--muted)" }}>« {a.submission.feedback} »</small> : null}

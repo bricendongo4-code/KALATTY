@@ -668,6 +668,34 @@
   font-size: 13px;
 }
 
+.assignmentAttachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.assignmentAttachments a,
+.assignmentAttachments span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #cce2df;
+  border-radius: 9px;
+  background: #f3f9f8;
+  color: #087f7b;
+  font-size: 11px;
+  font-weight: 850;
+  overflow-wrap: anywhere;
+}
+
+.assignmentAttachments svg {
+  flex: 0 0 auto;
+  width: 15px;
+}
+
 .inlineOk {
   color: #0b7a4b;
   font-size: 12px;

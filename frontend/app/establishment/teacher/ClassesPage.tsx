@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import styles from "../establishment.module.css";
 import Shell from "../Shell";
-import { useEstablishmentHome, campusFetch } from "../useEstablishment";
+import { useEstablishmentHome, campusFetch, campusUpload } from "../useEstablishment";
 import type { TeacherHomeData } from "../views";
 import { Avatar, Badge, Card, Icon, Row } from "../ui";
 
@@ -45,6 +45,7 @@ export default function ClassesPage({ section = "classes" }: { section?: "classe
   const [instructions, setInstructions] = useState("");
   const [dueAt, setDueAt] = useState("");
   const [maxScore, setMaxScore] = useState("20");
+  const [assignmentFile, setAssignmentFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -78,6 +79,9 @@ export default function ClassesPage({ section = "classes" }: { section?: "classe
     setBusy(true);
     setFormError(null);
     try {
+      const uploaded = assignmentFile
+        ? await campusUpload(`/institutions/rooms/${roomId}/assignment-files`, assignmentFile)
+        : null;
       await campusFetch(`/institutions/rooms/${roomId}/assignments`, {
         method: "POST",
         body: JSON.stringify({
@@ -85,11 +89,15 @@ export default function ClassesPage({ section = "classes" }: { section?: "classe
           instructions: instructions || undefined,
           due_at: dueAt ? new Date(dueAt).toISOString() : undefined,
           max_score: maxScore ? Number(maxScore) : undefined,
+          attachment_path: uploaded?.path,
+          attachment_name: uploaded?.name,
+          attachment_type: uploaded?.mimetype,
         }),
       });
       setTitle("");
       setInstructions("");
       setDueAt("");
+      setAssignmentFile(null);
       setShowAssignmentForm(false);
       await loadRoom(roomId);
     } catch (e) {
@@ -187,6 +195,11 @@ export default function ClassesPage({ section = "classes" }: { section?: "classe
                           {busy ? "Publication..." : "Publier"}
                         </button>
                       </div>
+                      <label className={styles.field}>
+                        Support ou sujet à joindre
+                        <input className={styles.input} type="file" accept="application/pdf,image/png,image/jpeg,.doc,.docx" onChange={(event) => setAssignmentFile(event.target.files?.[0] ?? null)} />
+                        <small>PDF, image ou document Word. Le fichier reste privé et accessible uniquement aux étudiants de la classe.</small>
+                      </label>
                       {formError ? <p className={styles.inlineError}>{formError}</p> : null}
                       <button type="button" className={`${styles.btn} ${styles.btnGhost}`} onClick={() => setShowAssignmentForm(false)}>Fermer le formulaire</button>
                     </form>
