@@ -71,6 +71,15 @@ export default function CoursePlayerPage({
   const [favorite, setFavorite] = useState(false);
   const [workspaceMessage, setWorkspaceMessage] = useState<string | null>(null);
   const [workspaceSaving, setWorkspaceSaving] = useState(false);
+  const [videoStatus, setVideoStatus] = useState<"idle" | "loading" | "ready" | "buffering" | "error">("idle");
+  const [videoError, setVideoError] = useState<string | null>(null);
+  const [connectionHint] = useState(() => {
+    if (typeof navigator === "undefined") return null;
+    const connection = (navigator as Navigator & { connection?: { effectiveType?: string; saveData?: boolean } }).connection;
+    return connection?.saveData || connection?.effectiveType === "2g" || connection?.effectiveType === "slow-2g"
+      ? "Connexion limitée détectée : démarrez la vidéo puis laissez quelques secondes de mise en mémoire tampon."
+      : null;
+  });
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const lastSavedSecond = useRef(0);
 
@@ -508,9 +517,19 @@ export default function CoursePlayerPage({
                 controls
                 controlsList="nodownload noremoteplayback"
                 disablePictureInPicture
+                playsInline
                 preload="metadata"
                 src={activeLesson.videoPath}
                 onContextMenu={(event) => event.preventDefault()}
+                onLoadStart={() => { setVideoStatus("loading"); setVideoError(null); }}
+                onCanPlay={() => setVideoStatus("ready")}
+                onPlaying={() => setVideoStatus("ready")}
+                onWaiting={() => setVideoStatus("buffering")}
+                onStalled={() => setVideoStatus("buffering")}
+                onError={() => {
+                  setVideoStatus("error");
+                  setVideoError("La vidéo n’a pas pu être chargée. Le lien sécurisé peut avoir expiré ou la connexion peut être interrompue.");
+                }}
                 onLoadedMetadata={(event) => {
                   const target = event.currentTarget;
                   if (
@@ -562,7 +581,16 @@ export default function CoursePlayerPage({
                 </p>
               </div>
             )}
+            {activeLesson?.videoPath && videoStatus !== "ready" && videoStatus !== "idle" ? (
+              <div className={`${styles.videoState} ${videoStatus === "error" ? styles.videoStateError : ""}`} role="status">
+                {videoStatus === "error" ? <Icon name="alert" /> : <span className={styles.videoSpinner} />}
+                <strong>{videoStatus === "error" ? "Lecture interrompue" : videoStatus === "buffering" ? "Mise en mémoire tampon…" : "Préparation de la vidéo…"}</strong>
+                {videoError ? <p>{videoError}</p> : null}
+                {videoStatus === "error" ? <button type="button" onClick={() => void load()}>Régénérer l’accès vidéo</button> : null}
+              </div>
+            ) : null}
           </div>
+          {activeLesson?.videoPath ? <p className={styles.videoSecurityNote}><Icon name="shield" /> Accès temporaire et réservé à votre compte. {connectionHint}</p> : null}
           <article className={styles.lessonCopy}>
             <h2>{activeLesson?.title ?? "Leçon"}</h2>
             <p>

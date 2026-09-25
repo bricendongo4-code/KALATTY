@@ -102,6 +102,10 @@ export default function RootLayout({
               <details>
                 <summary>Confiance</summary>
                 <div className="siteFooterDropdownPanel">
+                  <Link href="/privacy">Confidentialité</Link>
+                  <Link href="/terms">Conditions d’utilisation</Link>
+                  <Link href="/cookies">Cookies</Link>
+                  <Link href="/data-rights">Mes données</Link>
                   <span>Vidéos hébergées sur Kalatty</span>
                   <span>Accès par rôle utilisateur</span>
                   <span>Progression enregistrée</span>
@@ -127,7 +131,7 @@ export default function RootLayout({
           </div>
           <div className="siteFooterBottom">
             <span>© {currentYear} Kalatty. Tous droits réservés.</span>
-            <span>Apprentissage, cours et campus en ligne.</span>
+            <span><Link href="/privacy">Confidentialité</Link> · <Link href="/terms">CGU</Link> · <Link href="/cookies">Cookies</Link></span>
           </div>
         </footer>
         </SiteChrome>

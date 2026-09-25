@@ -177,6 +177,15 @@ export class CoursesService {
       );
     }
 
+    const maxSize = category === 'thumbnail' ? 5 * 1024 * 1024 : 250 * 1024 * 1024;
+    if (file.size > maxSize) {
+      throw new BadRequestException(
+        category === 'thumbnail'
+          ? 'La miniature ne doit pas dépasser 5 Mo.'
+          : 'La vidéo ne doit pas dépasser 250 Mo. Compressez-la avant l’envoi.',
+      );
+    }
+
     const bucket =
       category === 'thumbnail' ? 'course-thumbnails' : 'course-videos';
     const safeName = this.sanitizeFilename(
@@ -2845,7 +2854,7 @@ export class CoursesService {
 
     const { data, error } = await this.supabaseService.client.storage
       .from(bucket)
-      .createSignedUrl(normalizedPath, 60 * 60 * 24 * 7);
+      .createSignedUrl(normalizedPath, this.mediaSignedUrlTtlSeconds());
 
     if (error || !data?.signedUrl) {
       return normalizedPath;
@@ -2860,5 +2869,11 @@ export class CoursesService {
     ).replace(/\/+$/, '');
 
     return `${frontendUrl}/kalatty-logo.png`;
+  }
+
+  private mediaSignedUrlTtlSeconds() {
+    const configured = Number(process.env.MEDIA_SIGNED_URL_TTL_SECONDS ?? 3600);
+    if (!Number.isFinite(configured)) return 3600;
+    return Math.min(3600, Math.max(300, Math.round(configured)));
   }
 }

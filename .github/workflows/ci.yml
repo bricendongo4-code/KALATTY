@@ -30,6 +30,12 @@ jobs:
         env:
           NEXT_PUBLIC_API_BASE_URL: http://localhost:4000
         run: npm run build
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+      - name: End-to-end tests
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:4000
+        run: npm run test:e2e
 
   backend:
     name: Backend quality

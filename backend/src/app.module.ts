@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -12,6 +12,8 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentsModule } from './payments/payments.module';
 import { SupabaseModule } from './supabase/supabase.module';
 import { StudioModule } from './studio/studio.module';
+import { PrivacyModule } from './privacy/privacy.module';
+import { ObservabilityMiddleware } from './observability.middleware';
 
 @Module({
   imports: [
@@ -26,8 +28,13 @@ import { StudioModule } from './studio/studio.module';
     MobileModule,
     PaymentsModule,
     StudioModule,
+    PrivacyModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, ObservabilityMiddleware],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(ObservabilityMiddleware).forRoutes('*');
+  }
+}

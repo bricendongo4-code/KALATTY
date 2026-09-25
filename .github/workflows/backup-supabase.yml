@@ -1,0 +1,42 @@
+name: Encrypted Supabase backup
+
+on:
+  schedule:
+    - cron: "15 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+    steps:
+      - name: Create encrypted backup
+        id: backup
+        shell: bash
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ] || [ -z "$BACKUP_ENCRYPTION_KEY" ]; then
+            echo "Backup not configured: add SUPABASE_DB_URL and BACKUP_ENCRYPTION_KEY repository secrets."
+            echo "created=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client
+          stamp=$(date -u +%Y-%m-%dT%H-%M-%SZ)
+          pg_dump "$SUPABASE_DB_URL" --format=custom --no-owner --no-privileges --file="kalatty-$stamp.dump"
+          pg_restore --list "kalatty-$stamp.dump" > /dev/null
+          openssl enc -aes-256-cbc -salt -pbkdf2 -in "kalatty-$stamp.dump" -out "kalatty-$stamp.dump.enc" -pass env:BACKUP_ENCRYPTION_KEY
+          rm "kalatty-$stamp.dump"
+          echo "file=kalatty-$stamp.dump.enc" >> "$GITHUB_OUTPUT"
+          echo "created=true" >> "$GITHUB_OUTPUT"
+      - name: Store encrypted backup for 7 days
+        if: steps.backup.outputs.created == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-backup-${{ github.run_id }}
+          path: ${{ steps.backup.outputs.file }}
+          retention-days: 7
+          if-no-files-found: error

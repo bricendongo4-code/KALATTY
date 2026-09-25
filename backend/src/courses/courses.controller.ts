@@ -273,7 +273,9 @@ export class CoursesController {
 
   @UseGuards(AuthGuard('jwt'))
   @Post('upload-thumbnail')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }),
+  )
   uploadThumbnail(
     @Req() req: RequestUser,
     @UploadedFile() file?: UploadedAsset,
@@ -287,7 +289,9 @@ export class CoursesController {
 
   @UseGuards(AuthGuard('jwt'))
   @Post('upload-video')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: 250 * 1024 * 1024 } }),
+  )
   uploadVideo(@Req() req: RequestUser, @UploadedFile() file?: UploadedAsset) {
     if (!file) {
       throw new BadRequestException('Aucun fichier video recu.');

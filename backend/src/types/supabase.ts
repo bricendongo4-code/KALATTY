@@ -973,6 +973,43 @@ export interface Database {
           },
         ];
       };
+      privacy_requests: {
+        Row: {
+          id: string;
+          user_id: string;
+          request_type: string;
+          status: string;
+          requested_at: string;
+          processed_at: string | null;
+          resolution_note: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          request_type: string;
+          status?: string;
+          requested_at?: string;
+          processed_at?: string | null;
+          resolution_note?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          request_type?: string;
+          status?: string;
+          requested_at?: string;
+          processed_at?: string | null;
+          resolution_note?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'privacy_requests_user_id_fkey';
+            columns: ['user_id'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       progress: {
         Row: {
           id: string;
