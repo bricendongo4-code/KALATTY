@@ -2,8 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { FormEvent, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import styles from "./establishment.module.css";
 import { ROLES } from "./roles";
@@ -12,6 +11,7 @@ import { Avatar, Icon } from "./ui";
 import { logoutKalatty } from "../sessionSecurity";
 import NotificationBell from "../NotificationBell";
 import { useAccountIdentity } from "../useAccountIdentity";
+import GlobalSearch from "../GlobalSearch";
 
 export default function Shell({
   role,
@@ -38,12 +38,14 @@ export default function Shell({
   const noteText =
     note === undefined ? "Connecte a vos donnees Kalatty en temps reel." : note;
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const router = useRouter();
-  const pathname = usePathname();
-  const search = (event: FormEvent) => { event.preventDefault(); const value = query.trim(); router.push(value ? `${pathname}?q=${encodeURIComponent(value)}` : pathname); };
   const href = (slug: string) =>
     slug ? `/establishment/${role}/${slug}` : `/establishment/${role}`;
+  const searchItems = useMemo(() => [...cfg.nav, ...cfg.foot].map((item) => ({
+    label: item.label,
+    href: item.slug ? `/establishment/${role}/${item.slug}` : `/establishment/${role}`,
+    icon: item.icon,
+    category: cfg.topTitle,
+  })), [cfg.foot, cfg.nav, cfg.topTitle, role]);
 
   const renderItem = (item: { slug: string; label: string; icon: string }) => (
     <Link
@@ -109,16 +111,7 @@ export default function Shell({
             <span className={styles.topTitle}>{cfg.topTitle}</span>
             <span className={styles.topSub}>{cfg.brandSub}</span>
           </span>
-          <form className={styles.search} onSubmit={search} role="search">
-            <Icon name="search" className={styles.searchIcon} />
-            <input
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={cfg.searchPlaceholder}
-              aria-label="Recherche"
-            />
-          </form>
+          <GlobalSearch className={styles.searchSlot} items={searchItems} placeholder={cfg.searchPlaceholder} />
           <div className={styles.topRight}>
             <NotificationBell allHref={`/establishment/${role}/notifications`} />
             <details className={styles.contextMenu}>

@@ -325,6 +325,12 @@
   text-transform: uppercase;
 }
 
+.searchSlot {
+  flex: 1 1 auto;
+  max-width: 460px;
+  margin-left: 12px;
+}
+
 .contextPopover .currentSpace {
   display: block;
   margin: 0 3px 5px;
@@ -1685,6 +1691,15 @@
 }
 
 @media (max-width: 720px) {
+  .topTitleWrap {
+    display: none;
+  }
+
+  .searchSlot {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+
   .grid3lead {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1731,6 +1746,10 @@
 
   .tlItem > :last-child {
     grid-column: 3;
+  }
+
+  .searchSlot {
+    margin-left: 0;
   }
 
   .classDetailGrid,

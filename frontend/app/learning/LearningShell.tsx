@@ -2,13 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { FormEvent, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { Avatar, Icon } from "../establishment/ui";
 import { logoutKalatty } from "../sessionSecurity";
 import NotificationBell from "../NotificationBell";
 import { useAccountIdentity } from "../useAccountIdentity";
+import GlobalSearch from "../GlobalSearch";
 import { LEARNING_ROLES, type LearningRole } from "./config";
 import styles from "./learning.module.css";
 
@@ -25,10 +25,12 @@ export default function LearningShell({
   const basePath = role === "apprenant" ? "/learn" : "/creator";
   const identity = useAccountIdentity("Compte Kalatty");
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const router = useRouter();
-  const pathname = usePathname();
-  const search = (event: FormEvent) => { event.preventDefault(); const value = query.trim(); router.push(value ? `${pathname}?q=${encodeURIComponent(value)}` : pathname); };
+  const searchItems = useMemo(() => config.nav.map((item) => ({
+    label: item.label,
+    href: item.slug ? `${basePath}/${item.slug}` : basePath,
+    icon: item.icon,
+    category: config.title,
+  })), [basePath, config.nav, config.title]);
 
   return (
     <div className={styles.app} data-role={role}>
@@ -64,10 +66,7 @@ export default function LearningShell({
           <button type="button" className={styles.menuButton} onClick={() => setOpen(true)} aria-label="Ouvrir le menu">
             <Icon name="menu" />
           </button>
-          <form className={styles.search} onSubmit={search} role="search">
-            <Icon name="search" />
-            <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={config.search} aria-label="Recherche" />
-          </form>
+          <GlobalSearch className={styles.searchSlot} items={searchItems} placeholder={config.search} />
           <NotificationBell allHref={`${basePath}/notifications`} />
           <button type="button" className={styles.mobileLogout} onClick={logoutKalatty} aria-label="Se déconnecter" title="Se déconnecter">
             <Icon name="logout" />
