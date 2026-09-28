@@ -2638,8 +2638,12 @@ export class InstitutionsService {
   }
 
   private buildTemporaryPassword() {
-    const seed = Math.random().toString(36).slice(2, 8).toUpperCase();
-    const stamp = Date.now().toString(36).slice(-4);
-    return `Kalatty!${seed}${stamp}`;
+    // Alphabet sans caracteres ambigus a l'affichage/saisie (pas de 0/O, 1/I/l).
+    const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    let body = '';
+    for (let i = 0; i < 10; i += 1) {
+      body += alphabet[Math.floor(Math.random() * alphabet.length)];
+    }
+    return `Kalatty-${body}`;
   }
 }
