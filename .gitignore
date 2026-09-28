@@ -31,3 +31,24 @@ Thumbs.db
 **/.vercel/
 
 .vercel
+
+# local assistants and generated review artifacts
+.claude/
+.codex_tmp/
+**/.codex-tmp/
+**/.agents/
+**/.railway-config-pull-*/
+**/.codex-dev-port.txt
+**/AGENTS.md
+**/CLAUDE.md
+**/test-results/
+
+# examination documents are maintained outside the application repository
+documents/
+tools/
+ANNEXE_BASE_DONNEES_KALATTY.md
+AUDIT_CDA_SOUTENANCE.md
+RAPPORT_KALATTY_CDA.md
+tmp_dossier_example_text.txt
+tmp_referentiel_text.txt
+frontend/app/portfolio/
