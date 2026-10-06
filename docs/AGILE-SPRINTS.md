@@ -29,7 +29,7 @@ Les six sprints ci-dessous ont été reconstitués à partir des **175 commits**
 
 ## Sprint 1 : fondations de la plateforme
 
-**Période :** 7 au 15 avril 2026  
+**Période :** 7 au 15 avril 2026
 **Volume :** 10 commits
 
 **Objectif.** Obtenir une première version navigable de Kalatty et valider l’architecture générale avant d’élargir le périmètre.
@@ -46,7 +46,7 @@ Les six sprints ci-dessous ont été reconstitués à partir des **175 commits**
 
 ## Sprint 2 : parcours pédagogiques et établissement
 
-**Période :** 22 juin au 1er juillet 2026  
+**Période :** 22 juin au 1er juillet 2026
 **Volume :** 47 commits
 
 **Objectif.** Transformer le prototype en produit utilisable pour créer, modifier, publier et suivre un cours, tout en donnant à un établissement la maîtrise de ses comptes et de ses classes.
@@ -63,7 +63,7 @@ Les six sprints ci-dessous ont été reconstitués à partir des **175 commits**
 
 ## Sprint 3 : expérience utilisateur orientée lancement
 
-**Période :** 27 au 28 juillet 2026  
+**Période :** 27 au 28 juillet 2026
 **Volume :** 26 commits
 
 **Objectif.** Réduire la charge cognitive et rapprocher l’interface des standards d’une plateforme e-learning commercialisable.
@@ -80,7 +80,7 @@ Les six sprints ci-dessous ont été reconstitués à partir des **175 commits**
 
 ## Sprint 4 : stabilisation et parcours complets
 
-**Période :** 14 au 17 septembre 2026  
+**Période :** 14 au 17 septembre 2026
 **Volume :** 32 commits
 
 **Objectif.** Corriger les faiblesses bloquantes avant l’extension de Campus et rendre les parcours étudiant, enseignant et administrateur réellement exécutables.
@@ -97,7 +97,7 @@ Les six sprints ci-dessous ont été reconstitués à partir des **175 commits**
 
 ## Sprint 5 : Campus V2 et séparation des responsabilités
 
-**Période :** 21 au 23 septembre 2026  
+**Période :** 21 au 23 septembre 2026
 **Volume :** 40 commits
 
 **Objectif.** Faire de l’espace établissement un véritable campus numérique, avec des responsabilités et des écrans propres à chaque métier.
@@ -114,7 +114,7 @@ Les six sprints ci-dessous ont été reconstitués à partir des **175 commits**
 
 ## Sprint 6 : différenciation et préparation à la production
 
-**Période :** 24 au 28 septembre 2026  
+**Période :** 24 au 28 septembre 2026
 **Volume :** 20 commits
 
 **Objectif.** Finaliser les fonctions à forte valeur et traiter les risques de production identifiés pendant la recette.
