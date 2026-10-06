@@ -42,6 +42,8 @@ Thumbs.db
 **/AGENTS.md
 **/CLAUDE.md
 **/test-results/
+tmp/
+tmp_rapport_*
 
 # examination documents are maintained outside the application repository
 documents/
