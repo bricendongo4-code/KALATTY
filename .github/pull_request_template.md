@@ -2,6 +2,9 @@
 
 Closes #
 
+- Sprint / jalon :
+- Objectif de sprint concerné :
+
 ## Changements
 
 -
@@ -18,3 +21,9 @@ Closes #
 ## Captures ou démonstration
 
 ## Risques et retour arrière
+
+## Revue et rétrospective
+
+- Résultat démontrable :
+- Écart par rapport au besoin initial :
+- Amélioration à reporter au backlog :

@@ -75,6 +75,16 @@ Chaque modification doit passer par une branche dédiée et une pull request. Le
 
 La CI vérifie séparément le frontend et le backend à chaque push et pull request vers `master`.
 
+## Démarche Agile et sprints
+
+Le développement a suivi une démarche Agile adaptée à un projet individuel : besoins priorisés, incréments courts, vérification, déploiement et prise en compte des retours. Les six itérations du projet ont été reconstituées à partir des 175 commits conservés entre avril et septembre 2026.
+
+- [Chronologie détaillée des sprints](./docs/AGILE-SPRINTS.md)
+- [Feuille de route produit](./ROADMAP.md)
+- [Modèle de ticket pour un sprint](./.github/ISSUE_TEMPLATE/sprint-task.md)
+
+Cette documentation distingue les faits vérifiables dans Git de l’organisation Scrum complète, qui n’a pas été appliquée formellement par une équipe dédiée.
+
 ## Déploiement
 
 Le workflow `.github/workflows/deploy-kalatty.yml` gère le déploiement du backend Railway. Le fichier `render.yaml` permet une alternative Render.
