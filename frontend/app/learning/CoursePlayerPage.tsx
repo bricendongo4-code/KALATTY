@@ -65,6 +65,7 @@ export default function CoursePlayerPage({
   const [accessMessage, setAccessMessage] = useState<string | null>(null);
   const [buying, setBuying] = useState(false);
   const [paymentsEnabled, setPaymentsEnabled] = useState<boolean | null>(null);
+  const [testAccessEnabled, setTestAccessEnabled] = useState<boolean | null>(null);
   const [note, setNote] = useState("");
   const [question, setQuestion] = useState("");
   const [questions, setQuestions] = useState<LearnerQuestion[]>([]);
@@ -107,8 +108,13 @@ export default function CoursePlayerPage({
         });
         const plans = plansResponse.ok ? await plansResponse.json() : null;
         setPaymentsEnabled(Boolean(plans?.coursePayments?.enabled));
+        setTestAccessEnabled(
+          Boolean(plans?.coursePayments?.testAccessEnabled) ||
+            !plansResponse.ok,
+        );
       } else {
         setPaymentsEnabled(true);
+        setTestAccessEnabled(false);
       }
       const lessons = (body.modules ?? []).flatMap(
         (module: { lessons?: Lesson[] }) => module.lessons ?? [],
@@ -301,7 +307,7 @@ export default function CoursePlayerPage({
     setBuying(true);
     setAccessMessage(null);
     try {
-      if (course.priceFcfa <= 0) {
+      if (course.priceFcfa <= 0 || testAccessEnabled === true) {
         const response = await fetch(`${API_BASE}/courses/${courseId}/enroll`, {
           method: "POST",
           headers: {
@@ -314,17 +320,13 @@ export default function CoursePlayerPage({
         if (!response.ok)
           throw new Error(body.message ?? "Inscription impossible.");
         setAccessMessage(
-          "Inscription confirmée. Vous pouvez maintenant commencer le cours.",
+          course.priceFcfa > 0
+            ? "Accès test activé. Aucun paiement réel n’a été effectué."
+            : "Inscription confirmée. Vous pouvez maintenant commencer le cours.",
         );
         await load();
         return;
       } else {
-        if (paymentsEnabled !== true) {
-          setAccessMessage(
-            "Le paiement n’est pas encore disponible. Aucune demande et aucun débit n’ont été créés.",
-          );
-          return;
-        }
         const checkoutResponse = await fetch(
           `${API_BASE}/payments/course-checkout`,
           {
@@ -415,7 +417,10 @@ export default function CoursePlayerPage({
             </strong>
             <button
               disabled={
-                buying || (course.priceFcfa > 0 && paymentsEnabled !== true)
+                buying ||
+                (course.priceFcfa > 0 &&
+                  paymentsEnabled !== true &&
+                  testAccessEnabled !== true)
               }
               className={styles.primaryButton}
               onClick={activateAccess}
@@ -424,19 +429,23 @@ export default function CoursePlayerPage({
                 ? "Traitement…"
                 : course.priceFcfa <= 0
                   ? "S’inscrire gratuitement"
-                  : paymentsEnabled === null
-                    ? "Vérification du paiement…"
+                  : paymentsEnabled === null || testAccessEnabled === null
+                    ? "Vérification de l’accès…"
+                    : testAccessEnabled
+                      ? "Accéder au cours"
                     : paymentsEnabled
                       ? "Acheter la formation"
-                      : "Paiement bientôt disponible"}
+                      : "Accès indisponible"}
             </button>
             {accessMessage ? <p role="status">{accessMessage}</p> : null}
             <small>
               {course.priceFcfa <= 0
                 ? "L’inscription gratuite est activée immédiatement."
-                : paymentsEnabled
+                : testAccessEnabled
+                  ? "Mode test : l’accès est immédiat et aucun paiement réel n’est effectué."
+                  : paymentsEnabled
                   ? "L’accès sera activé après confirmation sécurisée du paiement."
-                  : "Aucun paiement ne peut être créé tant que le prestataire sécurisé n’est pas connecté."}
+                  : "L’accès est momentanément indisponible."}
             </small>
           </aside>
         </section>

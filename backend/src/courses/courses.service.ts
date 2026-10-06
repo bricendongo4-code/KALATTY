@@ -1299,6 +1299,13 @@ export class CoursesService {
       };
     }
 
+    const priceFcfa = Number(course.price_fcfa ?? 0);
+    if (priceFcfa > 0 && !this.isCourseTestAccessEnabled()) {
+      throw new ForbiddenException(
+        'Ce cours payant doit etre achete avant de pouvoir y acceder.',
+      );
+    }
+
     const { data: existingEnrollment, error: existingError } =
       await this.supabaseService.client
         .from('enrollments')
@@ -1337,7 +1344,29 @@ export class CoursesService {
       progress: 0,
       nextLesson: 'Commencer la premiere lecon',
       enrolled: true,
+      testAccess: priceFcfa > 0,
+      message:
+        priceFcfa > 0
+          ? 'Acces test active sans paiement reel.'
+          : 'Inscription gratuite confirmee.',
     };
+  }
+
+  private isCourseTestAccessEnabled() {
+    const configured = process.env.COURSE_TEST_ACCESS_ENABLED
+      ?.trim()
+      .toLowerCase();
+    if (configured === 'true') return true;
+    if (configured === 'false') return false;
+
+    const provider = process.env.PAYMENT_PROVIDER?.trim().toLowerCase();
+    const cinetPayConfigured =
+      provider === 'cinetpay' &&
+      Boolean(process.env.CINETPAY_API_KEY?.trim()) &&
+      Boolean(process.env.CINETPAY_SITE_ID?.trim()) &&
+      Boolean(process.env.PUBLIC_API_URL?.trim()) &&
+      Boolean(process.env.FRONTEND_URL?.trim());
+    return !cinetPayConfigured;
   }
 
   async updateLessonProgress(

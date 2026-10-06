@@ -50,15 +50,19 @@ export class PaymentsService {
     const provider =
       process.env.PAYMENT_PROVIDER?.trim() || 'pending_configuration';
     const paymentsEnabled = this.isCinetPayConfigured();
+    const testAccessEnabled = this.isCourseTestAccessEnabled();
     return {
       coursePayments: {
         provider,
         enabled: paymentsEnabled,
+        testAccessEnabled,
         platformFeePercent: 15,
         description:
           paymentsEnabled
             ? 'Les cours gratuits sont accessibles apres inscription. Les cours payants activent un paiement par cours.'
-            : "Les inscriptions gratuites restent disponibles. Les paiements sont desactives jusqu'a la connexion d'un prestataire securise.",
+            : testAccessEnabled
+              ? "Mode test actif : l'acces aux cours est accorde sans debit reel."
+              : "Les inscriptions gratuites restent disponibles. Les paiements sont desactives jusqu'a la connexion d'un prestataire securise.",
       },
       institutionPlans: Object.entries(this.institutionPlans).map(
         ([code, plan]) => ({
@@ -462,6 +466,15 @@ export class PaymentsService {
       Boolean(this.publicApiUrl()) &&
       Boolean(process.env.FRONTEND_URL?.trim())
     );
+  }
+
+  private isCourseTestAccessEnabled() {
+    const configured = process.env.COURSE_TEST_ACCESS_ENABLED
+      ?.trim()
+      .toLowerCase();
+    if (configured === 'true') return true;
+    if (configured === 'false') return false;
+    return !this.isCinetPayConfigured();
   }
 
   private async initializeCinetPayCheckout(input: {
