@@ -4,7 +4,7 @@
  * Applies a bounded exact-text replacement to a disposable copy of ONE file.
  * Never edits the source tree, commits, merges, or deploys.
  */
-import { readFile, writeFile, mkdir, mkdtemp, cp } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, mkdtemp } from 'node:fs/promises';
 import { resolve, join, relative, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
@@ -31,7 +31,7 @@ await writeFile(candidatePath, candidate);
 const check = spawnSync(process.execPath, ['--check', candidatePath], {
   encoding: 'utf8', timeout: 30000, shell: false, maxBuffer: 65536,
 });
-const supportedSyntaxCheck = /\.(js|jsx)$/.test(file);
+const supportedSyntaxCheck = /\.js$/.test(file);
 const status = supportedSyntaxCheck
   ? (check.status === 0 ? 'syntax-check-passed' : 'syntax-check-failed')
   : 'syntax-check-not-applicable';
