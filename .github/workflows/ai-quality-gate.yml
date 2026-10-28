@@ -31,6 +31,26 @@ jobs:
           node-version: '22'
       - run: node --test scripts/qa-utils.test.mjs scripts/qa-log-analysis.test.mjs scripts/developer-agent.test.mjs scripts/developer-patch.test.mjs scripts/developer-pr-plan.test.mjs scripts/developer-execution-gate.test.mjs scripts/developer-execute.test.mjs scripts/developer-triage.test.mjs scripts/developer-retry-loop.test.mjs scripts/developer-worker.test.mjs scripts/developer-validate.test.mjs scripts/developer-pipeline.test.mjs scripts/developer-promotion-gate.test.mjs scripts/developer-regression.test.mjs scripts/developer-red-green.test.mjs
 
+  developer-behavioral-smoke:
+    name: Developer behavioral red-green smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prove baseline fails and candidate passes
+        run: node scripts/developer-behavioral-red-green.mjs scripts/fixtures/developer-behavioral-request.json developer-reports
+      - name: Upload red-green evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: developer-behavioral-evidence
+          path: developer-reports/behavioral-red-green-report.json
+          if-no-files-found: ignore
+          retention-days: 7
+
   developer-smoke:
     name: Developer pipeline - isolated backend smoke
     runs-on: ubuntu-latest
