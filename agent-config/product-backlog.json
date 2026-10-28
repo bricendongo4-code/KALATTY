@@ -1,0 +1,9 @@
+{
+  "items": [
+    {"id":"SEC-001","title":"Validate recovery email template and public Supabase key in staging","priority":"critical","status":"blocked","owner":"Security","dependencies":[]},
+    {"id":"SEC-002","title":"Verify tenant isolation and RLS policies","priority":"critical","status":"in-progress","owner":"Security","dependencies":[]},
+    {"id":"QA-001","title":"Run complete backend and frontend CI against integrated branch","priority":"high","status":"ready","owner":"QA","dependencies":[]},
+    {"id":"UX-001","title":"Inspect actual dashboard actions and mobile layout","priority":"high","status":"ready","owner":"UX","dependencies":[]},
+    {"id":"REL-001","title":"Review readiness before master merge","priority":"high","status":"blocked","owner":"Product","dependencies":["SEC-001","SEC-002","QA-001","UX-001"]}
+  ]
+}
