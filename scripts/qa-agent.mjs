@@ -5,6 +5,7 @@
  * Optional LLM analysis via OPENAI_API_KEY; never executes model output.
  */
 import { mkdir, writeFile } from 'node:fs/promises';
+import { clean, collectFindings } from './qa-utils.mjs';
 
 const token = process.env.GITHUB_TOKEN;
 const repository = process.env.GITHUB_REPOSITORY;
@@ -23,14 +24,6 @@ async function github(path) {
   if (!response.ok) throw new Error(`GitHub API ${response.status}: ${path}`);
   return response.json();
 }
-function clean(value) {
-  return String(value ?? '').replace(/[\r\n|]/g, ' ').replace(/</g, '&lt;').slice(0, 180);
-}
-function severity(name) {
-  if (/security|auth|payment|rls|permission/i.test(name)) return 'high';
-  if (/build|test|end-to-end|playwright|jest/i.test(name)) return 'medium';
-  return 'low';
-}
 const run = await github(`actions/runs/${runId}`);
 const jobs = [];
 for (let page = 1; page <= 10; page++) {
@@ -38,21 +31,9 @@ for (let page = 1; page <= 10; page++) {
   jobs.push(...(data.jobs ?? []));
   if ((data.jobs ?? []).length < 100) break;
 }
-const failed = jobs.flatMap(job => {
-  const failedSteps = (job.steps ?? []).filter(step => ['failure', 'timed_out'].includes(step.conclusion));
-  if (!failedSteps.length && ['failure', 'timed_out'].includes(job.conclusion)) {
-    return [{ job: job.name, step: 'Job failed (no step detail)', url: job.html_url }];
-  }
-  return failedSteps.map(step => ({ job: job.name, step: step.name, url: job.html_url }));
-});
-const findings = failed.map((item, i) => ({
-  id: `QA-${String(i + 1).padStart(3, '0')}`,
-  priority: severity(`${item.job} ${item.step}`),
-  ...item,
-  status: 'requires investigation',
-}));
+const findings = collectFindings(jobs);
 let aiSummary = '';
-if (process.env.OPENAI_API_KEY && failed.length) {
+if (process.env.OPENAI_API_KEY && findings.length) {
   try {
     const response = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
@@ -93,7 +74,7 @@ const report = [
   '',
   '## Suggested next action',
   '',
-  failed.length ? 'Review the failed job logs and reproduce in an isolated environment. These findings do not establish root cause.' : 'No failed job steps detected. Passing CI does not prove production correctness.',
+  findings.length ? 'Review the failed job logs and reproduce in an isolated environment. These findings do not establish root cause.' : 'No failed job steps detected. Passing CI does not prove production correctness.',
   ...(aiSummary ? ['', '## Optional AI triage (unverified)', '', aiSummary] : []),
   '',
   '> Read-only report. No source changes, merges, deployments, or database mutations were performed.',
