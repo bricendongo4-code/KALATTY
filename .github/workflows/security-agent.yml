@@ -2,6 +2,8 @@ name: Kalatty Security Agent (read-only)
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ai/security-agent-foundation]
   pull_request:
     branches: [master]
     paths:
