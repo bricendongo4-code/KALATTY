@@ -7,3 +7,9 @@ The worker stages the replacement into a temporary directory, leaving the origin
 **Not yet safe for unattended execution on untrusted requests:** the worker reads a source file under a syntactically restricted path but does not currently reject symlink traversal; use only trusted, non-adversarial repository checkouts. A hardened sandbox must enforce filesystem containment and resource limits before autonomous execution.
 
 A complete fix requires an isolated full checkout, regression tests proving the original bug, project build and CI, and a draft PR. This is an incremental staging component, not a complete autonomous coding agent.
+
+## Isolated project validation (experimental)
+
+`scripts/developer-validate.mjs` copies the affected frontend or backend project to a temporary directory, applies a single exact-text change to that copy, then runs `npm ci` and project build/test commands. It never intentionally changes the source tree or deploys. It is **not yet run as part of the QA workflow**; only input validation unit tests are wired into CI.
+
+**Security limitation:** a temporary directory is not a security sandbox. Dependency installation and build scripts may execute arbitrary code; do not run this validator on untrusted branches or unreviewed changes without container isolation, network restrictions, and resource controls. It does not yet prove a targeted regression is fixed or run frontend browser tests.
