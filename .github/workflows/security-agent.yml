@@ -23,14 +23,16 @@ jobs:
         with:
           node-version: '22'
       - name: Security Agent tests
-        run: node --test scripts/security-agent.test.mjs
+        run: node --test scripts/security-agent.test.mjs scripts/security-supabase-architecture.test.mjs
       - name: Static backend review
         run: node scripts/security-agent.mjs backend/src security-reports
+      - name: Inspect Supabase privileged client configuration
+        run: node scripts/security-supabase-architecture.mjs backend/src/supabase/supabase.service.ts security-reports
       - name: Save security findings
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: kalatty-security-report
-          path: security-reports/security-report.json
+          path: security-reports/
           if-no-files-found: ignore
           retention-days: 14
