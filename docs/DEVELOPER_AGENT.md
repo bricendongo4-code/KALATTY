@@ -27,3 +27,7 @@ This is a deterministic triage/planning component, **not yet an autonomous code-
 The standalone `scripts/developer-patch.mjs` accepts an explicit JSON request containing `file`, `oldText`, and `newText`. It only accepts TypeScript/JavaScript/CSS files inside `frontend/` or `backend/`, and requires exactly one occurrence of the target text. It generates `proposed.patch` and `patch-manifest.json` without writing to the source file or GitHub.
 
 This is **not** an autonomous code editor: a developer must decide what to change and supply the exact replacement. The diff format is intended for review and should not be applied automatically. The patch engine has unit tests in the PR quality gate.
+
+## Draft PR planning (v3)
+
+Run `node scripts/developer-pr-plan.mjs developer-reports/patch-manifest.json developer-reports` to generate a **review-only** `pr-plan.json` from a previously prepared patch manifest. The plan specifies a dedicated `ai/fix/*` branch, a draft PR, the exact allowed file, required tests, and explicit approval. It rejects migrations, GitHub workflows, and already applied patches. This phase intentionally does **not** create a branch or PR, apply a patch, or grant GitHub write permissions. A separate write-capable execution step must be designed and authorized before any such action.
