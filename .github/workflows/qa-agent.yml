@@ -29,7 +29,7 @@ jobs:
         with:
           node-version: '22'
       - name: Unit tests for QA triage
-        run: node --test scripts/qa-utils.test.mjs scripts/qa-log-analysis.test.mjs
+        run: node --test scripts/qa-utils.test.mjs scripts/qa-log-analysis.test.mjs scripts/developer-agent.test.mjs
       - name: Inspect CI and generate QA report
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -37,11 +37,15 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.KALATTY_QA_OPENAI_API_KEY }}
           OPENAI_MODEL: gpt-4.1-mini
         run: node scripts/qa-agent.mjs
+      - name: Prepare Developer Agent proposals (read-only)
+        run: node scripts/developer-agent.mjs
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: kalatty-qa-report
-          path: qa-reports/
+          path: |
+            qa-reports/
+            developer-reports/
           if-no-files-found: ignore
           retention-days: 14
