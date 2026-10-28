@@ -28,6 +28,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Unit tests for QA triage
+        run: node --test scripts/qa-utils.test.mjs
       - name: Inspect CI and generate QA report
         env:
           GITHUB_TOKEN: ${{ github.token }}
