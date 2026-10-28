@@ -11,12 +11,12 @@ const [qaPath = 'qa-reports/report.json', output = 'developer-reports'] = proces
 const qa = JSON.parse(await readFile(qaPath, 'utf8'));
 const findings = Array.isArray(qa.findings) ? qa.findings : [];
 const actionable = findings.filter(f => f && typeof f === 'object' &&
-  ['high', 'medium', 'critical'].includes(String(f.severity).toLowerCase()) &&
-  (typeof f.message === 'string' || typeof f.category === 'string'));
+  ['high', 'medium', 'critical'].includes(String(f.priority ?? f.severity).toLowerCase()) &&
+  (typeof f.step === 'string' || typeof f.message === 'string' || typeof f.category === 'string'));
 const candidates = actionable.slice(0, 10).map((finding, i) => ({
   id: `candidate-${i + 1}`,
-  severity: String(finding.severity).toLowerCase(),
-  category: String(finding.category ?? 'unclassified').slice(0, 100),
+  severity: String(finding.priority ?? finding.severity).toLowerCase(),
+  category: String(finding.category ?? finding.step ?? 'unclassified').slice(0, 100),
   status: 'needs-reproduction',
   nextSteps: [
     'Reproduce the failure in an isolated environment',
