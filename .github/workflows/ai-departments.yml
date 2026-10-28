@@ -28,11 +28,16 @@ jobs:
         run: node scripts/product-agent.mjs agent-config/product-backlog.json agent-reports
       - name: Run security review
         run: node scripts/security-agent.mjs backend/src agent-reports
+      - name: Prepare synthetic QA fixture
+        run: |
+          mkdir -p agent-reports
+          printf '%s\n' '{"findings":[],"source":"synthetic CI fixture"}' > agent-reports/qa-fixture.json
+          test -s agent-reports/qa-fixture.json
       - name: Generate QA handoff from fixture
         run: |
-          node scripts/qa-handoff.mjs agent-config/qa-example.json agent-reports
+          node scripts/qa-handoff.mjs agent-reports/qa-fixture.json agent-reports
       - name: Coordinate departments
-        run: node scripts/departments-coordinator.mjs agent-config/qa-example.json agent-reports/security-report.json agent-reports/ux-report.json agent-reports/product-report.json agent-reports
+        run: node scripts/departments-coordinator.mjs agent-reports/qa-fixture.json agent-reports/security-report.json agent-reports/ux-report.json agent-reports/product-report.json agent-reports
       - name: Upload department reports
         if: always()
         uses: actions/upload-artifact@v4
