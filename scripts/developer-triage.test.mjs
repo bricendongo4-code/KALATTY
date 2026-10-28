@@ -23,6 +23,11 @@ test('selects actionable QA findings and keeps writes disabled', async () => {
   assert.equal(plan.candidates[0].automaticExecutionAllowed, false);
   assert.equal(plan.guardrails.defaultBranchWrites, false);
 });
+test('accepts real QA report priority and step fields', async () => {
+  const { plan } = await run([{ priority: 'high', job: 'backend', step: 'Build failed' }]);
+  assert.equal(plan.candidateCount, 1);
+  assert.equal(plan.candidates[0].category, 'Build failed');
+});
 test('handles missing or empty findings', async () => {
   const { plan } = await run([]);
   assert.equal(plan.status, 'no-actionable-findings');
