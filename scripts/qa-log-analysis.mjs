@@ -24,7 +24,7 @@ export function diagnoseLog(raw, maxLines = 12) {
   for (const line of lines) {
     for (const pattern of patterns) {
       if (pattern.regex.test(line) && !findings.some(f => f.type === pattern.type)) {
-        findings.push({ type: pattern.type, evidence: redact(line).replace(/\x1b\[[0-9;]*m/g, '').slice(0, 240), suggestion: pattern.suggestion });
+        findings.push({ type: pattern.type, suggestion: pattern.suggestion });
       }
     }
     if (findings.length >= maxLines) break;
