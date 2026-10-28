@@ -1,0 +1,6 @@
+{
+  "file": "backend/src/ai-regression-demo.mjs",
+  "oldText": "return String(value ?? '').trim().toLowerCase();",
+  "newText": "return String(value ?? '').trim().toLowerCase().replace(/\\s+/g, ' ');",
+  "behavioralTest": "scripts/regression-cases/normalize-label.test.mjs"
+}
