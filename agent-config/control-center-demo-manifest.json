@@ -1,0 +1,29 @@
+{
+  "reports": [
+    {
+      "department": "marketing",
+      "file": "agent-reports/marketing-report.json"
+    },
+    {
+      "department": "sales",
+      "file": "agent-reports/sales-report.json"
+    },
+    {
+      "department": "support",
+      "file": "agent-reports/support-report.json"
+    },
+    {
+      "department": "finance",
+      "file": "agent-reports/finance-report.json"
+    },
+    {
+      "department": "analytics",
+      "file": "agent-reports/analytics-report.json"
+    },
+    {
+      "department": "crm",
+      "file": "agent-reports/crm-report.json"
+    }
+  ],
+  "synthetic": true
+}
