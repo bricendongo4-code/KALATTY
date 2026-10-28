@@ -1,0 +1,40 @@
+import { UnauthorizedException } from '@nestjs/common';
+import { AuthService } from './auth.service';
+import { SupabaseService } from '../supabase/supabase.service';
+import { JwtService } from '@nestjs/jwt';
+
+describe('Password recovery security contract (current behavior)', () => {
+  it('rejects a normal session token without changing the password', async () => {
+    const verifyOtp = jest.fn().mockResolvedValue({ data: { user: null }, error: { message: 'not a recovery token' } });
+    const updateUserById = jest.fn().mockResolvedValue({ error: null });
+    const service = new AuthService({
+      authClient: { auth: { verifyOtp } },
+      client: { auth: { admin: { updateUserById } } },
+    } as unknown as SupabaseService, {} as JwtService);
+    await expect(service.resetPassword({ accessToken: 'ordinary-access-token', password: 'new-password-123' })).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(verifyOtp).toHaveBeenCalledWith({ token_hash: 'ordinary-access-token', type: 'recovery' });
+    expect(updateUserById).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid tokens', async () => {
+    const updateUserById = jest.fn();
+    const service = new AuthService({
+      authClient: { auth: { verifyOtp: jest.fn().mockResolvedValue({ data: { user: null }, error: { message: 'invalid' } }) } },
+      client: { auth: { admin: { updateUserById } } },
+    } as unknown as SupabaseService, {} as JwtService);
+    await expect(service.resetPassword({ accessToken: 'invalid', password: 'new-password-123' }))
+      .rejects.toBeInstanceOf(UnauthorizedException);
+    expect(updateUserById).not.toHaveBeenCalled();
+  });
+  it('allows a verified recovery token to update the matching user', async () => {
+    const verifyOtp = jest.fn().mockResolvedValue({ data: { user: { id: 'test-user' } }, error: null });
+    const updateUserById = jest.fn().mockResolvedValue({ error: null });
+    const service = new AuthService({
+      authClient: { auth: { verifyOtp } },
+      client: { auth: { admin: { updateUserById } } },
+    } as unknown as SupabaseService, {} as JwtService);
+    await expect(service.resetPassword({ accessToken: 'valid-recovery-hash', password: 'new-password-123' }))
+      .resolves.toHaveProperty('message');
+    expect(updateUserById).toHaveBeenCalledWith('test-user', { password: 'new-password-123' });
+  });
+});

@@ -16,12 +16,13 @@ export default function ResetPasswordPage() {
   const [isComplete, setIsComplete] = useState(false);
 
   useEffect(() => {
-    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-    const recoveryToken = hash.get("access_token") ?? "";
-    setAccessToken(recoveryToken);
-    if (!recoveryToken) {
+    const query = new URLSearchParams(window.location.search);
+    const recoveryToken = query.get("token_hash") ?? "";
+    const isRecovery = query.get("type") === "recovery";
+    setAccessToken(isRecovery ? recoveryToken : "");
+    if (!recoveryToken || !isRecovery) {
       setMessage(
-        hash.get("error_description")?.replace(/\+/g, " ") ??
+        query.get("error_description")?.replace(/\+/g, " ") ??
           "Ce lien de recuperation est absent ou a expire.",
       );
     }
