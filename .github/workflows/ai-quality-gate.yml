@@ -8,6 +8,8 @@ on:
       - 'frontend/**'
       - 'backend/**'
       - '.github/workflows/ai-quality-gate.yml'
+      - '.github/workflows/qa-agent.yml'
+      - 'scripts/qa-*.mjs'
 
 permissions:
   contents: read
@@ -17,6 +19,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  qa-agent-unit:
+    name: QA Agent unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test scripts/qa-utils.test.mjs scripts/qa-log-analysis.test.mjs
+
   backend:
     name: Backend - build and tests
     runs-on: ubuntu-latest
