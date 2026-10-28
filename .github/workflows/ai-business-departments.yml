@@ -23,6 +23,9 @@ jobs:
           for department in marketing sales support finance analytics crm; do
             node scripts/business-department-agent.mjs "$department" agent-config/business-demo.json agent-reports
           done
+      - name: Build Control Center from synthetic reports
+        run: |
+          node scripts/ai-control-center.mjs agent-config/control-center-demo-manifest.json agent-reports
       - name: Upload synthetic reports
         uses: actions/upload-artifact@v4
         with:
