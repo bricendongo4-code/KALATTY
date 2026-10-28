@@ -1,0 +1,22 @@
+name: AI Department Foundations
+on:
+  push:
+    branches:
+      - ai/high-priority-departments
+  pull_request:
+    branches:
+      - ai/security-agent-foundation
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  agent-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate Security, QA, Developer, UX and Product agent scripts
+        run: |
+          node --test scripts/departments.test.mjs scripts/security-agent.test.mjs scripts/security-supabase-architecture.test.mjs scripts/qa-utils.test.mjs scripts/developer-agent.test.mjs
