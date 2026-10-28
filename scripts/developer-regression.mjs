@@ -37,7 +37,7 @@ await cp(resolve(project), isolated, {
 });
 await writeFile(join(temp, file), original.replace(req.oldText, req.newText));
 const commands = [['npm', ['ci']]];
-if (project === 'backend') commands.push(['npm', ['test', '--', '--runInBand', '--passWithNoTests'] ]]);
+if (project === 'backend') commands.push(['npm', ['test', '--', '--runInBand', '--passWithNoTests']]);
 else commands.push(['npm', ['run', 'test:e2e']]);
 const checks = [];
 for (const [command, args] of commands) {
