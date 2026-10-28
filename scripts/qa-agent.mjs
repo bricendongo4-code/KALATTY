@@ -6,6 +6,7 @@
  */
 import { mkdir, writeFile } from 'node:fs/promises';
 import { clean, collectFindings } from './qa-utils.mjs';
+import { diagnoseLog } from './qa-log-analysis.mjs';
 
 const token = process.env.GITHUB_TOKEN;
 const repository = process.env.GITHUB_REPOSITORY;
@@ -32,6 +33,31 @@ for (let page = 1; page <= 10; page++) {
   if ((data.jobs ?? []).length < 100) break;
 }
 const findings = collectFindings(jobs);
+const diagnostics = [];
+// Fetch only failed jobs. Keep the analysis local; never persist raw logs.
+for (const job of jobs.filter(j => ['failure', 'timed_out'].includes(j.conclusion)).slice(0, 8)) {
+  try {
+    const response = await fetch(`https://api.github.com/repos/${repository}/actions/jobs/${job.id}/logs`, { headers });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    // Bound processing to avoid consuming unbounded CI logs.
+    const reader = response.body.getReader();
+    const chunks = [];
+    let bytes = 0;
+    while (bytes < 1_000_000) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      const chunk = value.slice(0, 1_000_000 - bytes);
+      chunks.push(chunk);
+      bytes += chunk.length;
+    }
+    await reader.cancel();
+    const buffer = Buffer.concat(chunks.map(chunk => Buffer.from(chunk)));
+    diagnostics.push({ job: job.name, patterns: diagnoseLog(buffer.toString('utf8')) });
+  } catch (error) {
+    diagnostics.push({ job: job.name, patterns: [], note: 'Logs unavailable for automated analysis' });
+    console.error(`Could not inspect job ${job.id} logs: ${error.message}`);
+  }
+}
 let aiSummary = '';
 if (process.env.OPENAI_API_KEY && findings.length) {
   try {
@@ -72,6 +98,9 @@ const report = [
   ...findings.map(f => `| ${f.id} | ${f.priority} | ${clean(f.job)} | ${clean(f.step)} |`),
   ...(findings.length ? [] : ['| — | — | No failed steps found | — |']),
   '',
+  '## Diagnostic patterns from failed job logs (not confirmed causes)',
+  '',
+  ...diagnostics.flatMap(d => [`### ${clean(d.job)}`, '', ...(d.patterns.length ? d.patterns.map(p => `- **${p.type}**: ${clean(p.evidence)} — ${p.suggestion}`) : [clean(d.note || 'No known error patterns identified.')]), '']),
   '## Suggested next action',
   '',
   findings.length ? 'Review the failed job logs and reproduce in an isolated environment. These findings do not establish root cause.' : 'No failed job steps detected. Passing CI does not prove production correctness.',
@@ -81,5 +110,5 @@ const report = [
 ].join('\n');
 await mkdir('qa-reports', { recursive: true });
 await writeFile('qa-reports/report.md', report);
-await writeFile('qa-reports/report.json', JSON.stringify({ repository, runId, conclusion: run.conclusion, findings, aiSummary }, null, 2));
+await writeFile('qa-reports/report.json', JSON.stringify({ repository, runId, conclusion: run.conclusion, findings, diagnostics, aiSummary }, null, 2));
 console.log(report);
