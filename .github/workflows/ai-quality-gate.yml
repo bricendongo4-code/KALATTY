@@ -29,7 +29,25 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test scripts/qa-utils.test.mjs scripts/qa-log-analysis.test.mjs scripts/developer-agent.test.mjs scripts/developer-patch.test.mjs scripts/developer-pr-plan.test.mjs scripts/developer-execution-gate.test.mjs scripts/developer-execute.test.mjs scripts/developer-triage.test.mjs scripts/developer-retry-loop.test.mjs scripts/developer-worker.test.mjs scripts/developer-validate.test.mjs scripts/developer-pipeline.test.mjs scripts/developer-promotion-gate.test.mjs scripts/developer-regression.test.mjs scripts/developer-red-green.test.mjs scripts/developer-behavioral-red-green.test.mjs scripts/developer-readiness.test.mjs
+      - run: node --test scripts/qa-utils.test.mjs scripts/qa-log-analysis.test.mjs scripts/developer-agent.test.mjs scripts/developer-patch.test.mjs scripts/developer-pr-plan.test.mjs scripts/developer-execution-gate.test.mjs scripts/developer-execute.test.mjs scripts/developer-triage.test.mjs scripts/developer-retry-loop.test.mjs scripts/developer-worker.test.mjs scripts/developer-validate.test.mjs scripts/developer-pipeline.test.mjs scripts/developer-promotion-gate.test.mjs scripts/developer-regression.test.mjs scripts/developer-red-green.test.mjs scripts/developer-behavioral-red-green.test.mjs scripts/developer-readiness.test.mjs scripts/developer-security-triage.test.mjs
+
+  developer-security-triage:
+    name: Developer security triage (read-only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Scan backend authorization risk patterns
+        run: node scripts/developer-security-triage.mjs backend/src developer-reports
+      - name: Upload triage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: developer-security-triage
+          path: developer-reports/security-triage.json
+          retention-days: 7
 
   developer-behavioral-smoke:
     name: Developer behavioral red-green smoke
