@@ -20,3 +20,15 @@ jobs:
       - name: Validate Security, QA, Developer, UX and Product agent scripts
         run: |
           node --test scripts/departments.test.mjs scripts/security-agent.test.mjs scripts/security-supabase-architecture.test.mjs scripts/qa-utils.test.mjs scripts/developer-agent.test.mjs
+      - name: Generate UX route inventory and report
+        run: |
+          node scripts/ux-route-inventory.mjs frontend/app agent-reports
+          node scripts/ux-agent.mjs agent-reports/route-inventory.json agent-reports
+      - name: Generate prioritized Product report
+        run: node scripts/product-agent.mjs agent-config/product-backlog.json agent-reports
+      - name: Upload department reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-departments-reports
+          path: agent-reports/
