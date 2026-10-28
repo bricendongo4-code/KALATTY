@@ -17,5 +17,5 @@ test('returns empty diagnostics for successful log', () => {
 test('redacts credentials in extracted evidence', () => {
   const f = diagnoseLog('permission denied Bearer secretvalue123');
   assert.equal(f.length, 1);
-  assert.doesNotMatch(f[0].evidence, /secretvalue123/);
+  assert.equal(f[0].evidence, undefined);
 });
