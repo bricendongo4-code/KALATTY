@@ -100,7 +100,7 @@ const report = [
   '',
   '## Diagnostic patterns from failed job logs (not confirmed causes)',
   '',
-  ...diagnostics.flatMap(d => [`### ${clean(d.job)}`, '', ...(d.patterns.length ? d.patterns.map(p => `- **${p.type}**: ${clean(p.evidence)} — ${p.suggestion}`) : [clean(d.note || 'No known error patterns identified.')]), '']),
+  ...diagnostics.flatMap(d => [`### ${clean(d.job)}`, '', ...(d.patterns.length ? d.patterns.map(p => `- **${p.type}**: ${p.suggestion}`) : [clean(d.note || 'No known error patterns identified.')]), '']),
   '## Suggested next action',
   '',
   findings.length ? 'Review the failed job logs and reproduce in an isolated environment. These findings do not establish root cause.' : 'No failed job steps detected. Passing CI does not prove production correctness.',
