@@ -39,6 +39,8 @@ jobs:
         run: node scripts/qa-agent.mjs
       - name: Prepare Developer Agent proposals (read-only)
         run: node scripts/developer-agent.mjs
+      - name: Prepare Developer Agent triage plan (read-only)
+        run: node scripts/developer-triage.mjs
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@v4
