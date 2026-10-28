@@ -29,12 +29,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test scripts/qa-utils.test.mjs scripts/qa-log-analysis.test.mjs scripts/developer-agent.test.mjs scripts/developer-patch.test.mjs scripts/developer-pr-plan.test.mjs scripts/developer-execution-gate.test.mjs scripts/developer-execute.test.mjs scripts/developer-triage.test.mjs scripts/developer-retry-loop.test.mjs scripts/developer-worker.test.mjs scripts/developer-validate.test.mjs scripts/developer-pipeline.test.mjs scripts/developer-promotion-gate.test.mjs
+      - run: node --test scripts/qa-utils.test.mjs scripts/qa-log-analysis.test.mjs scripts/developer-agent.test.mjs scripts/developer-patch.test.mjs scripts/developer-pr-plan.test.mjs scripts/developer-execution-gate.test.mjs scripts/developer-execute.test.mjs scripts/developer-triage.test.mjs scripts/developer-retry-loop.test.mjs scripts/developer-worker.test.mjs scripts/developer-validate.test.mjs scripts/developer-pipeline.test.mjs scripts/developer-promotion-gate.test.mjs scripts/developer-regression.test.mjs
 
   developer-smoke:
     name: Developer pipeline - isolated backend smoke
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
