@@ -1,6 +1,6 @@
 # Kalatty Developer Agent v1 — proposal-only
 
-This initial agent converts QA findings into structured **investigation proposals**. It does not modify source code, create branches, open PRs, run generated commands, merge, or deploy.
+The Developer Agent v1 converts QA findings into structured **investigation proposals**. It does not modify source code, create branches, open PRs, run generated commands, merge, or deploy.
 
 ## Pipeline
 
@@ -21,3 +21,9 @@ This initial agent converts QA findings into structured **investigation proposal
 ## Limitations
 
 This is a deterministic triage/planning component, **not yet an autonomous code-fixing agent**. Its proposals are generic and do not identify the exact source files to change. CI status and report generation must be validated in actual GitHub Actions runs.
+
+## Patch proposal mode (v2)
+
+The standalone `scripts/developer-patch.mjs` accepts an explicit JSON request containing `file`, `oldText`, and `newText`. It only accepts TypeScript/JavaScript/CSS files inside `frontend/` or `backend/`, and requires exactly one occurrence of the target text. It generates `proposed.patch` and `patch-manifest.json` without writing to the source file or GitHub.
+
+This is **not** an autonomous code editor: a developer must decide what to change and supply the exact replacement. The diff format is intended for review and should not be applied automatically. The patch engine has unit tests in the PR quality gate.
