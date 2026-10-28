@@ -1,0 +1,30 @@
+name: Remaining AI Departments
+on:
+  push:
+    branches: [ai/remaining-departments-foundation]
+  pull_request:
+    branches: [ai/high-priority-departments]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  unit-and-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run department tests
+        run: node --test scripts/business-departments.test.mjs scripts/departments.test.mjs scripts/departments-integration.test.mjs
+      - name: Run synthetic business department smoke checks
+        run: |
+          mkdir -p agent-reports
+          for department in marketing sales support finance analytics crm; do
+            node scripts/business-department-agent.mjs "$department" agent-config/business-demo.json agent-reports
+          done
+      - name: Upload synthetic reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-business-departments
+          path: agent-reports/
