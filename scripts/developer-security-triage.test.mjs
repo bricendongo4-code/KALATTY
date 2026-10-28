@@ -1,0 +1,20 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, mkdir, writeFile, readFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
+const script = new URL('./developer-security-triage.mjs', import.meta.url).pathname;
+test('flags service-role access as review-required, not confirmed vulnerability', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'kalatty-security-'));
+  const source = join(dir, 'src');
+  await mkdir(source);
+  await writeFile(join(source, 'sample.ts'), "const key = process.env.SUPABASE_SERVICE_ROLE_KEY;\n");
+  const run = spawnSync(process.execPath, [script, source, dir], { encoding: 'utf8' });
+  assert.equal(run.status, 0, run.stderr);
+  const report = JSON.parse(await readFile(join(dir, 'security-triage.json'), 'utf8'));
+  assert.equal(report.findings[0].id, 'service-role');
+  assert.equal(report.findings[0].status, 'review-required');
+  assert.equal(report.confirmedVulnerabilities, 0);
+  assert.equal(report.autoFixAllowed, false);
+});
