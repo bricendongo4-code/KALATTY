@@ -28,7 +28,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test scripts/qa-utils.test.mjs scripts/qa-log-analysis.test.mjs
+      - run: node --test scripts/qa-utils.test.mjs scripts/qa-log-analysis.test.mjs scripts/developer-agent.test.mjs
 
   backend:
     name: Backend - build and tests
