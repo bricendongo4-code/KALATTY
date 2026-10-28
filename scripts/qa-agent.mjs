@@ -24,7 +24,7 @@ async function github(path) {
   return response.json();
 }
 function clean(value) {
-  return String(value ?? '').replace(/[\r\n|]/g, ' ').replace(/</g, '&lt;').slice(0, 180);
+  return String(value ?? '').replace(/[\\r\\n|]/g, ' ').replace(/</g, '&lt;').slice(0, 180);
 }
 function severity(name) {
   if (/security|auth|payment|rls|permission/i.test(name)) return 'high';
