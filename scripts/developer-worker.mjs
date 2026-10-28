@@ -4,7 +4,7 @@
  * Applies a bounded exact-text replacement to a disposable copy of ONE file.
  * Never edits the source tree, commits, merges, or deploys.
  */
-import { readFile, writeFile, mkdir, mkdtemp } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, mkdtemp, realpath, lstat } from 'node:fs/promises';
 import { resolve, join, relative, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
@@ -21,6 +21,11 @@ if (typeof req.oldText !== 'string' || typeof req.newText !== 'string' || !req.o
 const root = resolve(process.cwd());
 const originalPath = resolve(root, file);
 if (!originalPath.startsWith(root + sep) || relative(root, originalPath).startsWith('..')) throw new Error('Unsafe path');
+const realRoot = await realpath(root);
+const realFile = await realpath(originalPath);
+if (!realFile.startsWith(realRoot + sep)) throw new Error('Symlink escapes repository');
+const fileStat = await lstat(originalPath);
+if (fileStat.isSymbolicLink() || !fileStat.isFile()) throw new Error('Source must be a regular non-symlink file');
 const original = await readFile(originalPath, 'utf8');
 if (original.split(req.oldText).length !== 2) throw new Error('Replacement must match exactly once');
 const candidate = original.replace(req.oldText, req.newText);
