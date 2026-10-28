@@ -11,3 +11,5 @@ The backend suite is Jest, and the frontend suite is Playwright. Neither accepts
 **Crucial limitation:** the existing test suite passing does not establish that a specific bug was reproduced and fixed. The regression report deliberately sets `targetedRegressionProven: false`, and the promotion gate still refuses to authorize draft PR creation. Running npm scripts in a temporary copy is not a hardened sandbox.
 
 A later stage must demonstrate a red test on the unmodified baseline and a green test after the candidate change, with both runs tied to the same exact request digest, before an automated PR can be considered.
+
+A separate source-invariant probe now confirms an expected string is absent in the baseline and present in the candidate. This is **not** a failing/passing behavioral test. The promotion gate still denies automatic PR authorization, merges and deployments. Full behavioral red/green remains a future requirement.
