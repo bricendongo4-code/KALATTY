@@ -33,8 +33,6 @@ const report = {
   note: 'Passing generic checks is not proof that a bug is fixed. A targeted regression test and CI review are required.',
 };
 await writeFile(resolve(output, 'pipeline-report.json'), JSON.stringify(report, null, 2));
-if (validated) {
-  step('promotion-evidence', 'scripts/developer-promotion-gate.mjs', [requestPath, resolve(output, 'pipeline-report.json'), output]);
-}
+const promoted = validated && step('promotion-evidence', 'scripts/developer-promotion-gate.mjs', [requestPath, resolve(output, 'pipeline-report.json'), output]);
 console.log(JSON.stringify(report));
-if (!validated) process.exitCode = 1;
+if (!validated || !promoted) process.exitCode = 1;
