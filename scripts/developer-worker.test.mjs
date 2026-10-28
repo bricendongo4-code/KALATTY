@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -33,4 +33,17 @@ test('rejects a syntax-breaking candidate', async () => {
   assert.notEqual(result.status, 0);
   const report = JSON.parse(await readFile(join(output, 'worker-report.json'), 'utf8'));
   assert.equal(report.status, 'syntax-check-failed');
+});
+
+test('rejects symlink source pointing outside repository', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'kalatty-symlink-'));
+  await mkdir(join(dir, 'backend/src'), { recursive: true });
+  const external = join(await mkdtemp(join(tmpdir(), 'kalatty-outside-')), 'target.js');
+  await writeFile(external, 'const answer = 1;\\n');
+  await symlink(external, join(dir, 'backend/src/demo.js'));
+  const input = join(dir, 'request.json');
+  await writeFile(input, JSON.stringify({ file: 'backend/src/demo.js', oldText: 'answer = 1', newText: 'answer = 2' }));
+  const result = spawnSync(process.execPath, [script, input, join(dir, 'out')], { cwd: dir, encoding: 'utf8' });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Symlink escapes repository/);
 });
