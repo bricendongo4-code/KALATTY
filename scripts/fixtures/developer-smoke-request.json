@@ -1,0 +1,5 @@
+{
+  "file": "backend/src/main.ts",
+  "oldText": "async function bootstrap() {",
+  "newText": "async function bootstrap() {\n  // Isolated developer validation smoke test."
+}
