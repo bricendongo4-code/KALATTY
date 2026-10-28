@@ -34,6 +34,7 @@ const report = {
 };
 await writeFile(resolve(output, 'pipeline-report.json'), JSON.stringify(report, null, 2));
 const regression = validated && step('regression-suite', 'scripts/developer-regression.mjs', [requestPath, output]);
-const promoted = regression && step('promotion-evidence', 'scripts/developer-promotion-gate.mjs', [requestPath, resolve(output, 'pipeline-report.json'), output]);
+const redGreen = regression && step('source-red-green', 'scripts/developer-red-green.mjs', [requestPath, output]);
+const promoted = redGreen && step('promotion-evidence', 'scripts/developer-promotion-gate.mjs', [requestPath, resolve(output, 'pipeline-report.json'), output]);
 console.log(JSON.stringify(report));
-if (!validated || !regression || !promoted) process.exitCode = 1;
+if (!validated || !regression || !redGreen || !promoted) process.exitCode = 1;
