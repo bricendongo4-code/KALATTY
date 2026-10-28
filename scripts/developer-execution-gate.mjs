@@ -5,7 +5,8 @@
  */
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-const [planPath = 'developer-reports/pr-plan.json', approvalPath = 'developer-reports/approval.json', outDir = 'developer-reports'] = process.argv.slice(2);
+import { createHash, timingSafeEqual } from 'node:crypto';
+const [planPath = 'developer-reports/pr-plan.json', approvalPath = 'developer-reports/approval.json', outDir = 'developer-reports', patchPath = 'developer-reports/proposed.patch'] = process.argv.slice(2);
 const plan = JSON.parse(await readFile(planPath, 'utf8'));
 const approval = JSON.parse(await readFile(approvalPath, 'utf8'));
 if (plan.status !== 'awaiting-explicit-authorization' || plan.draft !== true || plan.baseBranch !== 'master' ||
@@ -20,6 +21,11 @@ if (approval.approved !== true || approval.branch !== plan.proposedBranch ||
     !/^[a-zA-Z0-9_-]{2,50}$/.test(approval.approvedBy) ||
     !/^[a-f0-9]{64}$/.test(String(approval.patchSha256 ?? ''))) {
   throw new Error('Explicit, patch-specific authorization required');
+}
+const patch = await readFile(patchPath);
+const digest = createHash('sha256').update(patch).digest('hex');
+if (!timingSafeEqual(Buffer.from(digest, 'hex'), Buffer.from(approval.patchSha256, 'hex'))) {
+  throw new Error('Patch content does not match approved SHA-256 digest');
 }
 const receipt = {
   status: 'validated-for-manual-execution',

@@ -1,0 +1,7 @@
+{
+  "records": [
+    {"id":"example-1","status":"planned","stage":"prospect","priority":"medium","type":"income","amount":0,"event":"demo_view","actorHash":"demo-only","followUpStatus":"due","owner":"unassigned","audience":"demo","goal":"demo"}
+  ],
+  "currency":"EUR",
+  "synthetic":true
+}
