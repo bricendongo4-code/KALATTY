@@ -38,8 +38,9 @@ export class MessagingService {
     const { data: members, error } = await this.db.from('institution_members')
       .select('user_id, role').eq('institution_id', institutionId).limit(300);
     if (error) throw new BadRequestException('Annuaire indisponible.');
-    const { data: institution } = await this.db.from('institutions')
+    const { data: institution, error: institutionError } = await this.db.from('institutions')
       .select('owner_user_id').eq('id', institutionId).maybeSingle();
+    if (institutionError) throw new BadRequestException('Annuaire indisponible.');
     const ids = [...new Set([...(members ?? []).map((m: any) => m.user_id), institution?.owner_user_id]
       .filter((id: string) => id && id !== user.id))];
     if (!ids.length) return { members: [] };
@@ -176,7 +177,7 @@ export class MessagingService {
       throw new BadRequestException('Pièce jointe non enregistrée.');
     }
     await this.db.from('message_threads').update({ last_message_at: data.created_at }).eq('id', threadId);
-    await this.notifyOtherParticipants(user.id, threadId);
+    await this.notifyOtherParticipants(user.id, threadId).catch(() => undefined);
     return { message: data };
   }
 
