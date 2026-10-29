@@ -33,7 +33,7 @@ create table if not exists public.private_messages (
 );
 -- Membership and participant constraints are enforced by the API and database.
 create or replace function public.validate_private_message_participant()
-returns trigger language plpgsql security definer set search_path = public as $
+returns trigger language plpgsql security definer set search_path = public as $messaging$
 declare v_institution_id uuid;
 begin
   select institution_id into v_institution_id from public.message_threads where id = new.thread_id;
@@ -48,7 +48,7 @@ begin
   end if;
   return new;
 end;
-$;
+$messaging$;
 drop trigger if exists enforce_message_participant_membership on public.message_participants;
 create trigger enforce_message_participant_membership
 before insert or update of thread_id, user_id on public.message_participants
