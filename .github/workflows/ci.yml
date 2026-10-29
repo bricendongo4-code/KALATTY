@@ -26,6 +26,16 @@ jobs:
         run: npm ci
       - name: Lint
         run: npm run lint
+      - name: Dependency audit report
+        if: always()
+        run: npm audit --json > npm-audit-frontend.json || true
+      - name: Upload dependency audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-frontend
+          path: frontend/npm-audit-frontend.json
+          retention-days: 14
       - name: Build
         env:
           NEXT_PUBLIC_API_BASE_URL: http://localhost:4000
@@ -54,6 +64,16 @@ jobs:
           cache-dependency-path: backend/package-lock.json
       - name: Install
         run: npm ci
+      - name: Dependency audit report
+        if: always()
+        run: npm audit --json > npm-audit-backend.json || true
+      - name: Upload dependency audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-backend
+          path: backend/npm-audit-backend.json
+          retention-days: 14
       - name: Build
         run: npm run build
       - name: Tests
