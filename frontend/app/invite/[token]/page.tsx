@@ -15,6 +15,7 @@ export default function InviteRedeemPage({
   const [token, setToken] = useState("");
   const [message, setMessage] = useState("Verification de l'invitation...");
   const [loading, setLoading] = useState(true);
+  const [accepted, setAccepted] = useState(false);
   const apiBaseUrl =
     process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
 
@@ -49,6 +50,7 @@ export default function InviteRedeemPage({
           return;
         }
 
+        setAccepted(true);
         setMessage(
           `Invitation acceptee. Tu rejoins ${data.roomName ?? "la salle"} comme ${data.role ?? "membre"}.`,
         );
@@ -94,7 +96,7 @@ export default function InviteRedeemPage({
           <p>{message}</p>
         </div>
 
-        {!loading ? (
+        {!loading && accepted ? (
           <button
             type="button"
             className={styles.primaryButton}
@@ -102,6 +104,8 @@ export default function InviteRedeemPage({
           >
             Aller au dashboard
           </button>
+        ) : !loading ? (
+          <Link href="/login" className={styles.primaryButton}>Se connecter</Link>
         ) : null}
       </section>
     </main>
