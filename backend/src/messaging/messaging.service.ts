@@ -65,12 +65,14 @@ export class MessagingService {
       .in('id', ids).order('last_message_at', { ascending: false }).limit(50);
     if (threadsError) throw new BadRequestException('Conversations indisponibles.');
     if (!(data ?? []).length) return { threads: [] };
-    const { data: peers } = await this.db.from('message_participants')
+    const { data: peers, error: peersError } = await this.db.from('message_participants')
       .select('thread_id, user_id, last_read_at').in('thread_id', (data ?? []).map((t: any) => t.id));
+    if (peersError) throw new BadRequestException('Participants indisponibles.');
     const peerIds = [...new Set((peers ?? []).map((p: any) => p.user_id).filter((id: string) => id !== user.id))];
     let profiles: any[] = [];
     if (peerIds.length) {
-      const { data: profileRows } = await this.db.from('profiles').select('id, fullname').in('id', peerIds);
+      const { data: profileRows, error: profileError } = await this.db.from('profiles').select('id, fullname').in('id', peerIds);
+      if (profileError) throw new BadRequestException('Profils indisponibles.');
       profiles = profileRows ?? [];
     }
     return { threads: (data ?? []).map((thread: any) => {
@@ -112,9 +114,9 @@ export class MessagingService {
     await this.requireParticipant(user.id, threadId);
     const { data, error } = await this.db.from('private_messages')
       .select('id, sender_id, body, created_at, deleted_at, attachment_path, attachment_name, attachment_type, attachment_size').eq('thread_id', threadId)
-      .order('created_at', { ascending: true }).limit(100);
+      .order('created_at', { ascending: false }).limit(100);
     if (error) throw new BadRequestException('Messages indisponibles.');
-    return { messages: (data ?? []).filter((m: any) => !m.deleted_at) };
+    return { messages: (data ?? []).filter((m: any) => !m.deleted_at).reverse() };
   }
 
   async send(user: AuthUser, threadId: string, body: string) {
@@ -126,7 +128,7 @@ export class MessagingService {
       .select('id, sender_id, body, created_at').single();
     if (error || !data) throw new BadRequestException('Envoi impossible.');
     await this.db.from('message_threads').update({ last_message_at: data.created_at }).eq('id', threadId);
-    await this.notifyOtherParticipants(user.id, threadId);
+    await this.notifyOtherParticipants(user.id, threadId).catch(() => undefined);
     return { message: data };
   }
   private async notifyOtherParticipants(senderId: string, threadId: string) {
