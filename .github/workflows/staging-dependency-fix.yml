@@ -1,0 +1,76 @@
+name: Staging dependency security remediation
+
+on:
+  push:
+    branches: [staging/preproduction-readiness]
+    paths:
+      - '.github/workflows/staging-dependency-fix.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: staging-dependency-fix
+  cancel-in-progress: false
+
+jobs:
+  patch-lockfiles:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: staging/preproduction-readiness
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+      - name: Fix compatible backend dependencies
+        working-directory: backend
+        run: |
+          npm audit fix --package-lock-only --no-fund || true
+          npm ci --ignore-scripts --no-fund
+          npm audit --json > ../backend-audit-after.json || true
+      - name: Fix compatible frontend dependencies
+        working-directory: frontend
+        run: |
+          npm audit fix --package-lock-only --no-fund || true
+          npm ci --ignore-scripts --no-fund
+          npm audit --json > ../frontend-audit-after.json || true
+      - name: Summarize remaining vulnerabilities
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          for (const name of ['backend','frontend']) {
+            const a = JSON.parse(fs.readFileSync(name+'-audit-after.json'));
+            console.log(name, JSON.stringify(a.metadata?.vulnerabilities ?? {}));
+            for (const [pkg,v] of Object.entries(a.vulnerabilities ?? {})) {
+              console.log(name, pkg, v.severity, JSON.stringify(v.fixAvailable));
+            }
+          }
+          NODE
+      - name: Commit compatible security patches to staging only
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backend/package-lock.json frontend/package-lock.json
+          if git diff --cached --quiet; then
+            echo "No compatible lockfile changes."
+          else
+            git commit -m "fix(deps): apply npm audit compatible security updates [staging]"
+            git push origin HEAD:staging/preproduction-readiness
+          fi
+      - name: Upload remaining audit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-audit-after-fix
+          path: |
+            backend-audit-after.json
+            frontend-audit-after.json
+          if-no-files-found: ignore
+          retention-days: 14

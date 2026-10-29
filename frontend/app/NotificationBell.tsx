@@ -28,7 +28,11 @@ export default function NotificationBell({ allHref }: { allHref: string }) {
   const load = useCallback(async (announce = false) => {
     const token = localStorage.getItem("kalatty_token");
     if (!token) {
-      if (announce) setError("Votre session a expiré. Reconnectez-vous.");
+      ++requestIdRef.current;
+      setItems([]);
+      setUnread(0);
+      setLoading(false);
+      setError("Votre session a expiré. Reconnectez-vous.");
       return;
     }
     const requestId = ++requestIdRef.current;
@@ -72,34 +76,46 @@ export default function NotificationBell({ allHref }: { allHref: string }) {
 
   const markRead = async (item: NotificationItem) => {
     const token = localStorage.getItem("kalatty_token");
-    if (token && !item.read) {
-      const response = await fetch(`${API_BASE}/notifications/${encodeURIComponent(item.id)}/read`, {
-        method: "PATCH",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (response.ok) {
+    if (!token) {
+      setError("Votre session a expiré. Reconnectez-vous.");
+      return;
+    }
+    if (!item.read) {
+      try {
+        const response = await fetch(`${API_BASE}/notifications/${encodeURIComponent(item.id)}/read`, {
+          method: "PATCH",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) throw new Error("Impossible de marquer la notification comme lue.");
         setItems((current) => current.filter((entry) => entry.id !== item.id));
         setUnread((current) => Math.max(0, current - 1));
+      } catch (reason) {
+        setError(reason instanceof Error ? reason.message : "Notification inaccessible.");
+        return;
       }
     }
     close();
-    if (item.href) window.location.assign(item.href);
+    // Only navigate to a local route, never to an untrusted external destination.
+    if (item.href?.startsWith("/") && !item.href.startsWith("//") && !item.href.includes("\\\\")) {
+      window.location.assign(item.href);
+    }
   };
 
   const markAllRead = async () => {
     const token = localStorage.getItem("kalatty_token");
     if (!token) return;
-    const response = await fetch(`${API_BASE}/notifications/read-all`, {
-      method: "PATCH",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!response.ok) {
-      setError("Impossible de marquer les notifications comme lues.");
-      return;
+    try {
+      const response = await fetch(`${API_BASE}/notifications/read-all`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error("Impossible de marquer les notifications comme lues.");
+      setItems([]);
+      setUnread(0);
+      close();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Notifications indisponibles.");
     }
-    setItems([]);
-    setUnread(0);
-    close();
   };
 
   return <details ref={detailsRef} className={styles.root} onToggle={(event) => { if (event.currentTarget.open) void load(); }}>
