@@ -168,4 +168,67 @@ describe('Institution access control', () => {
     expect(roomMembership.eq).toHaveBeenCalledWith('role', 'teacher');
   });
 
+  it('rejects a disabled class invitation before membership changes', async () => {
+    const invite = {
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn().mockResolvedValue({ data: { is_active: false }, error: null }),
+    };
+    const from = jest.fn().mockReturnValue(invite);
+    const service = new InstitutionsService({ client: { from } } as unknown as SupabaseService);
+    await expect(service.redeemInvite({ id: 'student' }, 'disabled-token'))
+      .rejects.toBeInstanceOf(ForbiddenException);
+    expect(from).toHaveBeenCalledTimes(1);
+    expect(from).toHaveBeenCalledWith('room_invites');
+  });
+
+  it('rejects an expired class invitation before membership changes', async () => {
+    const invite = {
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn().mockResolvedValue({
+        data: { is_active: true, expires_at: '2020-01-01T00:00:00.000Z' }, error: null,
+      }),
+    };
+    const from = jest.fn().mockReturnValue(invite);
+    const service = new InstitutionsService({ client: { from } } as unknown as SupabaseService);
+    await expect(service.redeemInvite({ id: 'student' }, 'expired-token'))
+      .rejects.toBeInstanceOf(ForbiddenException);
+    expect(from).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects an exhausted class invitation before membership changes', async () => {
+    const invite = {
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn().mockResolvedValue({
+        data: { is_active: true, used_count: 2, max_uses: 2 }, error: null,
+      }),
+    };
+    const from = jest.fn().mockReturnValue(invite);
+    const service = new InstitutionsService({ client: { from } } as unknown as SupabaseService);
+    await expect(service.redeemInvite({ id: 'student' }, 'used-token'))
+      .rejects.toBeInstanceOf(ForbiddenException);
+    expect(from).toHaveBeenCalledTimes(1);
+  });
+
+  it('prevents a teacher from enrolling a new institution member', async () => {
+    const makeQuery = (value: unknown) => {
+      const q = { select: jest.fn(), eq: jest.fn(), maybeSingle: jest.fn() };
+      q.select.mockReturnValue(q);
+      q.eq.mockReturnValue(q);
+      q.maybeSingle.mockResolvedValue({ data: value, error: null });
+      return q;
+    };
+    const institution = makeQuery({ owner_user_id: 'owner' });
+    const membership = makeQuery({ role: 'teacher' });
+    const from = jest.fn((table: string) =>
+      table === 'institutions' ? institution : membership);
+    const service = new InstitutionsService({ client: { from } } as unknown as SupabaseService);
+    await expect(service.addInstitutionMember(
+      { id: 'teacher' }, 'school-a', { user_id: 'new-student', role: 'student' },
+    )).rejects.toBeInstanceOf(ForbiddenException);
+    expect(from).toHaveBeenCalledTimes(2);
+  });
+
 });
