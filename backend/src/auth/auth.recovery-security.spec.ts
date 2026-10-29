@@ -37,4 +37,35 @@ describe('Password recovery security contract (current behavior)', () => {
       .resolves.toHaveProperty('message');
     expect(updateUserById).toHaveBeenCalledWith('test-user', { password: 'new-password-123' });
   });
+  it('rejects an expired recovery token without updating any user', async () => {
+    const verifyOtp = jest.fn().mockResolvedValue({
+      data: { user: null },
+      error: { message: 'Token has expired or is invalid' },
+    });
+    const updateUserById = jest.fn();
+    const service = new AuthService({
+      authClient: { auth: { verifyOtp } },
+      client: { auth: { admin: { updateUserById } } },
+    } as unknown as SupabaseService, {} as JwtService);
+    await expect(service.resetPassword({ accessToken: 'expired-hash', password: 'new-password-123' }))
+      .rejects.toBeInstanceOf(UnauthorizedException);
+    expect(updateUserById).not.toHaveBeenCalled();
+  });
+
+  it('rejects a consumed recovery token on a second attempt', async () => {
+    const verifyOtp = jest.fn()
+      .mockResolvedValueOnce({ data: { user: { id: 'test-user' } }, error: null })
+      .mockResolvedValueOnce({ data: { user: null }, error: { message: 'already used' } });
+    const updateUserById = jest.fn().mockResolvedValue({ error: null });
+    const service = new AuthService({
+      authClient: { auth: { verifyOtp } },
+      client: { auth: { admin: { updateUserById } } },
+    } as unknown as SupabaseService, {} as JwtService);
+    await expect(service.resetPassword({ accessToken: 'one-time-hash', password: 'new-password-123' }))
+      .resolves.toHaveProperty('message');
+    await expect(service.resetPassword({ accessToken: 'one-time-hash', password: 'another-password-123' }))
+      .rejects.toBeInstanceOf(UnauthorizedException);
+    expect(updateUserById).toHaveBeenCalledTimes(1);
+  });
+
 });
