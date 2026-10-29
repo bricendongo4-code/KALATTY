@@ -209,6 +209,7 @@ export class NotificationsService {
         .select('id, score, reviewed_at, updated_at, assignments ( title )')
         .eq('student_id', userId)
         .eq('status', 'reviewed')
+        .eq('published', true)
         .order('reviewed_at', { ascending: false })
         .limit(5);
 
