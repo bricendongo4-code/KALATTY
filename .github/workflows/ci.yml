@@ -29,6 +29,10 @@ jobs:
       - name: Dependency audit report
         if: always()
         run: npm audit --json > npm-audit-frontend.json || true
+      - name: Summarize dependency findings
+        if: always()
+        run: |
+          node -e 'const fs=require("fs");const f="npm-audit-frontend.json";if(!fs.existsSync(f))process.exit(0);const a=JSON.parse(fs.readFileSync(f));for(const [name,v] of Object.entries(a.vulnerabilities||{}))console.log(JSON.stringify({package:name,severity:v.severity,direct:v.isDirect,fix:v.fixAvailable,via:v.via.filter(x=>typeof x==="object").map(x=>({title:x.title,url:x.url,range:x.range}))}));'
       - name: Upload dependency audit
         if: always()
         uses: actions/upload-artifact@v4
@@ -67,6 +71,10 @@ jobs:
       - name: Dependency audit report
         if: always()
         run: npm audit --json > npm-audit-backend.json || true
+      - name: Summarize dependency findings
+        if: always()
+        run: |
+          node -e 'const fs=require("fs");const f="npm-audit-backend.json";if(!fs.existsSync(f))process.exit(0);const a=JSON.parse(fs.readFileSync(f));for(const [name,v] of Object.entries(a.vulnerabilities||{}))console.log(JSON.stringify({package:name,severity:v.severity,direct:v.isDirect,fix:v.fixAvailable,via:v.via.filter(x=>typeof x==="object").map(x=>({title:x.title,url:x.url,range:x.range}))}));'
       - name: Upload dependency audit
         if: always()
         uses: actions/upload-artifact@v4
