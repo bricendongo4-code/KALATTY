@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import Shell from "../Shell";
-import { campusFetch, useCampusContext } from "../useEstablishment";
+import { campusFetch, campusUpload, useCampusContext } from "../useEstablishment";
 import type { RoleSlug } from "../roles";
 import styles from "../student/student-pages.module.css";
 
@@ -85,14 +85,9 @@ export default function MessagesPage({ role }: { role: RoleSlug }) {
     if (!active || !file || busy) return;
     setBusy(true); setError(null);
     try {
-      const token = localStorage.getItem("kalatty_token");
-      if (!token) throw new Error("Session expirée.");
-      const form = new FormData(); form.append("file", file);
-      const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
-      const response = await fetch(`${base}/messaging/threads/${encodeURIComponent(active)}/attachments`, {
-        method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form,
-      });
-      if (!response.ok) throw new Error("Pièce jointe refusée.");
+      if (file.size < 1 || file.size > 10 * 1024 * 1024) throw new Error("Fichier trop volumineux ou vide (10 Mo maximum).");
+      if (!["application/pdf", "image/png", "image/jpeg", "image/webp"].includes(file.type)) throw new Error("Format non autorisé.");
+      await campusUpload(`/messaging/threads/${encodeURIComponent(active)}/attachments`, file);
       setFile(null); await refreshMessages();
     } catch (e) { setError(e instanceof Error ? e.message : "Transfert impossible."); }
     finally { setBusy(false); }
