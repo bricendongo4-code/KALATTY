@@ -64,6 +64,7 @@ export class MessagingService {
       .select('id, institution_id, created_at, last_message_at').eq('institution_id', institutionId)
       .in('id', ids).order('last_message_at', { ascending: false }).limit(50);
     if (threadsError) throw new BadRequestException('Conversations indisponibles.');
+    if (!(data ?? []).length) return { threads: [] };
     const { data: peers } = await this.db.from('message_participants')
       .select('thread_id, user_id, last_read_at').in('thread_id', (data ?? []).map((t: any) => t.id));
     const peerIds = [...new Set((peers ?? []).map((p: any) => p.user_id).filter((id: string) => id !== user.id))];
@@ -125,8 +126,23 @@ export class MessagingService {
       .select('id, sender_id, body, created_at').single();
     if (error || !data) throw new BadRequestException('Envoi impossible.');
     await this.db.from('message_threads').update({ last_message_at: data.created_at }).eq('id', threadId);
+    await this.notifyOtherParticipants(user.id, threadId);
     return { message: data };
   }
+  private async notifyOtherParticipants(senderId: string, threadId: string) {
+    const { data: participants } = await this.db.from('message_participants')
+      .select('user_id').eq('thread_id', threadId);
+    const recipients = (participants ?? []).filter((p: any) => p.user_id !== senderId);
+    if (!recipients.length) return;
+    const { data: profile } = await this.db.from('profiles')
+      .select('fullname').eq('id', senderId).maybeSingle();
+    await this.db.from('notifications').insert(recipients.map((p: any) => ({
+      user_id: p.user_id, type: 'system', title: 'Nouveau message',
+      message: `Message de ${profile?.fullname ?? 'un membre de votre établissement'}`,
+      href: '/establishment',
+    })));
+  }
+
   async markRead(user: AuthUser, threadId: string) {
     await this.requireParticipant(user.id, threadId);
     const { error } = await this.db.from('message_participants')
@@ -158,6 +174,7 @@ export class MessagingService {
       throw new BadRequestException('Pièce jointe non enregistrée.');
     }
     await this.db.from('message_threads').update({ last_message_at: data.created_at }).eq('id', threadId);
+    await this.notifyOtherParticipants(user.id, threadId);
     return { message: data };
   }
 
