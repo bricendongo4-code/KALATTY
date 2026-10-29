@@ -125,4 +125,47 @@ describe('Institution access control', () => {
     expect(from).toHaveBeenCalledTimes(3);
   });
 
+  it('denies class details to an outsider from another institution', async () => {
+    const makeQuery = (value: unknown) => {
+      const q = { select: jest.fn(), eq: jest.fn(), maybeSingle: jest.fn() };
+      q.select.mockReturnValue(q);
+      q.eq.mockReturnValue(q);
+      q.maybeSingle.mockResolvedValue({ data: value, error: null });
+      return q;
+    };
+    const room = makeQuery({ id: 'room-a', institution_id: 'school-a', name: 'Math' });
+    const institution = makeQuery({ owner_user_id: 'owner-a' });
+    const membership = makeQuery(null);
+    const from = jest.fn((table: string) =>
+      table === 'rooms' ? room : table === 'institutions' ? institution : membership);
+    const service = new InstitutionsService({ client: { from } } as unknown as SupabaseService);
+    await expect(service.getRoomDetails({ id: 'school-b-user' }, 'room-a'))
+      .rejects.toBeInstanceOf(ForbiddenException);
+    expect(membership.eq).toHaveBeenCalledWith('institution_id', 'school-a');
+    expect(membership.eq).toHaveBeenCalledWith('user_id', 'school-b-user');
+  });
+
+  it('denies class details to a teacher not assigned to that class', async () => {
+    const makeQuery = (value: unknown) => {
+      const q = { select: jest.fn(), eq: jest.fn(), maybeSingle: jest.fn() };
+      q.select.mockReturnValue(q);
+      q.eq.mockReturnValue(q);
+      q.maybeSingle.mockResolvedValue({ data: value, error: null });
+      return q;
+    };
+    const room = makeQuery({ id: 'room-a', institution_id: 'school-a', name: 'Math' });
+    const institution = makeQuery({ owner_user_id: 'owner-a' });
+    const membership = makeQuery({ role: 'teacher' });
+    const roomMembership = makeQuery(null);
+    const from = jest.fn((table: string) =>
+      table === 'rooms' ? room : table === 'institutions' ? institution :
+      table === 'institution_members' ? membership : roomMembership);
+    const service = new InstitutionsService({ client: { from } } as unknown as SupabaseService);
+    await expect(service.getRoomDetails({ id: 'unassigned-teacher' }, 'room-a'))
+      .rejects.toBeInstanceOf(ForbiddenException);
+    expect(roomMembership.eq).toHaveBeenCalledWith('room_id', 'room-a');
+    expect(roomMembership.eq).toHaveBeenCalledWith('user_id', 'unassigned-teacher');
+    expect(roomMembership.eq).toHaveBeenCalledWith('role', 'teacher');
+  });
+
 });
