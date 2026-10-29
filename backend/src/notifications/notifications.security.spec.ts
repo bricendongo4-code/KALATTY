@@ -66,6 +66,7 @@ describe('Notification ownership boundaries', () => {
       throw new Error(`Unexpected table: ${table}`);
     });
     const service = new NotificationsService({ client: { from } } as unknown as SupabaseService);
+    jest.spyOn(service as any, 'buildResumeNotifications').mockResolvedValue([]);
     await (service as any).buildStudentNotifications('student-1');
     expect(submissions.eq).toHaveBeenCalledWith('student_id', 'student-1');
     expect(submissions.eq).toHaveBeenCalledWith('status', 'reviewed');
