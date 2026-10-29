@@ -39,4 +39,37 @@ describe('Notification ownership boundaries', () => {
     expect(updateQuery.eq).toHaveBeenCalledWith('user_id', 'student-a');
     expect(updateQuery.is).toHaveBeenCalledWith('read_at', null);
   });
+  it('filters out unpublished grades before constructing student notifications', async () => {
+    const memberships = {
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      then: (resolve: (value: unknown) => unknown) =>
+        Promise.resolve({ data: [{ room_id: 'room-1' }], error: null }).then(resolve),
+    };
+    const assignments = {
+      select: jest.fn().mockReturnThis(),
+      in: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      order: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockResolvedValue({ data: [], error: null }),
+    };
+    const submissions = {
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      order: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockResolvedValue({ data: [], error: null }),
+    };
+    const from = jest.fn((table: string) => {
+      if (table === 'room_members') return memberships;
+      if (table === 'assignments') return assignments;
+      if (table === 'assignment_submissions') return submissions;
+      throw new Error(`Unexpected table: ${table}`);
+    });
+    const service = new NotificationsService({ client: { from } } as unknown as SupabaseService);
+    await (service as any).buildStudentNotifications('student-1');
+    expect(submissions.eq).toHaveBeenCalledWith('student_id', 'student-1');
+    expect(submissions.eq).toHaveBeenCalledWith('status', 'reviewed');
+    expect(submissions.eq).toHaveBeenCalledWith('published', true);
+  });
+
 });
