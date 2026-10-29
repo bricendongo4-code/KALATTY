@@ -147,9 +147,10 @@ export const ROLES: Record<RoleSlug, RoleConfig> = {
       { slug: "documents", label: "Documents officiels", icon: "file" },
       { slug: "communication", label: "Communication", icon: "megaphone" },
       { slug: "reports", label: "Rapports", icon: "list" },
+      { slug: "messages", label: "Messagerie", icon: "mail" },
       { slug: "settings", label: "Paramètres", icon: "sliders" },
     ],
-    foot: [{ slug: "messages", label: "Messagerie", icon: "mail" },
+    foot: [
       { slug: "notifications", label: "Notifications", icon: "bell" }, { slug: "help", label: "Aide", icon: "help" }],
   },
 };
