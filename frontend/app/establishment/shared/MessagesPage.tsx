@@ -7,8 +7,9 @@ import { campusFetch, useCampusContext } from "../useEstablishment";
 import type { RoleSlug } from "../roles";
 import styles from "../student/student-pages.module.css";
 
-type Thread = { id: string; institution_id: string; created_at: string };
-type Message = { id: string; sender_id: string; body: string; created_at: string };
+type Thread = { id: string; institution_id: string; created_at: string; recipients?: { id: string; name: string }[]; lastReadAt?: string | null };
+type Message = { id: string; sender_id: string; body: string; created_at: string; attachment_name?: string | null };
+type Member = { id: string; name: string; role: string };
 
 export default function MessagesPage({ role }: { role: RoleSlug }) {
   const { context, loading: contextLoading, error: contextError, mismatch } = useCampusContext(role);
@@ -16,6 +17,9 @@ export default function MessagesPage({ role }: { role: RoleSlug }) {
   const [active, setActive] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [recipient, setRecipient] = useState("");
+  const [directory, setDirectory] = useState<Member[]>([]);
+  const [search, setSearch] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -33,10 +37,19 @@ export default function MessagesPage({ role }: { role: RoleSlug }) {
     try {
       const data = await campusFetch(`/messaging/threads/${encodeURIComponent(active)}/messages`);
       setMessages(data.messages ?? []);
+      await campusFetch(`/messaging/threads/${encodeURIComponent(active)}/read`, { method: "PATCH" });
     } catch (e) { setError(e instanceof Error ? e.message : "Messages indisponibles."); }
   }, [active]);
 
   useEffect(() => { void refreshThreads(); }, [refreshThreads]);
+  useEffect(() => {
+    if (!context) return;
+    let cancelled = false;
+    void campusFetch(`/messaging/institutions/${encodeURIComponent(context.institutionId)}/directory?q=${encodeURIComponent(search)}`)
+      .then(data => { if (!cancelled) setDirectory(data.members ?? []); })
+      .catch(e => { if (!cancelled) setError(e instanceof Error ? e.message : "Annuaire indisponible."); });
+    return () => { cancelled = true; };
+  }, [context, search]);
   useEffect(() => { void refreshMessages(); }, [refreshMessages]);
 
   const start = async (event: FormEvent) => {
@@ -67,6 +80,31 @@ export default function MessagesPage({ role }: { role: RoleSlug }) {
     finally { setBusy(false); }
   };
 
+  const attach = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!active || !file || busy) return;
+    setBusy(true); setError(null);
+    try {
+      const token = localStorage.getItem("kalatty_token");
+      if (!token) throw new Error("Session expirée.");
+      const form = new FormData(); form.append("file", file);
+      const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
+      const response = await fetch(`${base}/messaging/threads/${encodeURIComponent(active)}/attachments`, {
+        method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form,
+      });
+      if (!response.ok) throw new Error("Pièce jointe refusée.");
+      setFile(null); await refreshMessages();
+    } catch (e) { setError(e instanceof Error ? e.message : "Transfert impossible."); }
+    finally { setBusy(false); }
+  };
+  const download = async (messageId: string) => {
+    if (!active) return;
+    try {
+      const data = await campusFetch(`/messaging/threads/${encodeURIComponent(active)}/messages/${encodeURIComponent(messageId)}/download`);
+      if (typeof data.url === "string") window.open(data.url, "_blank", "noopener,noreferrer");
+    } catch (e) { setError(e instanceof Error ? e.message : "Téléchargement impossible."); }
+  };
+
   if (mismatch) return <p>Accès réservé à votre rôle. <Link href={`/establishment/${mismatch.campusRole}`}>Mon espace</Link></p>;
   return <Shell role={role} activeSlug="messages" displayName={context?.displayName} institutionName={context?.institutionName} note={contextError ?? null}>
     <header className={styles.head}><div><small>ESPACE {role.toUpperCase()}</small><h1>Messagerie privée</h1><p>Échanges entre membres du même établissement.</p></div></header>
@@ -75,8 +113,11 @@ export default function MessagesPage({ role }: { role: RoleSlug }) {
     <section className={styles.tile}>
       <h2>Nouvelle conversation</h2>
       <form onSubmit={start}>
-        <label>Identifiant du destinataire (UUID)
-          <input required value={recipient} onChange={e => setRecipient(e.target.value)} placeholder="Identifiant du membre" />
+        <label>Rechercher un membre
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Nom du membre" />
+        </label>
+        <label>Destinataire
+          <select required value={recipient} onChange={e => setRecipient(e.target.value)}><option value="">Choisir une personne</option>{directory.map(member => <option key={member.id} value={member.id}>{member.name} ({member.role})</option>)}</select>
         </label>
         <button type="submit" disabled={busy || !context}>Démarrer</button>
       </form>
@@ -85,7 +126,7 @@ export default function MessagesPage({ role }: { role: RoleSlug }) {
       <h2>Mes conversations</h2>
       {threads.length === 0 ? <p>Aucune conversation.</p> : threads.map(thread =>
         <button key={thread.id} type="button" onClick={() => { setActive(thread.id); setMessages([]); }}>
-          Conversation du {new Date(thread.created_at).toLocaleDateString("fr-FR")} — {thread.id.slice(0, 8)}
+          {thread.recipients?.map(person => person.name).join(", ") || "Conversation"} — {new Date(thread.created_at).toLocaleDateString("fr-FR")}
         </button>
       )}
     </section>
@@ -94,12 +135,15 @@ export default function MessagesPage({ role }: { role: RoleSlug }) {
       <button type="button" onClick={() => void refreshMessages()}>Actualiser</button>
       <div aria-live="polite">{messages.map(message =>
         <article key={message.id}><strong>{message.sender_id === context?.userId ? "Vous" : "Correspondant"}</strong>
-          <p>{message.body}</p><small>{new Date(message.created_at).toLocaleString("fr-FR")}</small>
+          <p>{message.body}</p>{message.attachment_name ? <button type="button" onClick={() => void download(message.id)}>Télécharger : {message.attachment_name}</button> : null}<small>{new Date(message.created_at).toLocaleString("fr-FR")}</small>
         </article>
       )}</div>
       <form onSubmit={send}><label>Votre message
         <textarea required maxLength={4000} value={body} onChange={e => setBody(e.target.value)} />
       </label><button type="submit" disabled={busy || !body.trim()}>Envoyer</button></form>
+      <form onSubmit={attach}><label>Pièce jointe (PDF ou image, 10 Mo maximum)
+        <input type="file" accept="application/pdf,image/png,image/jpeg,image/webp" onChange={e => setFile(e.target.files?.[0] ?? null)} />
+      </label><button type="submit" disabled={busy || !file}>Joindre</button></form>
     </section> : null}
   </Shell>;
 }
