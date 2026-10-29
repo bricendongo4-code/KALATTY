@@ -231,4 +231,68 @@ describe('Institution access control', () => {
     expect(from).toHaveBeenCalledTimes(2);
   });
 
+  it('rejects adding a room member who does not belong to the institution', async () => {
+    const makeQuery = (value: unknown) => {
+      const q = { select: jest.fn(), eq: jest.fn(), maybeSingle: jest.fn() };
+      q.select.mockReturnValue(q);
+      q.eq.mockReturnValue(q);
+      q.maybeSingle.mockResolvedValue({ data: value, error: null });
+      return q;
+    };
+    const room = makeQuery({ id: 'room-a', institution_id: 'school-a', name: 'Math' });
+    const institution = makeQuery({ owner_user_id: 'owner' });
+    const outsider = makeQuery(null);
+    const from = jest.fn((table: string) =>
+      table === 'rooms' ? room :
+      table === 'institutions' ? institution : outsider);
+    const service = new InstitutionsService({ client: { from } } as unknown as SupabaseService);
+    await expect(service.addRoomMember(
+      { id: 'owner' }, 'room-a', { user_id: 'outsider', role: 'student' },
+    )).rejects.toBeInstanceOf(BadRequestException);
+    expect(outsider.eq).toHaveBeenCalledWith('institution_id', 'school-a');
+    expect(outsider.eq).toHaveBeenCalledWith('user_id', 'outsider');
+    expect(from).toHaveBeenCalledTimes(3);
+  });
+
+  it('rejects a teacher removing a member from a class', async () => {
+    const makeQuery = (value: unknown) => {
+      const q = { select: jest.fn(), eq: jest.fn(), maybeSingle: jest.fn() };
+      q.select.mockReturnValue(q);
+      q.eq.mockReturnValue(q);
+      q.maybeSingle.mockResolvedValue({ data: value, error: null });
+      return q;
+    };
+    const room = makeQuery({ id: 'room-a', institution_id: 'school-a', name: 'Math' });
+    const institution = makeQuery({ owner_user_id: 'owner' });
+    const teacher = makeQuery({ role: 'teacher' });
+    const from = jest.fn((table: string) =>
+      table === 'rooms' ? room :
+      table === 'institutions' ? institution : teacher);
+    const service = new InstitutionsService({ client: { from } } as unknown as SupabaseService);
+    await expect(service.removeRoomMember({ id: 'teacher' }, 'room-a', 'student-a'))
+      .rejects.toBeInstanceOf(ForbiddenException);
+    expect(from).toHaveBeenCalledTimes(3);
+  });
+
+  it('rejects a teacher adding a member to a class', async () => {
+    const makeQuery = (value: unknown) => {
+      const q = { select: jest.fn(), eq: jest.fn(), maybeSingle: jest.fn() };
+      q.select.mockReturnValue(q);
+      q.eq.mockReturnValue(q);
+      q.maybeSingle.mockResolvedValue({ data: value, error: null });
+      return q;
+    };
+    const room = makeQuery({ id: 'room-a', institution_id: 'school-a', name: 'Math' });
+    const institution = makeQuery({ owner_user_id: 'owner' });
+    const teacher = makeQuery({ role: 'teacher' });
+    const from = jest.fn((table: string) =>
+      table === 'rooms' ? room :
+      table === 'institutions' ? institution : teacher);
+    const service = new InstitutionsService({ client: { from } } as unknown as SupabaseService);
+    await expect(service.addRoomMember(
+      { id: 'teacher' }, 'room-a', { user_id: 'student-a', role: 'student' },
+    )).rejects.toBeInstanceOf(ForbiddenException);
+    expect(from).toHaveBeenCalledTimes(3);
+  });
+
 });
