@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InstitutionsService } from './institutions.service';
 import { SupabaseService } from '../supabase/supabase.service';
 
@@ -56,4 +56,27 @@ describe('Institution access control', () => {
     expect(from).toHaveBeenCalledTimes(2);
   });
 
+  it('rejects institution creation by a student', async () => {
+    const service = new InstitutionsService({ client: { from: jest.fn() } } as unknown as SupabaseService);
+    await expect(service.createInstitution({ id: 'student', role: 'student' }, { name: 'Unauthorized School' }))
+      .rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('rejects an empty institution name before database insertion', async () => {
+    const service = new InstitutionsService({ client: { from: jest.fn() } } as unknown as SupabaseService);
+    await expect(service.createInstitution({ id: 'owner', role: 'institution' }, { name: '   ' }))
+      .rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects an invalid student capacity before database insertion', async () => {
+    const service = new InstitutionsService({ client: { from: jest.fn() } } as unknown as SupabaseService);
+    await expect(service.createInstitution({ id: 'owner', role: 'institution' }, { name: 'School', max_students: 0 }))
+      .rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects an invalid room capacity before database insertion', async () => {
+    const service = new InstitutionsService({ client: { from: jest.fn() } } as unknown as SupabaseService);
+    await expect(service.createInstitution({ id: 'owner', role: 'institution' }, { name: 'School', max_rooms: -1 }))
+      .rejects.toBeInstanceOf(BadRequestException);
+  });
 });
