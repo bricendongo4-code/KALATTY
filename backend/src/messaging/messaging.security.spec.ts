@@ -87,4 +87,30 @@ describe('Private messaging isolation', () => {
     expect(storage.from).not.toHaveBeenCalled();
   });
 
+  it('rejects messages with only whitespace', async () => {
+    const participant = query({ user_id: 'student' });
+    const thread = query({ id: 'thread-1', institution_id: 'school-1' });
+    const member = query({ user_id: 'student' });
+    const institution = query({ owner_user_id: 'owner' });
+    const from = jest.fn((table: string) => ({
+      message_participants: participant, message_threads: thread,
+      institution_members: member, institutions: institution,
+    } as Record<string, unknown>)[table]);
+    const service = new MessagingService({ client: { from } } as unknown as SupabaseService);
+    await expect(service.send({ id: 'student' }, 'thread-1', '   '))
+      .rejects.toBeInstanceOf(BadRequestException);
+    expect(from).not.toHaveBeenCalledWith('private_messages');
+  });
+
+  it('blocks marking a conversation read for a nonparticipant', async () => {
+    const participants = query(null);
+    const from = jest.fn((table: string) => {
+      if (table === 'message_participants') return participants;
+      throw new Error('No write permitted');
+    });
+    const service = new MessagingService({ client: { from } } as unknown as SupabaseService);
+    await expect(service.markRead({ id: 'outsider' }, 'thread-1'))
+      .rejects.toBeInstanceOf(ForbiddenException);
+  });
+
 });
