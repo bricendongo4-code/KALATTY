@@ -18,11 +18,16 @@ import AttendancePage from "../../pedagogy/AttendancePage";
 import SessionsPage from "../../teacher/SessionsPage";
 import ReportsPage from "../../shared/ReportsPage";
 import HelpPage from "../../shared/HelpPage";
+import MessagesPage from "../../shared/MessagesPage";
 import StudentAttendancePage from "../../student/AttendancePage";
 
 type Params = Promise<{ role: string; section?: string[] }>;
 
 const BUILT_SECTIONS: Record<string, () => React.JSX.Element> = {
+  "student/messages": () => <MessagesPage role="student" />,
+  "teacher/messages": () => <MessagesPage role="teacher" />,
+  "pedagogy/messages": () => <MessagesPage role="pedagogy" />,
+  "admin/messages": () => <MessagesPage role="admin" />,
   "student/schedule": () => <StudentPages section="schedule" />,
   "student/subjects": () => <StudentPages section="subjects" />,
   "student/class": () => <StudentPages section="class" />,
