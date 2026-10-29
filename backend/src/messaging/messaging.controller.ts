@@ -39,7 +39,7 @@ export class MessagingController {
   }
   @Post('threads/:threadId/attachments')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
-  attach(@Req() req: RequestUser, @Param('threadId') id: string, @UploadedFile() file: Express.Multer.File) {
+  attach(@Req() req: RequestUser, @Param('threadId') id: string, @UploadedFile() file: { buffer: Buffer; mimetype: string; originalname: string; size: number }) {
     return this.service.attach(req.user, id, file);
   }
   @Get('threads/:threadId/messages/:messageId/download')
