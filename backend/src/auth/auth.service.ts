@@ -264,7 +264,7 @@ export class AuthService {
     }
 
     const { data: userData, error: userError } =
-      await this.supabaseService.authClient.auth.getUser(accessToken);
+      await this.supabaseService.authClient.auth.verifyOtp({ token_hash: accessToken, type: 'recovery' });
 
     if (userError || !userData.user) {
       throw new UnauthorizedException(

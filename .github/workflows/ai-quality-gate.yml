@@ -1,0 +1,144 @@
+name: Kalatty AI - quality gate (read-only)
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [master]
+    paths:
+      - 'frontend/**'
+      - 'backend/**'
+      - '.github/workflows/ai-quality-gate.yml'
+      - '.github/workflows/qa-agent.yml'
+      - 'scripts/qa-*.mjs'
+      - 'scripts/developer-*.mjs'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ai-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qa-agent-unit:
+    name: QA Agent unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test scripts/qa-utils.test.mjs scripts/qa-log-analysis.test.mjs scripts/developer-agent.test.mjs scripts/developer-patch.test.mjs scripts/developer-pr-plan.test.mjs scripts/developer-execution-gate.test.mjs scripts/developer-execute.test.mjs scripts/developer-triage.test.mjs scripts/developer-retry-loop.test.mjs scripts/developer-worker.test.mjs scripts/developer-validate.test.mjs scripts/developer-pipeline.test.mjs scripts/developer-promotion-gate.test.mjs scripts/developer-regression.test.mjs scripts/developer-red-green.test.mjs scripts/developer-behavioral-red-green.test.mjs scripts/developer-readiness.test.mjs scripts/developer-security-triage.test.mjs
+
+  developer-security-triage:
+    name: Developer security triage (read-only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Scan backend authorization risk patterns
+        run: node scripts/developer-security-triage.mjs backend/src developer-reports
+      - name: Upload triage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: developer-security-triage
+          path: developer-reports/security-triage.json
+          retention-days: 7
+
+  developer-behavioral-smoke:
+    name: Developer behavioral red-green smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prove baseline fails and candidate passes
+        run: node scripts/developer-behavioral-red-green.mjs scripts/fixtures/developer-behavioral-request.json developer-reports
+      - name: Verify evidence consistency without authorizing PR
+        run: node scripts/developer-readiness.mjs scripts/fixtures/developer-behavioral-request.json developer-reports/behavioral-red-green-report.json developer-reports
+      - name: Upload red-green evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: developer-behavioral-evidence
+          path: |
+            developer-reports/behavioral-red-green-report.json
+            developer-reports/readiness-report.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  developer-smoke:
+    name: Developer pipeline - isolated backend smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate candidate in disposable backend copy
+        run: node scripts/developer-pipeline.mjs scripts/fixtures/developer-smoke-request.json developer-reports
+      - name: Upload developer verification reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: developer-smoke-reports
+          path: developer-reports/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  backend:
+    name: Backend - build and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npm test -- --runInBand --passWithNoTests
+
+  frontend:
+    name: Frontend - lint, build and browser tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:4000
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:4000
+      - name: Save Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7

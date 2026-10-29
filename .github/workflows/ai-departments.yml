@@ -1,0 +1,41 @@
+name: AI Department Foundations
+on:
+  push:
+    branches:
+      - ai/high-priority-departments
+  pull_request:
+    branches:
+      - ai/security-agent-foundation
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  agent-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate Security, QA, Developer, UX and Product agent scripts
+        run: |
+          node --test scripts/departments.test.mjs scripts/departments-integration.test.mjs scripts/security-agent.test.mjs scripts/security-supabase-architecture.test.mjs scripts/qa-utils.test.mjs scripts/developer-agent.test.mjs
+      - name: Generate UX route inventory and report
+        run: |
+          node scripts/ux-route-inventory.mjs frontend/app agent-reports
+          node scripts/ux-agent.mjs agent-reports/route-inventory.json agent-reports
+      - name: Generate prioritized Product report
+        run: node scripts/product-agent.mjs agent-config/product-backlog.json agent-reports
+      - name: Run security review
+        run: node scripts/security-agent.mjs backend/src agent-reports
+      - name: Generate QA handoff from fixture
+        run: |
+          node scripts/qa-handoff.mjs agent-config/qa-example.json agent-reports
+      - name: Coordinate departments
+        run: node scripts/departments-coordinator.mjs agent-config/qa-example.json agent-reports/security-report.json agent-reports/ux-report.json agent-reports/product-report.json agent-reports
+      - name: Upload department reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-departments-reports
+          path: agent-reports/

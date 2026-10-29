@@ -1,0 +1,40 @@
+name: Kalatty Security Agent (read-only)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ai/security-agent-foundation]
+  pull_request:
+    branches: [master]
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'scripts/security-agent*.mjs'
+      - '.github/workflows/security-agent.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  security-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Security Agent tests
+        run: node --test scripts/security-agent.test.mjs scripts/security-supabase-architecture.test.mjs
+      - name: Static backend review
+        run: node scripts/security-agent.mjs backend/src security-reports
+      - name: Inspect Supabase privileged client configuration
+        run: node scripts/security-supabase-architecture.mjs backend/src/supabase/supabase.service.ts security-reports
+      - name: Save security findings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kalatty-security-report
+          path: security-reports/
+          if-no-files-found: ignore
+          retention-days: 14

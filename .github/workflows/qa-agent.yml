@@ -1,0 +1,53 @@
+name: Kalatty QA Agent - CI triage
+
+on:
+  workflow_run:
+    workflows: ["CI", "Kalatty AI - quality gate (read-only)"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Numeric GitHub Actions run ID to inspect"
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # workflow_run executes this trusted script from the default branch.
+      # Never checkout or execute code from the triggering PR.
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Unit tests for QA triage
+        run: node --test scripts/qa-utils.test.mjs scripts/qa-log-analysis.test.mjs scripts/developer-agent.test.mjs
+      - name: Inspect CI and generate QA report
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TARGET_RUN_ID: ${{ inputs.run_id || github.event.workflow_run.id }}
+          OPENAI_API_KEY: ${{ secrets.KALATTY_QA_OPENAI_API_KEY }}
+          OPENAI_MODEL: gpt-4.1-mini
+        run: node scripts/qa-agent.mjs
+      - name: Prepare Developer Agent proposals (read-only)
+        run: node scripts/developer-agent.mjs
+      - name: Prepare Developer Agent triage plan (read-only)
+        run: node scripts/developer-triage.mjs
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kalatty-qa-report
+          path: |
+            qa-reports/
+            developer-reports/
+          if-no-files-found: ignore
+          retention-days: 14

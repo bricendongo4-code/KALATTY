@@ -25,9 +25,9 @@ export class SupabaseService {
       );
     }
 
-    if (!serviceRoleKey && !publicKey) {
+    if (!publicKey) {
       throw new Error(
-        'SUPABASE_SERVICE_ROLE_KEY ou SUPABASE_KEY doit etre defini.',
+        'SUPABASE_KEY ou NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY doit etre defini pour authentifier les utilisateurs sans cle privilegiee.',
       );
     }
 
@@ -38,7 +38,7 @@ export class SupabaseService {
       },
     });
 
-    this.authClient = createClient(url, publicKey ?? serviceRoleKey!, {
+    this.authClient = createClient(url, publicKey, {
       auth: {
         persistSession: false,
         autoRefreshToken: false,
