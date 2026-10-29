@@ -44,4 +44,47 @@ describe('Private messaging isolation', () => {
       .rejects.toBeInstanceOf(BadRequestException);
     expect(from).not.toHaveBeenCalled();
   });
+  it('blocks sending when the sender is not a participant', async () => {
+    const participants = query(null);
+    const from = jest.fn((table: string) => {
+      if (table === 'message_participants') return participants;
+      throw new Error('No message write permitted');
+    });
+    const service = new MessagingService({ client: { from } } as unknown as SupabaseService);
+    await expect(service.send({ id: 'outsider' }, 'thread-1', 'private content'))
+      .rejects.toBeInstanceOf(ForbiddenException);
+    expect(from).not.toHaveBeenCalledWith('private_messages');
+  });
+
+  it('blocks attachment downloads for nonparticipants', async () => {
+    const participants = query(null);
+    const from = jest.fn((table: string) => {
+      if (table === 'message_participants') return participants;
+      throw new Error('Storage must not be reached');
+    });
+    const storage = { from: jest.fn() };
+    const service = new MessagingService({ client: { from, storage } } as unknown as SupabaseService);
+    await expect(service.download({ id: 'outsider' }, 'thread-1', 'message-1'))
+      .rejects.toBeInstanceOf(ForbiddenException);
+    expect(storage.from).not.toHaveBeenCalled();
+  });
+
+  it('blocks oversized or invalid attachment types before storage access', async () => {
+    const participant = query({ user_id: 'student' });
+    const thread = query({ id: 'thread-1', institution_id: 'school-1' });
+    const member = query({ user_id: 'student' });
+    const institution = query({ owner_user_id: 'owner' });
+    const from = jest.fn((table: string) => ({
+      message_participants: participant, message_threads: thread,
+      institution_members: member, institutions: institution,
+    } as Record<string, unknown>)[table]);
+    const storage = { from: jest.fn() };
+    const service = new MessagingService({ client: { from, storage } } as unknown as SupabaseService);
+    await expect(service.attach({ id: 'student' }, 'thread-1', {
+      buffer: Buffer.from('invalid'), mimetype: 'application/x-msdownload',
+      originalname: 'danger.exe', size: 7,
+    })).rejects.toBeInstanceOf(BadRequestException);
+    expect(storage.from).not.toHaveBeenCalled();
+  });
+
 });
