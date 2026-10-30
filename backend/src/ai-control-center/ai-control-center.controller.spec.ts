@@ -2,7 +2,7 @@ import { ForbiddenException } from '@nestjs/common';
 import { AiControlCenterController } from './ai-control-center.controller';
 
 describe('AiControlCenterController', () => {
-  const controller = new AiControlCenterController();
+  const controller = new AiControlCenterController({} as never);
 
   it('rejects unauthenticated or institution administrator identities', () => {
     for (const user of [undefined, { id: 'user', role: 'admin' }, { id: 'user', role: 'teacher' }]) {
