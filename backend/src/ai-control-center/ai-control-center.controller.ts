@@ -91,6 +91,53 @@ export class AiControlCenterController {
       agents: AGENTS.map(department => ({ department, status: 'not-connected', reviewRequired: false })) };
   }
 
+
+  /**
+   * Real database-backed operational signals, read-only and aggregate-only.
+   * A count failure is explicitly reported as unavailable; never substituted with zero.
+   * No raw learner, payment or message records leave this endpoint.
+   */
+  @Get('signals')
+  async signals(@Req() req: AuthenticatedRequest) {
+    await this.requirePlatformAdmin(req);
+    const sources: Record<string, string[]> = {
+      security: ['privacy_requests', 'institution_managed_users'],
+      qa: ['assignment_submissions', 'course_activity_submissions'],
+      developer: ['studio_ai_generations', 'studio_projects'],
+      ux: ['progress', 'course_favorites'],
+      product: ['courses', 'course_modules', 'lessons'],
+      marketing: ['course_reviews', 'course_favorites'],
+      sales: ['enrollments', 'payments'],
+      support: ['course_questions', 'privacy_requests'],
+      finance: ['payments'],
+      analytics: ['enrollments', 'progress', 'courses'],
+      crm: ['profiles', 'enrollments'],
+    };
+    const tables = [...new Set(Object.values(sources).flat())];
+    const counts = await Promise.all(tables.map(async table => {
+      try {
+        const { count, error } = await this.supabase.client
+          .from(table as never).select('*', { count: 'exact', head: true });
+        if (error || count === null) return { table, available: false as const };
+        return { table, available: true as const, count };
+      } catch {
+        return { table, available: false as const };
+      }
+    }));
+    const byTable = new Map(counts.map(row => [row.table, row]));
+    const agents = AGENTS.map(department => ({
+      department,
+      mode: 'real-aggregate-read-only' as const,
+      sources: sources[department].map(table => byTable.get(table)),
+      available: sources[department].every(table => byTable.get(table)?.available === true),
+      autonomousActionsEnabled: false,
+      humanReviewRequired: true,
+    }));
+    return { version: 1, generatedAt: new Date().toISOString(),
+      dataMode: 'real-aggregate-read-only', liveMonitoringEnabled: false,
+      mergeAuthorized: false, deployAuthorized: false, agents };
+  }
+
   @Get('reports')
   async reports(@Req() req: AuthenticatedRequest) {
     await this.requirePlatformAdmin(req);
