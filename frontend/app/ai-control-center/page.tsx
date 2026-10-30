@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import Link from "next/link";
 import styles from "./control-center.module.css";
 
@@ -33,6 +33,7 @@ const labels: Record<string, string> = {
 };
 const permitted = new Set(Object.keys(labels));
 const MAX_SIZE = 1024 * 1024;
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';
 
 function validate(value: unknown): Report {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw Error("Le rapport doit être un objet JSON.");
@@ -80,6 +81,36 @@ export default function ControlCenterPage() {
   const [report, setReport] = useState<Report | null>(null);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("all");
+  const [sourceMode, setSourceMode] = useState<'local' | 'server'>('local');
+  useEffect(() => {
+    let active = true;
+    async function loadHistory() {
+      const token = localStorage.getItem('kalatty_token');
+      if (!token) return;
+      try {
+        const response = await fetch(API_BASE + '/ai-control-center/reports', {
+          headers: { Authorization: 'Bearer ' + token }, cache: 'no-store',
+        });
+        if (response.status === 401 || response.status === 403) return;
+        if (!response.ok) throw Error('Historique indisponible');
+        const body: unknown = await response.json();
+        if (!body || typeof body !== 'object' || !('reports' in body)) throw Error('Format serveur invalide');
+        const rows = (body as { reports: unknown }).reports;
+        if (!Array.isArray(rows) || !rows.length) return;
+        const stored = rows[0]?.report as Record<string, unknown> | undefined;
+        if (!stored || !Array.isArray(stored.departments)) throw Error('Rapport serveur invalide');
+        const normalized = { ...stored, departments: stored.departments.map((d: Record<string, unknown>) =>
+          ({ ...d, source: 'Stockage privé', externalActionsPerformed: false })) };
+        const valid = validate(normalized);
+        if (active) { setReport(valid); setSourceMode('server'); }
+      } catch (cause) {
+        if (active) setError(cause instanceof Error ? cause.message : 'Erreur de chargement');
+      }
+    }
+    void loadHistory();
+    return () => { active = false; };
+  }, []);
+
   const visible = useMemo(() => report?.departments.filter(item =>
     filter === "all" || (filter === "review" ? item.reviewRequired : item.status === filter)
   ) ?? [], [report, filter]);
@@ -93,6 +124,7 @@ export default function ControlCenterPage() {
       if (file.size > MAX_SIZE) throw Error("Fichier trop volumineux (1 Mo maximum).");
       const parsed: unknown = JSON.parse(await file.text());
       setReport(validate(parsed));
+      setSourceMode("local");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Impossible de lire le fichier.");
     } finally {
@@ -106,9 +138,9 @@ export default function ControlCenterPage() {
       <div className={styles.heading}>
         <div><p className={styles.eyebrow}>KALATTY · AI OPERATIONS</p><h1>Control Center</h1>
           <p>Supervision des rapports d'agents, anomalies et validations humaines.</p></div>
-        <span className={styles.badge}>v3 · consultation locale</span>
+        <span className={styles.badge}>v4 · historique sécurisé</span>
       </div>
-      <div className={styles.notice}><strong>Aucune connexion à la production.</strong> Importez un fichier
+      <div className={styles.notice}><strong>Accès protégé aux rapports enregistrés.</strong> Importez un fichier
         <code> control-center.json </code> généré par le script de supervision. Le fichier est traité uniquement dans votre navigateur :
         aucune donnée n'est envoyée à Kalatty. Aucun agent ne peut être exécuté, fusionné ou déployé depuis cette page.
         Ne chargez pas de données confidentielles sur un poste partagé.</div>
@@ -119,7 +151,7 @@ export default function ControlCenterPage() {
       </section>
       {!report ? <section className={styles.empty}>Aucun rapport chargé. Le tableau de bord ne présente pas de données fictives comme des résultats réels.</section> : <>
         <p className={styles.meta}>Rapport du {new Date(report.generatedAt).toLocaleString("fr-FR")} ·
-          <strong> {report.dataMode === "synthetic" ? "Données synthétiques" : "Origine non vérifiée"}</strong> · Supervision en direct désactivée</p>
+          <strong> {report.dataMode === "synthetic" ? "Données synthétiques" : "Origine non vérifiée"}</strong> · {sourceMode === "server" ? "Historique sécurisé" : "Fichier local"} · Supervision en direct désactivée</p>
         <div className={styles.cards}>
           {([["Agents", report.summary.total], ["Rapports disponibles", report.summary.reported],
             ["Erreurs", report.summary.errors], ["À examiner", report.summary.reviewRequired]] as const)
@@ -135,7 +167,7 @@ export default function ControlCenterPage() {
             <tbody>{visible.map(item => <tr key={item.department}>
               <td><strong>{labels[item.department]}</strong></td><td>{item.status === "reported" ? "Rapport reçu" : "Erreur"}</td>
               <td>{item.findings}</td><td>{item.queue}</td><td>{item.reviewRequired ? "Requise" : "Non signalée"}</td>
-              <td title={item.source}>Fichier local</td>
+              <td title={item.source}>{sourceMode === "server" ? "Historique sécurisé" : "Fichier local"}</td>
             </tr>)}</tbody></table>{visible.length === 0 && <p>Aucun résultat pour ce filtre.</p>}</div>
         </section>
         <section className={styles.panel}><h2>Anomalies signalées</h2>
