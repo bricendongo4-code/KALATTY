@@ -1,6 +1,7 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
+import { AiControlCenterModule } from './ai-control-center/ai-control-center.module';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { CampusModule } from './campus/campus.module';
@@ -20,6 +21,7 @@ import { ObservabilityMiddleware } from './observability.middleware';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }), // <<< OBLIGATOIRE !!
     SupabaseModule,
+    AiControlCenterModule,
     AuthModule,
     CampusModule,
     CoursesModule,
