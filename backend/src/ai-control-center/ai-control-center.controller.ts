@@ -2,7 +2,7 @@ import { BadRequestException, Body, Controller, ForbiddenException, Get, HttpExc
 import { AuthGuard } from '@nestjs/passport';
 import { SupabaseService } from '../supabase/supabase.service';
 
-type AuthenticatedRequest = { user?: { id?: string; role?: string } };
+type AuthenticatedRequest = { user?: { id?: string; role?: string; email?: string } };
 const AGENTS = ['security','qa','developer','ux','product','marketing','sales','support','finance','analytics','crm'] as const;
 const permitted = new Set<string>(AGENTS);
 type SafeAgent = {
@@ -65,16 +65,27 @@ function sanitize(input: unknown): SafeReport {
 export class AiControlCenterController {
   constructor(private readonly supabase: SupabaseService) {}
 
-  private requirePlatformAdmin(req: AuthenticatedRequest): string {
-    if (!req.user?.id || req.user.role !== 'platform_admin') {
+  private async requirePlatformAdmin(req: AuthenticatedRequest): Promise<string> {
+    const id = req.user?.id;
+    const email = req.user?.email?.trim().toLowerCase();
+    const allowed = (process.env.KALATTY_PLATFORM_ADMIN_EMAIL ?? '').trim().toLowerCase();
+    // Fail closed if the deployment has not configured an explicit platform owner.
+    if (!id || !email || !allowed || email !== allowed) {
       throw new ForbiddenException('Platform administrator access required');
     }
-    return req.user.id;
+    // A signed Kalatty JWT is necessary but insufficient: verify the identity against
+    // Supabase Auth rather than trusting profile roles or user-editable metadata.
+    const { data, error } = await this.supabase.client.auth.admin.getUserById(id);
+    if (error || !data.user || data.user.email?.trim().toLowerCase() !== allowed ||
+        !data.user.email_confirmed_at) {
+      throw new ForbiddenException('Platform administrator access required');
+    }
+    return id;
   }
 
   @Get('catalog')
-  catalog(@Req() req: AuthenticatedRequest) {
-    this.requirePlatformAdmin(req);
+  async catalog(@Req() req: AuthenticatedRequest) {
+    await this.requirePlatformAdmin(req);
     return { version: 1, dataMode: 'catalog-only', liveMonitoringEnabled: false,
       mergeAuthorized: false, deployAuthorized: false, reportsConnected: false,
       agents: AGENTS.map(department => ({ department, status: 'not-connected', reviewRequired: false })) };
@@ -82,7 +93,7 @@ export class AiControlCenterController {
 
   @Get('reports')
   async reports(@Req() req: AuthenticatedRequest) {
-    this.requirePlatformAdmin(req);
+    await this.requirePlatformAdmin(req);
     const { data, error } = await this.supabase.client.from('ai_agent_reports' as never)
       .select('id,created_at,generated_at,data_mode,report').order('created_at', { ascending: false }).limit(20);
     if (error) throw new HttpException('Report storage unavailable', HttpStatus.SERVICE_UNAVAILABLE);
@@ -91,7 +102,7 @@ export class AiControlCenterController {
 
   @Post('reports')
   async submit(@Req() req: AuthenticatedRequest, @Body() input: unknown) {
-    const userId = this.requirePlatformAdmin(req);
+    const userId = await this.requirePlatformAdmin(req);
     const report = sanitize(input);
     const { data, error } = await this.supabase.client.from('ai_agent_reports' as never)
       .insert({ generated_at: report.generatedAt, data_mode: report.dataMode,
