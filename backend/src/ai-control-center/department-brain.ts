@@ -45,7 +45,7 @@ Do not invent records or claim to have executed actions. Any change needs human 
     if (!result || typeof result !== 'object' || !('output' in result) || !Array.isArray(result.output)) {
       throw new ServiceUnavailableException('Invalid AI response');
     }
-    const parts = result.output.flatMap((item: unknown) =>
+    const parts: unknown[] = result.output.flatMap((item: unknown) =>
       item && typeof item === 'object' && 'content' in item && Array.isArray(item.content)
         ? item.content : []);
     const analysis = parts.filter((part: unknown) =>
