@@ -11,14 +11,14 @@ const AGENTS = [
 /**
  * Read-only metadata endpoint. No production reports or secrets are returned.
  * JWT authentication and platform administrator authorization are mandatory.
- * Institution administrators must not access global agent telemetry.
+ * Institution administrators must not access global agent telemetry. A dedicated platform_admin role must be provisioned and verified before use.
  */
 @Controller('ai-control-center')
 @UseGuards(AuthGuard('jwt'))
 export class AiControlCenterController {
   @Get('catalog')
   catalog(@Req() req: AuthenticatedRequest) {
-    if (!req.user?.id || req.user.role !== 'admin') {
+    if (!req.user?.id || req.user.role !== 'platform_admin') {
       throw new ForbiddenException('Platform administrator access required');
     }
     return {
