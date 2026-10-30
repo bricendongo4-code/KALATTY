@@ -1,3 +1,4 @@
+import { analyzeWithBrain } from './department-brain';
 import { planDepartments } from './department-planner';
 import { BadRequestException, Body, Controller, ForbiddenException, Get, HttpException, HttpStatus, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
@@ -188,6 +189,17 @@ export class AiControlCenterController {
       allTasksRequireApproval: true,
       externalActionsPerformed: false,
     };
+  }
+
+  @Post('analyze')
+  async analyze(@Req() req: AuthenticatedRequest, @Body() input: unknown) {
+    await this.requirePlatformAdmin(req);
+    if (!isRecord(input) || typeof input.department !== 'string' ||
+        !permitted.has(input.department)) throw new BadRequestException('Invalid department');
+    const plans = await this.workPlan(req);
+    const plan = plans.agents.find(agent => agent.department === input.department);
+    if (!plan) throw new BadRequestException('Unknown department');
+    return analyzeWithBrain(plan);
   }
 
   @Get('reports')
