@@ -32,6 +32,8 @@ function sanitize(input: unknown): SafeReport {
   if (input.dataMode !== 'synthetic' && input.dataMode !== 'unverified') throw new BadRequestException('Invalid data mode');
   if (typeof input.generatedAt !== 'string' || !Number.isFinite(Date.parse(input.generatedAt))) throw new BadRequestException('Invalid report timestamp');
   if (input.departments.length > AGENTS.length || input.errors.length > AGENTS.length) throw new BadRequestException('Too many report entries');
+  const mode = input.dataMode as 'synthetic' | 'unverified';
+  const reportSummary = input.summary as Record<string, unknown>;
   const seen = new Set<string>();
   const departments: SafeAgent[] = input.departments.map((value: unknown) => {
     if (!isRecord(value) || typeof value.department !== 'string' || !permitted.has(value.department) ||
@@ -41,7 +43,7 @@ function sanitize(input: unknown): SafeReport {
     }
     seen.add(value.department);
     return { department: value.department, status: value.status, findings: count(value.findings),
-      queue: count(value.queue), reviewRequired: value.reviewRequired, dataMode: value.dataMode };
+      queue: count(value.queue), reviewRequired: value.reviewRequired, dataMode: mode };
   });
   const errors = input.errors.map((value: unknown) => {
     if (!isRecord(value) || typeof value.department !== 'string' || !seen.has(value.department) ||
@@ -53,7 +55,7 @@ function sanitize(input: unknown): SafeReport {
   const summary = { total: departments.length,
     reported: departments.filter(d => d.status === 'reported').length,
     errors: errors.length, reviewRequired: departments.filter(d => d.reviewRequired).length };
-  if (Object.entries(summary).some(([key, value]) => input.summary[key] !== value)) throw new BadRequestException('Inconsistent summary');
+  if (Object.entries(summary).some(([key, value]) => reportSummary[key] !== value)) throw new BadRequestException('Inconsistent summary');
   return { version: 2, generatedAt: input.generatedAt, dataMode: input.dataMode, summary,
     departments, errors, mergeAuthorized: false, deployAuthorized: false, liveMonitoringEnabled: false };
 }
