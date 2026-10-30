@@ -138,6 +138,44 @@ export class AiControlCenterController {
       mergeAuthorized: false, deployAuthorized: false, agents };
   }
 
+
+  /**
+   * Executable analysis (not autonomous writes): per-department evidence-based
+   * recommendations, with explicit source completeness and approval gates.
+   */
+  @Get('recommendations')
+  async recommendations(@Req() req: AuthenticatedRequest) {
+    const snapshot = await this.signals(req);
+    const agents = snapshot.agents.map(agent => {
+      const available = agent.sources.filter(source => source?.available === true);
+      const total = available.reduce((sum, source) =>
+        sum + (source && 'count' in source ? source.count : 0), 0);
+      const complete = agent.available;
+      const action = !complete
+        ? 'Verify database connectivity and source permissions before analysis.'
+        : total === 0
+          ? 'Review adoption and data ingestion for this department.'
+          : 'Review operational trends and investigate notable changes against a previous snapshot.';
+      return {
+        department: agent.department,
+        status: complete ? 'analysis-ready' : 'source-unavailable',
+        evidence: available.map(source => ({
+          table: source?.table, count: source && 'count' in source ? source.count : null,
+        })),
+        recommendation: action,
+        confidence: complete ? 'limited-single-snapshot' : 'insufficient-data',
+        approvalRequired: true,
+        executedActions: 0,
+      };
+    });
+    return {
+      version: 1, generatedAt: snapshot.generatedAt,
+      dataMode: 'real-aggregate-read-only',
+      agents, autonomousWritesEnabled: false,
+      limitations: ['No historical baseline', 'No raw record analysis', 'No external actions'],
+    };
+  }
+
   @Get('reports')
   async reports(@Req() req: AuthenticatedRequest) {
     await this.requirePlatformAdmin(req);
