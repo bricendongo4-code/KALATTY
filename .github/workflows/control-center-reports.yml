@@ -1,0 +1,57 @@
+name: Control Center report pipeline
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'scripts/ai-control-center.mjs'
+      - 'scripts/business-department-agent.mjs'
+      - 'scripts/business-departments.test.mjs'
+      - 'agent-config/business-demo.json'
+      - '.github/workflows/control-center-reports.yml'
+permissions:
+  contents: read
+jobs:
+  generate-synthetic-reports:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run report generation tests
+        run: node --test scripts/business-departments.test.mjs
+      - name: Generate synthetic department reports
+        run: |
+          mkdir -p agent-reports
+          for department in marketing sales support finance analytics crm; do
+            node scripts/business-department-agent.mjs "$department" agent-config/business-demo.json agent-reports
+          done
+      - name: Generate manifest with manifest-relative paths
+        run: |
+          node --input-type=module -e '
+            import {writeFileSync} from "node:fs";
+            const names=["marketing","sales","support","finance","analytics","crm"];
+            writeFileSync("agent-reports/manifest.json", JSON.stringify({
+              synthetic:true,
+              reports:names.map(department=>({department,file:department+"-report.json"}))
+            },null,2));
+          '
+      - name: Generate Control Center v2 JSON
+        run: node scripts/ai-control-center.mjs agent-reports/manifest.json agent-reports
+      - name: Verify synthetic mode and disabled actions
+        run: |
+          node --input-type=module -e '
+            import {readFileSync} from "node:fs";
+            const r=JSON.parse(readFileSync("agent-reports/control-center.json","utf8"));
+            if(r.version!==2 || r.dataMode!=="synthetic" || r.summary.total!==6 ||
+              r.summary.reported!==6 || r.summary.errors!==0 ||
+              r.mergeAuthorized!==false || r.deployAuthorized!==false ||
+              r.liveMonitoringEnabled!==false) throw Error("Invalid Control Center report");
+          '
+      - name: Upload dashboard-compatible JSON reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: control-center-synthetic-reports
+          path: agent-reports/
+          retention-days: 7
