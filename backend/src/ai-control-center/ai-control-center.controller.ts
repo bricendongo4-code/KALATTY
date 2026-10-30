@@ -1,3 +1,4 @@
+import { planDepartments } from './department-planner';
 import { BadRequestException, Body, Controller, ForbiddenException, Get, HttpException, HttpStatus, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { SupabaseService } from '../supabase/supabase.service';
@@ -173,6 +174,19 @@ export class AiControlCenterController {
       dataMode: 'real-aggregate-read-only',
       agents, autonomousWritesEnabled: false,
       limitations: ['No historical baseline', 'No raw record analysis', 'No external actions'],
+    };
+  }
+
+  @Get('work-plan')
+  async workPlan(@Req() req: AuthenticatedRequest) {
+    const snapshot = await this.signals(req);
+    return {
+      version: 1,
+      generatedAt: snapshot.generatedAt,
+      source: 'live-supabase-aggregate-counts',
+      agents: planDepartments(snapshot.agents),
+      allTasksRequireApproval: true,
+      externalActionsPerformed: false,
     };
   }
 
