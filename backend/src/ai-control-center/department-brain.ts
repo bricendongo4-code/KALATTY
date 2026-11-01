@@ -1,6 +1,21 @@
 import { ServiceUnavailableException } from '@nestjs/common';
 import { DEPARTMENTS, Department, Plan } from './department-planner';
 
+// In-memory guard limits bursts per backend instance. Configure an organization-wide
+// API spending limit separately; this is not a distributed or billing-enforced cap.
+const requests = new Map<string, number[]>();
+const MAX_CALLS_PER_DAY = 33;
+function enforceDailyQuota() {
+  const day = new Date().toISOString().slice(0, 10);
+  const current = requests.get(day) ?? [];
+  if (current.length >= MAX_CALLS_PER_DAY) {
+    throw new ServiceUnavailableException('Daily AI analysis quota reached');
+  }
+  current.push(Date.now());
+  requests.clear();
+  requests.set(day, current);
+}
+
 const INSTRUCTIONS: Record<Department, string> = {
   security: 'Assess access and privacy governance risks. Never request credentials or propose unauthorized access.',
   qa: 'Prioritize test coverage and regression risks without changing production.',
@@ -24,6 +39,7 @@ export async function analyzeWithBrain(plan: Plan, fetcher: typeof fetch = fetch
   if (!key || !model) {
     throw new ServiceUnavailableException('AI brain is not configured');
   }
+  enforceDailyQuota();
   const abort = new AbortController();
   const timer = setTimeout(() => abort.abort(), 15000);
   try {
@@ -33,7 +49,7 @@ export async function analyzeWithBrain(plan: Plan, fetcher: typeof fetch = fetch
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       signal: abort.signal,
       body: JSON.stringify({
-        model, store: false, max_output_tokens: 400,
+        model, store: false, max_output_tokens: 250,
         instructions: `You are Kalatty's ${plan.department} analysis agent. ${INSTRUCTIONS[plan.department]}
 Return a concise French recommendation grounded ONLY in the provided aggregate evidence.
 Do not invent records or claim to have executed actions. Any change needs human approval.`,
