@@ -1,6 +1,6 @@
 import { analyzeWithBrain } from './department-brain';
 import { planDepartments } from './department-planner';
-import { BadRequestException, Body, Controller, ForbiddenException, Get, HttpException, HttpStatus, Post, Req, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, ForbiddenException, Get, HttpException, HttpStatus, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { SupabaseService } from '../supabase/supabase.service';
 
@@ -200,6 +200,52 @@ export class AiControlCenterController {
     const plan = plans.agents.find(agent => agent.department === input.department);
     if (!plan) throw new BadRequestException('Unknown department');
     return analyzeWithBrain(plan);
+  }
+
+  /** Proposals are non-executable recommendations. Approval does not run code or modify records. */
+  @Get('proposals')
+  async proposals(@Req() req: AuthenticatedRequest) {
+    await this.requirePlatformAdmin(req);
+    const { data, error } = await this.supabase.client.from('ai_agent_proposals' as never)
+      .select('id,department,title,rationale,status,decision_note,created_at,decided_at')
+      .order('created_at', { ascending: false }).limit(100);
+    if (error) throw new HttpException('Proposal storage unavailable', HttpStatus.SERVICE_UNAVAILABLE);
+    return { proposals: data ?? [], executionEnabled: false };
+  }
+
+  @Post('proposals')
+  async createProposal(@Req() req: AuthenticatedRequest, @Body() input: unknown) {
+    const ownerId = await this.requirePlatformAdmin(req);
+    if (!isRecord(input) || typeof input.department !== 'string' || !permitted.has(input.department) ||
+      typeof input.title !== 'string' || input.title.trim().length < 3 || input.title.length > 200 ||
+      typeof input.rationale !== 'string' || input.rationale.trim().length < 3 || input.rationale.length > 4000) {
+      throw new BadRequestException('Invalid proposal');
+    }
+    const { data, error } = await this.supabase.client.from('ai_agent_proposals' as never)
+      .insert({ department: input.department, title: input.title.trim(),
+        rationale: input.rationale.trim(), created_by: ownerId } as never)
+      .select('id,department,title,rationale,status,created_at').single();
+    if (error) throw new HttpException('Proposal storage unavailable', HttpStatus.SERVICE_UNAVAILABLE);
+    return { proposal: data, executionEnabled: false };
+  }
+
+  @Post('proposals/:id/decision')
+  async decideProposal(@Req() req: AuthenticatedRequest, @Param('id') id: string, @Body() input: unknown) {
+    const ownerId = await this.requirePlatformAdmin(req);
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id) ||
+      !isRecord(input) || !['approved', 'rejected', 'revision_requested'].includes(String(input.decision)) ||
+      (input.note !== undefined && (typeof input.note !== 'string' || input.note.length > 2000)) ||
+      (input.decision === 'revision_requested' && (typeof input.note !== 'string' || !input.note.trim()))) {
+      throw new BadRequestException('Invalid decision');
+    }
+    const { data, error } = await this.supabase.client.from('ai_agent_proposals' as never)
+      .update({ status: input.decision, decision_note: typeof input.note === 'string' ? input.note.trim() : null,
+        decided_by: ownerId, decided_at: new Date().toISOString() } as never)
+      .eq('id', id).eq('status', 'pending')
+      .select('id,status,decision_note,decided_at').maybeSingle();
+    if (error) throw new HttpException('Decision storage unavailable', HttpStatus.SERVICE_UNAVAILABLE);
+    if (!data) throw new BadRequestException('Proposal not pending or not found');
+    return { proposal: data, executionAuthorized: false, actionExecuted: false };
   }
 
   @Get('reports')
