@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import Link from "next/link";
 import styles from "./control-center.module.css";
+import ApprovalCenter from "./ApprovalCenter";
 
 type Department = {
   department: string;
@@ -169,6 +170,7 @@ export default function ControlCenterPage() {
         <code> control-center.json </code> généré par le script de supervision. Le fichier est traité uniquement dans votre navigateur :
         aucune donnée du fichier n'est envoyée à Kalatty. Les analyses IA à la demande utilisent uniquement des indicateurs agrégés. Aucun agent ne peut modifier, fusionner ou déployer depuis cette page.
         Ne chargez pas de données confidentielles sur un poste partagé.</div>
+      <ApprovalCenter />
       <section className={styles.upload}>
         <h2>Analyse GPT à la demande</h2>
         <p>Chaque clic déclenche un appel API potentiellement facturé. Aucun lancement automatique.</p>
