@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import Link from "next/link";
 import styles from "./control-center.module.css";
+import ApprovalCenter from "./ApprovalCenter";
+import AgentsDirectory from "./AgentsDirectory";
 
 type Department = {
   department: string;
@@ -82,6 +84,9 @@ export default function ControlCenterPage() {
   const [loginRequired, setLoginRequired] = useState(false);
   const [aiResult, setAiResult] = useState('');
   const [aiBusy, setAiBusy] = useState(false);
+  const [savingProposal, setSavingProposal] = useState(false);
+  const [proposalFeedback, setProposalFeedback] = useState('');
+  const [proposalVersion, setProposalVersion] = useState(0);
   async function requestAnalysis() {
     if (aiBusy) return;
     const token = localStorage.getItem('kalatty_token');
@@ -104,6 +109,24 @@ export default function ControlCenterPage() {
     } catch (cause) {
       setAiResult(cause instanceof Error ? cause.message : 'Erreur de connexion');
     } finally { setAiBusy(false); }
+  }
+  async function saveProposal() {
+    if (!aiResult || savingProposal) return;
+    setSavingProposal(true); setProposalFeedback('');
+    try {
+      const token = localStorage.getItem('kalatty_token');
+      if (!token) throw Error('Connexion requise.');
+      const response = await fetch(API_BASE + '/ai-control-center/proposals', {
+        method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ department: aiDepartment,
+          title: 'Analyse de ' + labels[aiDepartment] + ' à examiner',
+          rationale: aiResult.slice(0, 4000) }),
+      });
+      if (!response.ok) throw Error('Enregistrement impossible (' + response.status + ')');
+      setProposalFeedback('Proposition enregistrée. Retrouvez-la dans le Centre de validation.');
+      setProposalVersion(value => value + 1);
+    } catch (cause) { setProposalFeedback(cause instanceof Error ? cause.message : 'Erreur'); }
+    finally { setSavingProposal(false); }
   }
   const [report, setReport] = useState<Report | null>(null);
   const [error, setError] = useState("");
@@ -171,6 +194,8 @@ export default function ControlCenterPage() {
         <code> control-center.json </code> généré par le script de supervision. Le fichier est traité uniquement dans votre navigateur :
         aucune donnée du fichier n'est envoyée à Kalatty. Les analyses IA à la demande utilisent uniquement des indicateurs agrégés. Aucun agent ne peut modifier, fusionner ou déployer depuis cette page.
         Ne chargez pas de données confidentielles sur un poste partagé.</div>
+      <AgentsDirectory onChoose={setAiDepartment} />
+      <ApprovalCenter key={proposalVersion} />
       <section className={styles.upload}>
         <h2>Analyse GPT à la demande</h2>
         <p>Chaque clic déclenche un appel API potentiellement facturé. Aucun lancement automatique.</p>
@@ -182,6 +207,8 @@ export default function ControlCenterPage() {
           {aiBusy ? 'Analyse en cours…' : 'Lancer une analyse IA'}
         </button>
         {aiResult && <p role="status" style={{ whiteSpace: 'pre-wrap' }}>{aiResult}</p>}
+        {aiResult && <button type="button" disabled={savingProposal} onClick={() => void saveProposal()}>{savingProposal ? "Enregistrement…" : "Soumettre cette analyse à validation"}</button>}
+        {proposalFeedback && <p role="status">{proposalFeedback}</p>}
         {loginRequired && <p><Link href="/login?next=%2Fai-control-center">Se connecter puis revenir au Control Center</Link></p>}
       </section>
       <section className={styles.upload}>
