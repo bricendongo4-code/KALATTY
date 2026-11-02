@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import Link from "next/link";
 import styles from "./control-center.module.css";
+import AgentsOverview from "./AgentsOverview";
 
 type Department = {
   department: string;
@@ -165,6 +166,7 @@ export default function ControlCenterPage() {
           <p>Supervision des rapports d'agents, anomalies et validations humaines.</p></div>
         <span className={styles.badge}>v4 · historique sécurisé</span>
       </div>
+      <AgentsOverview onChoose={department => { setAiDepartment(department); document.getElementById("ai-department")?.scrollIntoView({behavior:"smooth",block:"center"}); }} />
       <div className={styles.notice}><strong>Accès protégé aux rapports enregistrés.</strong> Importez un fichier
         <code> control-center.json </code> généré par le script de supervision. Le fichier est traité uniquement dans votre navigateur :
         aucune donnée du fichier n'est envoyée à Kalatty. Les analyses IA à la demande utilisent uniquement des indicateurs agrégés. Aucun agent ne peut modifier, fusionner ou déployer depuis cette page.
