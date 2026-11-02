@@ -9,6 +9,7 @@ import { logoutKalatty } from "../sessionSecurity";
 import NotificationBell from "../NotificationBell";
 import { useAccountIdentity } from "../useAccountIdentity";
 import GlobalSearch from "../GlobalSearch";
+import OwnerControlCenterLink from "../OwnerControlCenterLink";
 import { LEARNING_ROLES, type LearningRole } from "./config";
 import styles from "./learning.module.css";
 
@@ -51,6 +52,7 @@ export default function LearningShell({
               <span>{item.label}</span>
             </Link>
           ))}
+          <OwnerControlCenterLink className={styles.navItem} onNavigate={() => setOpen(false)} />
         </nav>
         <div className={styles.sidebarFoot}>
           <p>{config.tagline}</p>
@@ -81,6 +83,7 @@ export default function LearningShell({
               <span>Mon compte</span>
               <strong className={styles.currentSpace}>{config.name}</strong>
               <Link href="/settings">Profil &amp; sécurité</Link>
+              <OwnerControlCenterLink />
               <button type="button" className={styles.logoutButton} onClick={logoutKalatty}>
                 <Icon name="logout" />
                 Se déconnecter
