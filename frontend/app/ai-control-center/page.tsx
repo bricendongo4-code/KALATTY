@@ -1,247 +1,77 @@
 "use client";
-
-import { useEffect, useMemo, useState, type ChangeEvent } from "react";
+import {useCallback,useEffect,useState} from "react";
 import Link from "next/link";
-import styles from "./control-center.module.css";
 import ApprovalCenter from "./ApprovalCenter";
-import AgentsDirectory from "./AgentsDirectory";
-
-type Department = {
-  department: string;
-  status: "reported" | "error";
-  findings: number;
-  queue: number;
-  source: string;
-  dataMode: "synthetic" | "unverified";
-  reviewRequired: boolean;
-  externalActionsPerformed: boolean;
-};
-type Report = {
-  version: number;
-  generatedAt: string;
-  dataMode: "synthetic" | "unverified";
-  summary: { total: number; reported: number; errors: number; reviewRequired: number };
-  departments: Department[];
-  errors: { department: string; code: string; message: string }[];
-  mergeAuthorized: false;
-  deployAuthorized: false;
-  liveMonitoringEnabled: false;
-};
-
-const labels: Record<string, string> = {
-  security: "Sécurité", qa: "Qualité", ux: "UX / UI", product: "Produit",
-  marketing: "Marketing", sales: "Commercial", support: "Support",
-  finance: "Finance", analytics: "Analytics", crm: "CRM", developer: "Développeur",
-};
-const permitted = new Set(Object.keys(labels));
-const MAX_SIZE = 1024 * 1024;
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';
-
-function validate(value: unknown): Report {
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw Error("Le rapport doit être un objet JSON.");
-  const report = value as Record<string, unknown>;
-  if (report.version !== 2 || !Array.isArray(report.departments) || !Array.isArray(report.errors)) {
-    throw Error("Format non reconnu : rapport Control Center v2 attendu.");
-  }
-  if (report.dataMode !== "synthetic" && report.dataMode !== "unverified") throw Error("Mode de données invalide.");
-  if (typeof report.generatedAt !== "string" || Number.isNaN(Date.parse(report.generatedAt))) throw Error("Date du rapport invalide.");
-  if (report.mergeAuthorized !== false || report.deployAuthorized !== false || report.liveMonitoringEnabled !== false) {
-    throw Error("Ce tableau de bord accepte uniquement les rapports sans autorisation d'exécution.");
-  }
-  const departments = report.departments as unknown[];
-  if (departments.length > permitted.size) throw Error("Trop de départements.");
-  const seen = new Set<string>();
-  for (const item of departments) {
-    if (!item || typeof item !== "object" || Array.isArray(item)) throw Error("Département invalide.");
-    const d = item as Record<string, unknown>;
-    if (typeof d.department !== "string" || !permitted.has(d.department) || seen.has(d.department)) throw Error("Département inconnu ou dupliqué.");
-    seen.add(d.department);
-    if (d.status !== "reported" && d.status !== "error") throw Error("Statut invalide.");
-    if (!Number.isSafeInteger(d.findings) || (d.findings as number) < 0 || !Number.isSafeInteger(d.queue) || (d.queue as number) < 0) throw Error("Compteurs invalides.");
-    if (typeof d.reviewRequired !== "boolean" || typeof d.externalActionsPerformed !== "boolean") throw Error("Indicateurs invalides.");
-    if (d.dataMode !== report.dataMode || typeof d.source !== "string") throw Error("Source du rapport invalide.");
-  }
-  const errors = report.errors as unknown[];
-  for (const item of errors) {
-    if (!item || typeof item !== "object" || Array.isArray(item)) throw Error("Erreur de rapport invalide.");
-    const e = item as Record<string, unknown>;
-    if (typeof e.department !== "string" || !seen.has(e.department) || typeof e.code !== "string" || typeof e.message !== "string") throw Error("Entrée d'erreur invalide.");
-  }
-  const expected = {
-    total: departments.length,
-    reported: departments.filter(item => (item as Department).status === "reported").length,
-    errors: errors.length,
-    reviewRequired: departments.filter(item => (item as Department).reviewRequired).length,
-  };
-  if (!report.summary || typeof report.summary !== "object") throw Error("Résumé manquant.");
-  const summary = report.summary as Record<string, unknown>;
-  if (Object.entries(expected).some(([key, count]) => summary[key] !== count)) throw Error("Les totaux ne correspondent pas aux rapports.");
-  return report as Report;
-}
-
-export default function ControlCenterPage() {
-  const [aiDepartment, setAiDepartment] = useState('security');
-  const [loginRequired, setLoginRequired] = useState(false);
-  const [aiResult, setAiResult] = useState('');
-  const [aiBusy, setAiBusy] = useState(false);
-  const [savingProposal, setSavingProposal] = useState(false);
-  const [proposalFeedback, setProposalFeedback] = useState('');
-  const [proposalVersion, setProposalVersion] = useState(0);
-  async function requestAnalysis() {
-    if (aiBusy) return;
-    const token = localStorage.getItem('kalatty_token');
-    if (!token) { setLoginRequired(true); setAiResult('Connexion nécessaire pour lancer une analyse.'); return; }
-    setLoginRequired(false);
-    setAiBusy(true);
-    setAiResult('');
-    try {
-      const response = await fetch(API_BASE + '/ai-control-center/analyze', {
-        method: 'POST', cache: 'no-store',
-        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ department: aiDepartment }),
-      });
-      if (!response.ok) throw Error('Analyse indisponible (' + response.status + '). Vérifiez votre accès et les crédits API.');
-      const data: unknown = await response.json();
-      if (!data || typeof data !== 'object' || !('status' in data)) throw Error('Réponse IA invalide');
-      const result = data as { status: string; analysis?: string; reason?: string };
-      setAiResult(result.status === 'analyzed' && typeof result.analysis === 'string'
-        ? result.analysis : result.reason ?? 'Analyse impossible : données insuffisantes.');
-    } catch (cause) {
-      setAiResult(cause instanceof Error ? cause.message : 'Erreur de connexion');
-    } finally { setAiBusy(false); }
-  }
-  async function saveProposal() {
-    if (!aiResult || savingProposal) return;
-    setSavingProposal(true); setProposalFeedback('');
-    try {
-      const token = localStorage.getItem('kalatty_token');
-      if (!token) throw Error('Connexion requise.');
-      const response = await fetch(API_BASE + '/ai-control-center/proposals', {
-        method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ department: aiDepartment,
-          title: 'Analyse de ' + labels[aiDepartment] + ' à examiner',
-          rationale: aiResult.slice(0, 4000) }),
-      });
-      if (!response.ok) throw Error('Enregistrement impossible (' + response.status + ')');
-      setProposalFeedback('Proposition enregistrée. Retrouvez-la dans le Centre de validation.');
-      setProposalVersion(value => value + 1);
-    } catch (cause) { setProposalFeedback(cause instanceof Error ? cause.message : 'Erreur'); }
-    finally { setSavingProposal(false); }
-  }
-  const [report, setReport] = useState<Report | null>(null);
-  const [error, setError] = useState("");
-  const [filter, setFilter] = useState("all");
-  const [sourceMode, setSourceMode] = useState<'local' | 'server'>('local');
-  useEffect(() => {
-    let active = true;
-    async function loadHistory() {
-      const token = localStorage.getItem('kalatty_token');
-      if (!token) return;
-      try {
-        const response = await fetch(API_BASE + '/ai-control-center/reports', {
-          headers: { Authorization: 'Bearer ' + token }, cache: 'no-store',
-        });
-        if (response.status === 401 || response.status === 403) return;
-        if (!response.ok) throw Error('Historique indisponible');
-        const body: unknown = await response.json();
-        if (!body || typeof body !== 'object' || !('reports' in body)) throw Error('Format serveur invalide');
-        const rows = (body as { reports: unknown }).reports;
-        if (!Array.isArray(rows) || !rows.length) return;
-        const stored = rows[0]?.report as Record<string, unknown> | undefined;
-        if (!stored || !Array.isArray(stored.departments)) throw Error('Rapport serveur invalide');
-        const normalized = { ...stored, departments: stored.departments.map((d: Record<string, unknown>) =>
-          ({ ...d, source: 'Stockage privé', externalActionsPerformed: false })) };
-        const valid = validate(normalized);
-        if (active) { setReport(valid); setSourceMode('server'); }
-      } catch (cause) {
-        if (active) setError(cause instanceof Error ? cause.message : 'Erreur de chargement');
-      }
-    }
-    void loadHistory();
-    return () => { active = false; };
-  }, []);
-
-  const visible = useMemo(() => report?.departments.filter(item =>
-    filter === "all" || (filter === "review" ? item.reviewRequired : item.status === filter)
-  ) ?? [], [report, filter]);
-
-  async function load(event: ChangeEvent<HTMLInputElement>) {
-    setError("");
-    setReport(null);
-    const file = event.target.files?.[0];
-    if (!file) return;
-    try {
-      if (file.size > MAX_SIZE) throw Error("Fichier trop volumineux (1 Mo maximum).");
-      const parsed: unknown = JSON.parse(await file.text());
-      setReport(validate(parsed));
-      setSourceMode("local");
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Impossible de lire le fichier.");
-    } finally {
-      event.target.value = "";
-    }
-  }
-
-  return <main className={styles.page}>
-    <div className={styles.wrap}>
-      <Link href="/" className={styles.back}>← Retour à Kalatty</Link>
-      <div className={styles.heading}>
-        <div><p className={styles.eyebrow}>KALATTY · AI OPERATIONS</p><h1>Control Center</h1>
-          <p>Supervision des rapports d'agents, anomalies et validations humaines.</p></div>
-        <span className={styles.badge}>v4 · historique sécurisé</span>
-      </div>
-      <div className={styles.notice}><strong>Accès protégé aux rapports enregistrés.</strong> Importez un fichier
-        <code> control-center.json </code> généré par le script de supervision. Le fichier est traité uniquement dans votre navigateur :
-        aucune donnée du fichier n'est envoyée à Kalatty. Les analyses IA à la demande utilisent uniquement des indicateurs agrégés. Aucun agent ne peut modifier, fusionner ou déployer depuis cette page.
-        Ne chargez pas de données confidentielles sur un poste partagé.</div>
-      <AgentsDirectory onChoose={setAiDepartment} />
-      <ApprovalCenter key={proposalVersion} />
-      <section className={styles.upload}>
-        <h2>Analyse GPT à la demande</h2>
-        <p>Chaque clic déclenche un appel API potentiellement facturé. Aucun lancement automatique.</p>
-        <label htmlFor="ai-department">Agent à analyser</label>
-        <select id="ai-department" value={aiDepartment} onChange={event => setAiDepartment(event.target.value)}>
-          {Object.entries(labels).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-        </select>
-        <button type="button" disabled={aiBusy} onClick={() => void requestAnalysis()}>
-          {aiBusy ? 'Analyse en cours…' : 'Lancer une analyse IA'}
-        </button>
-        {aiResult && <p role="status" style={{ whiteSpace: 'pre-wrap' }}>{aiResult}</p>}
-        {aiResult && <button type="button" disabled={savingProposal} onClick={() => void saveProposal()}>{savingProposal ? "Enregistrement…" : "Soumettre cette analyse à validation"}</button>}
-        {proposalFeedback && <p role="status">{proposalFeedback}</p>}
-        {loginRequired && <p><Link href="/login?next=%2Fai-control-center">Se connecter puis revenir au Control Center</Link></p>}
-      </section>
-      <section className={styles.upload}>
-        <label htmlFor="report">Importer un rapport JSON (1 Mo max.)</label>
-        <input id="report" type="file" accept=".json,application/json" onChange={load} />
-        {error && <p role="alert" className={styles.error}>{error}</p>}
-      </section>
-      {!report ? <section className={styles.empty}>Aucun rapport chargé. Le tableau de bord ne présente pas de données fictives comme des résultats réels.</section> : <>
-        <p className={styles.meta}>Rapport du {new Date(report.generatedAt).toLocaleString("fr-FR")} ·
-          <strong> {report.dataMode === "synthetic" ? "Données synthétiques" : "Origine non vérifiée"}</strong> · {sourceMode === "server" ? "Historique sécurisé" : "Fichier local"} · Supervision en direct désactivée</p>
-        <div className={styles.cards}>
-          {([["Agents", report.summary.total], ["Rapports disponibles", report.summary.reported],
-            ["Erreurs", report.summary.errors], ["À examiner", report.summary.reviewRequired]] as const)
-            .map(([label, count]) => <div className={styles.card} key={label}><span>{label}</span><strong>{count}</strong></div>)}
-        </div>
-        <section className={styles.panel}>
-          <div className={styles.panelHead}><h2>Départements</h2>
-            <label>Filtrer <select value={filter} onChange={e => setFilter(e.target.value)}>
-              <option value="all">Tous</option><option value="reported">Rapport disponible</option>
-              <option value="error">En erreur</option><option value="review">Validation nécessaire</option>
-            </select></label></div>
-          <div className={styles.tableWrap}><table><thead><tr><th>Agent</th><th>État</th><th>Constats</th><th>File</th><th>Revue</th><th>Source</th></tr></thead>
-            <tbody>{visible.map(item => <tr key={item.department}>
-              <td><strong>{labels[item.department]}</strong></td><td>{item.status === "reported" ? "Rapport reçu" : "Erreur"}</td>
-              <td>{item.findings}</td><td>{item.queue}</td><td>{item.reviewRequired ? "Requise" : "Non signalée"}</td>
-              <td title={item.source}>{sourceMode === "server" ? "Historique sécurisé" : "Fichier local"}</td>
-            </tr>)}</tbody></table>{visible.length === 0 && <p>Aucun résultat pour ce filtre.</p>}</div>
-        </section>
-        <section className={styles.panel}><h2>Anomalies signalées</h2>
-          {report.errors.length === 0 ? <p>Aucune erreur signalée par ce rapport.</p> :
-            <ul>{report.errors.map((item, index) => <li key={index}><strong>{labels[item.department]} · {item.code}</strong> — {item.message}</li>)}</ul>}
-        </section>
-      </>}
-    </div>
-  </main>;
+import styles from "./control-center.module.css";
+type Screen="overview"|"agents"|"analysis"|"approvals"|"reports"|"settings";
+type Proposal={id:string;status:string;department:string;title:string;created_at:string};
+type Agent={department:string;available:boolean;sources?:{table:string;available:boolean;count?:number}[]};
+const names:Record<string,string>={security:"Sécurité",qa:"Qualité",developer:"Développeur",ux:"UX / UI",product:"Produit",marketing:"Marketing",sales:"Commercial",support:"Support",finance:"Finance",analytics:"Analytics",crm:"CRM"};
+const icons:Record<string,string>={security:"◈",qa:"✓",developer:"⌘",ux:"◉",product:"▣",marketing:"✦",sales:"↗",support:"◎",finance:"◫",analytics:"▥",crm:"◇"};
+const missions:Record<string,string>={security:"Accès, risques et vulnérabilités",qa:"Tests, anomalies et régressions",developer:"Code, maintenance et performance",ux:"Parcours, interfaces et ergonomie",product:"Fonctionnalités et priorités",marketing:"Acquisition et campagnes",sales:"Prospects et conversions",support:"Tickets et satisfaction",finance:"Revenus, paiements et coûts",analytics:"Indicateurs et tendances",crm:"Relations et fidélisation"};
+const nav:{id:Screen;name:string;icon:string}[]=[{id:"overview",name:"Vue générale",icon:"▦"},{id:"agents",name:"Départements & agents",icon:"◈"},{id:"analysis",name:"Analyses IA",icon:"✦"},{id:"approvals",name:"Centre de validation",icon:"✓"},{id:"reports",name:"Rapports",icon:"▤"},{id:"settings",name:"Paramètres",icon:"⚙"}];
+const API=process.env.NEXT_PUBLIC_API_BASE_URL??"http://localhost:4000";
+function auth(){return localStorage.getItem("kalatty_token")??""}
+export default function ControlCenterPage(){
+ const [screen,setScreen]=useState<Screen>("overview"),[mobileNav,setMobileNav]=useState(false),[selected,setSelected]=useState<string|null>(null),[tab,setTab]=useState("overview");
+ const [agents,setAgents]=useState<Agent[]>([]),[proposals,setProposals]=useState<Proposal[]>([]),[error,setError]=useState(""),[loading,setLoading]=useState(true);
+ const [aiBusy,setAiBusy]=useState(false),[aiResult,setAiResult]=useState(""),[aiSuccess,setAiSuccess]=useState(false),[saving,setSaving]=useState(false),[notice,setNotice]=useState(""),[version,setVersion]=useState(0);
+ const [reports,setReports]=useState<{id?:string;created_at?:string;report?:unknown}[]>([]);
+ const refresh=useCallback(async()=>{
+  setLoading(true);setError("");
+  const token=auth();if(!token){setError("Connectez-vous pour accéder aux données du Control Center.");setLoading(false);return}
+  const headers={Authorization:"Bearer "+token};
+  try{const results=await Promise.allSettled([
+   fetch(API+"/ai-control-center/signals",{headers,cache:"no-store"}),
+   fetch(API+"/ai-control-center/proposals",{headers,cache:"no-store"}),
+   fetch(API+"/ai-control-center/reports",{headers,cache:"no-store"})
+  ]);
+   if(results[0].status==="fulfilled"&&results[0].value.ok){const x=await results[0].value.json() as {agents?:Agent[]};setAgents(Array.isArray(x.agents)?x.agents:[])}
+   if(results[1].status==="fulfilled"&&results[1].value.ok){const x=await results[1].value.json() as {proposals?:Proposal[]};setProposals(Array.isArray(x.proposals)?x.proposals:[])}
+   else setError("Les validations sont momentanément indisponibles.");
+   if(results[2].status==="fulfilled"&&results[2].value.ok){const x=await results[2].value.json() as {reports?:{id?:string;created_at?:string;report?:unknown}[]};setReports(Array.isArray(x.reports)?x.reports:[])}
+  }catch{setError("Impossible de charger les données.");}finally{setLoading(false)}
+ },[]);
+ useEffect(()=>{void refresh()},[refresh]);
+ function navigate(next:Screen){setScreen(next);setSelected(null);setMobileNav(false);window.scrollTo({top:0,behavior:"smooth"})}
+ function openAgent(id:string){setSelected(id);setTab("overview");setScreen("agents");setMobileNav(false);window.scrollTo({top:0,behavior:"smooth"})}
+ async function analyze(){if(aiBusy)return;setAiBusy(true);setAiResult("");setAiSuccess(false);setNotice("");try{const r=await fetch(API+"/ai-control-center/analyze",{method:"POST",headers:{Authorization:"Bearer "+auth(),"Content-Type":"application/json"},body:JSON.stringify({department:selected??"security"})});if(!r.ok)throw Error("Analyse indisponible ("+r.status+"). Vérifiez vos crédits et l'accès.");const x=await r.json() as {status:string;analysis?:string;reason?:string};if(x.status==="analyzed"&&x.analysis){setAiResult(x.analysis);setAiSuccess(true)}else setAiResult(x.reason??"Aucune analyse disponible.");}catch(e){setAiResult(e instanceof Error?e.message:"Erreur d'analyse")}finally{setAiBusy(false)}}
+ async function submit(){if(!aiSuccess||!aiResult||saving)return;setSaving(true);try{const r=await fetch(API+"/ai-control-center/proposals",{method:"POST",headers:{Authorization:"Bearer "+auth(),"Content-Type":"application/json"},body:JSON.stringify({department:selected??"security",title:"Analyse "+names[selected??"security"]+" à examiner",rationale:aiResult.slice(0,4000)})});if(!r.ok)throw Error("Enregistrement impossible ("+r.status+")");setNotice("Proposition transmise au Centre de validation.");setVersion(v=>v+1);await refresh()}catch(e){setNotice(e instanceof Error?e.message:"Erreur")}finally{setSaving(false)}}
+ const pending=proposals.filter(p=>p.status==="pending").length;
+ const current=agents.find(a=>a.department===selected);
+ const active=nav.find(n=>n.id===screen);
+ return <main className={styles.shell}>
+  {mobileNav&&<button className={styles.scrim} aria-label="Fermer le menu" onClick={()=>setMobileNav(false)}/>}
+  <aside className={styles.sidebar+" "+(mobileNav?styles.sidebarOpen:"")}>
+   <div className={styles.brand}><div className={styles.brandIcon}>◈</div><div><strong>KALATTY</strong><span>AI CONTROL CENTER</span></div><button className={styles.closeNav} onClick={()=>setMobileNav(false)} aria-label="Fermer">×</button></div>
+   <div className={styles.sideCaption}>ESPACE DE PILOTAGE</div>
+   <nav className={styles.navigation} aria-label="Navigation du Control Center">{nav.map(n=><button key={n.id} className={screen===n.id?styles.navActive:""} onClick={()=>navigate(n.id)}><span className={styles.navIcon}>{n.icon}</span><span>{n.name}</span>{n.id==="approvals"&&pending>0&&<b>{pending}</b>}</button>)}</nav>
+   <div className={styles.sideBottom}><div className={styles.safeIcon}>✓</div><div><strong>MODE SÉCURISÉ</strong><small>Validation humaine obligatoire</small></div></div>
+   <Link className={styles.backLink} href="/">← Retour à Kalatty</Link>
+  </aside>
+  <div className={styles.workspace}>
+   <header className={styles.topbar}><div className={styles.topLeft}><button className={styles.menuButton} onClick={()=>setMobileNav(true)} aria-label="Ouvrir le menu">☰</button><span className={styles.breadcrumb}>Kalatty <span>/</span> {active?.name}</span></div><span className={styles.humanBadge}><span>●</span> Contrôle humain actif</span></header>
+   <div className={styles.content}>
+    {error&&<div className={styles.alert} role="alert">{error} <Link href="/login?next=%2Fai-control-center">Se connecter</Link></div>}
+    {screen==="overview"&&<><div className={styles.pageHeading}><div><div className={styles.overline}>TABLEAU DE BORD</div><h1>Vue générale</h1><p>Pilotez vos 11 agents IA depuis un seul espace.</p></div><button className={styles.secondaryButton} onClick={()=>void refresh()}>↻ Actualiser</button></div>
+     <div className={styles.kpis}><div className={styles.kpi}><span>Agents IA</span><strong>11</strong><small>Départements configurés</small></div><div className={styles.kpi}><span>Propositions à valider</span><strong>{pending}</strong><small>En attente de décision</small></div><div className={styles.kpi}><span>Décisions prises</span><strong>{proposals.length-pending}</strong><small>Historique enregistré</small></div><div className={styles.kpi}><span>Rapports</span><strong>{reports.length}</strong><small>Documents disponibles</small></div></div>
+     <div className={styles.sectionHeading}><div><h2>Vos départements</h2><p>Accédez directement à l'espace de chaque agent.</p></div><button className={styles.textButton} onClick={()=>navigate("agents")}>Voir les 11 agents →</button></div>
+     <div className={styles.agentGrid}>{Object.entries(names).slice(0,6).map(([id,name])=><button key={id} className={styles.agentCard} onClick={()=>openAgent(id)}><span className={styles.agentIcon}>{icons[id]}</span><span className={styles.agentTitle}>{name}</span><small>{missions[id]}</small><span className={styles.cardFoot}>Ouvrir l'agent <span>↗</span></span></button>)}</div>
+     <div className={styles.quickPanel}><div><strong>Décisions en attente</strong><p>{pending?pending+" proposition(s) attendent votre validation.":"Aucune proposition en attente actuellement."}</p></div><button className={styles.primaryButton} onClick={()=>navigate("approvals")}>Centre de validation →</button></div>
+    </>}
+    {screen==="agents"&&!selected&&<><div className={styles.pageHeading}><div><div className={styles.overline}>DÉPARTEMENTS</div><h1>Vos agents IA</h1><p>Onze expertises, chacune avec son espace de travail.</p></div></div><div className={styles.agentGrid}>{Object.entries(names).map(([id,name])=><button key={id} className={styles.agentCard} onClick={()=>openAgent(id)}><span className={styles.agentIcon}>{icons[id]}</span><span className={styles.agentTitle}>{name}</span><small>{missions[id]}</small><span className={styles.cardFoot}>{agents.find(a=>a.department===id)?.available?"Sources disponibles":"Consulter l'agent"} <span>↗</span></span></button>)}</div></>}
+    {screen==="agents"&&selected&&<><button className={styles.textButton} onClick={()=>setSelected(null)}>← Tous les agents</button><div className={styles.pageHeading}><div><div className={styles.overline}>ESPACE INDIVIDUEL</div><h1><span className={styles.headingIcon}>{icons[selected]}</span> Agent {names[selected]}</h1><p>{missions[selected]}</p></div><button className={styles.primaryButton} onClick={()=>navigate("analysis")}>Lancer une analyse ↗</button></div>
+     <div className={styles.kpis+" "+styles.agentKpis}><div className={styles.kpi}><span>Sources suivies</span><strong>{current?.sources?.length??"—"}</strong></div><div className={styles.kpi}><span>Propositions</span><strong>{proposals.filter(p=>p.department===selected).length}</strong></div><div className={styles.kpi}><span>À valider</span><strong>{proposals.filter(p=>p.department===selected&&p.status==="pending").length}</strong></div></div>
+     <div className={styles.tabs} role="tablist" aria-label="Espace de l'agent">{[["overview","Vue d'ensemble"],["analysis","Analyses"],["history","Historique"],["settings","Configuration"]].map(([id,label])=><button role="tab" aria-selected={tab===id} key={id} onClick={()=>setTab(id)}>{label}</button>)}</div>
+     <div className={styles.detailGrid}><section className={styles.darkPanel}><h2>{tab==="overview"?"Sources et indicateurs":tab==="analysis"?"Analyse de l'agent":tab==="history"?"Historique des décisions":"Configuration de l'agent"}</h2>{tab==="overview"?(current?.sources?.length?<div className={styles.sourceList}>{current.sources.map((s,i)=><div key={s.table??i}><span>{s.table}</span><b>{s.available?(s.count??0)+" éléments":"Indisponible"}</b></div>)}</div>:<p>Aucune source détaillée disponible pour le moment.</p>):tab==="analysis"?<><p>Analyse manuelle sur données agrégées, sans action automatique.</p><button className={styles.primaryButton} onClick={()=>navigate("analysis")}>Ouvrir les analyses →</button></>:tab==="history"?<div className={styles.sourceList}>{proposals.filter(p=>p.department===selected).map(p=><div key={p.id}><span>{p.title}</span><b>{p.status}</b></div>)}{!proposals.some(p=>p.department===selected)&&<p>Aucune proposition enregistrée.</p>}</div>:<p>Accès en lecture seule. Les paramètres techniques et les autorisations sont contrôlés côté serveur.</p>}</section><aside className={styles.darkPanel}><h2>Garde-fous</h2><p>✓ Analyse déclenchée manuellement</p><p>✓ Aucune modification automatique</p><p>✓ Validation du propriétaire requise</p><button className={styles.secondaryButton} onClick={()=>navigate("approvals")}>Voir les validations →</button></aside></div>
+    </>}
+    {screen==="analysis"&&<><div className={styles.pageHeading}><div><div className={styles.overline}>INTELLIGENCE ARTIFICIELLE</div><h1>Analyses IA</h1><p>Examinez les signaux et soumettez des recommandations à validation.</p></div></div><section className={styles.darkPanel+" "+styles.analysisPanel}><label htmlFor="agent-select">Agent à analyser</label><select id="agent-select" value={selected??"security"} onChange={e=>setSelected(e.target.value)}>{Object.entries(names).map(([id,name])=><option value={id} key={id}>{name}</option>)}</select><p>Chaque analyse est manuelle et peut entraîner des frais d'API.</p><button className={styles.primaryButton} disabled={aiBusy} onClick={()=>void analyze()}>{aiBusy?"Analyse en cours…":"✦ Lancer une analyse"}</button>{aiResult&&<div className={styles.analysisResult}><h3>Résultat</h3><p>{aiResult}</p>{aiSuccess&&<button className={styles.primaryButton} disabled={saving} onClick={()=>void submit()}>{saving?"Enregistrement…":"Soumettre à validation →"}</button>}</div>}{notice&&<p role="status">{notice}</p>}</section></>}
+    {screen==="approvals"&&<><div className={styles.pageHeading}><div><div className={styles.overline}>DÉCISIONS HUMAINES</div><h1>Centre de validation</h1><p>Examinez les propositions et gardez le contrôle sur chaque décision.</p></div></div><ApprovalCenter key={version} /></>}
+    {screen==="reports"&&<><div className={styles.pageHeading}><div><div className={styles.overline}>HISTORIQUE</div><h1>Rapports</h1><p>Rapports enregistrés dans l'espace sécurisé.</p></div></div><section className={styles.darkPanel}><h2>Rapports disponibles</h2>{reports.length?reports.map((r,i)=><div className={styles.reportRow} key={r.id??i}><span>Rapport #{i+1}</span><small>{r.created_at?new Date(r.created_at).toLocaleString("fr-FR"):"Date indisponible"}</small></div>):<p>Aucun rapport enregistré.</p>}</section></>}
+    {screen==="settings"&&<><div className={styles.pageHeading}><div><div className={styles.overline}>SÉCURITÉ</div><h1>Paramètres</h1><p>Supervision et contrôle des accès.</p></div></div><section className={styles.darkPanel}><h2>Mode sécurisé actif</h2><p>Les agents travaillent sur des indicateurs agrégés. Les analyses sont manuelles. Les décisions sont enregistrées et n'autorisent aucune exécution.</p><p>Les paramètres sensibles restent protégés côté serveur.</p><Link href="/" className={styles.textButton}>Retour à Kalatty →</Link></section></>}
+    {loading&&<div className={styles.loading}>Actualisation des indicateurs…</div>}
+   </div>
+  </div>
+  <nav className={styles.mobileBar} aria-label="Navigation mobile">{[{id:"overview",name:"Accueil",icon:"▦"},{id:"agents",name:"Agents",icon:"◈"},{id:"analysis",name:"Analyses",icon:"✦"},{id:"approvals",name:"Validations",icon:"✓"}].map(n=><button key={n.id} aria-current={screen===n.id?"page":undefined} onClick={()=>navigate(n.id as Screen)}><span>{n.icon}</span><small>{n.name}</small>{n.id==="approvals"&&pending>0&&<b>{pending}</b>}</button>)}</nav>
+ </main>
 }
