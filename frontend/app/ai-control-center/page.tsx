@@ -78,6 +78,31 @@ function validate(value: unknown): Report {
 }
 
 export default function ControlCenterPage() {
+  const [aiDepartment, setAiDepartment] = useState('security');
+  const [aiResult, setAiResult] = useState('');
+  const [aiBusy, setAiBusy] = useState(false);
+  async function requestAnalysis() {
+    if (aiBusy) return;
+    const token = localStorage.getItem('kalatty_token');
+    if (!token) { setAiResult('Connectez-vous à Kalatty pour lancer une analyse.'); return; }
+    setAiBusy(true);
+    setAiResult('');
+    try {
+      const response = await fetch(API_BASE + '/ai-control-center/analyze', {
+        method: 'POST', cache: 'no-store',
+        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ department: aiDepartment }),
+      });
+      if (!response.ok) throw Error('Analyse indisponible (' + response.status + '). Vérifiez votre accès et les crédits API.');
+      const data: unknown = await response.json();
+      if (!data || typeof data !== 'object' || !('status' in data)) throw Error('Réponse IA invalide');
+      const result = data as { status: string; analysis?: string; reason?: string };
+      setAiResult(result.status === 'analyzed' && typeof result.analysis === 'string'
+        ? result.analysis : result.reason ?? 'Analyse impossible : données insuffisantes.');
+    } catch (cause) {
+      setAiResult(cause instanceof Error ? cause.message : 'Erreur de connexion');
+    } finally { setAiBusy(false); }
+  }
   const [report, setReport] = useState<Report | null>(null);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("all");
@@ -142,8 +167,20 @@ export default function ControlCenterPage() {
       </div>
       <div className={styles.notice}><strong>Accès protégé aux rapports enregistrés.</strong> Importez un fichier
         <code> control-center.json </code> généré par le script de supervision. Le fichier est traité uniquement dans votre navigateur :
-        aucune donnée n'est envoyée à Kalatty. Aucun agent ne peut être exécuté, fusionné ou déployé depuis cette page.
+        aucune donnée du fichier n'est envoyée à Kalatty. Les analyses IA à la demande utilisent uniquement des indicateurs agrégés. Aucun agent ne peut modifier, fusionner ou déployer depuis cette page.
         Ne chargez pas de données confidentielles sur un poste partagé.</div>
+      <section className={styles.upload}>
+        <h2>Analyse GPT à la demande</h2>
+        <p>Chaque clic déclenche un appel API potentiellement facturé. Aucun lancement automatique.</p>
+        <label htmlFor="ai-department">Agent à analyser</label>
+        <select id="ai-department" value={aiDepartment} onChange={event => setAiDepartment(event.target.value)}>
+          {Object.entries(labels).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+        </select>
+        <button type="button" disabled={aiBusy} onClick={() => void requestAnalysis()}>
+          {aiBusy ? 'Analyse en cours…' : 'Lancer une analyse IA'}
+        </button>
+        {aiResult && <p role="status" style={{ whiteSpace: 'pre-wrap' }}>{aiResult}</p>}
+      </section>
       <section className={styles.upload}>
         <label htmlFor="report">Importer un rapport JSON (1 Mo max.)</label>
         <input id="report" type="file" accept=".json,application/json" onChange={load} />
