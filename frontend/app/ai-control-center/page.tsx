@@ -79,12 +79,14 @@ function validate(value: unknown): Report {
 
 export default function ControlCenterPage() {
   const [aiDepartment, setAiDepartment] = useState('security');
+  const [loginRequired, setLoginRequired] = useState(false);
   const [aiResult, setAiResult] = useState('');
   const [aiBusy, setAiBusy] = useState(false);
   async function requestAnalysis() {
     if (aiBusy) return;
     const token = localStorage.getItem('kalatty_token');
-    if (!token) { setAiResult('Connectez-vous à Kalatty pour lancer une analyse.'); return; }
+    if (!token) { setLoginRequired(true); setAiResult('Connexion nécessaire pour lancer une analyse.'); return; }
+    setLoginRequired(false);
     setAiBusy(true);
     setAiResult('');
     try {
@@ -180,6 +182,7 @@ export default function ControlCenterPage() {
           {aiBusy ? 'Analyse en cours…' : 'Lancer une analyse IA'}
         </button>
         {aiResult && <p role="status" style={{ whiteSpace: 'pre-wrap' }}>{aiResult}</p>}
+        {loginRequired && <p><Link href="/login?next=%2Fai-control-center">Se connecter puis revenir au Control Center</Link></p>}
       </section>
       <section className={styles.upload}>
         <label htmlFor="report">Importer un rapport JSON (1 Mo max.)</label>
