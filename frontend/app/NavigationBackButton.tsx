@@ -10,7 +10,8 @@ export default function NavigationBackButton() {
     pathname === "/" ||
     pathname?.startsWith("/establishment") ||
     pathname?.startsWith("/learn") ||
-    pathname?.startsWith("/creator")
+    pathname?.startsWith("/creator") ||
+    pathname?.startsWith("/ai-control-center")
   ) {
     return null;
   }
