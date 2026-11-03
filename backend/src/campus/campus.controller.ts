@@ -52,7 +52,7 @@ export class CampusController {
 
   @Get('context')
   getContext(@Req() req: RequestUser) {
-    return this.campusService.getContext(req.user);
+    return this.campusService.getContext(req.user, true);
   }
 
   @Get('home')

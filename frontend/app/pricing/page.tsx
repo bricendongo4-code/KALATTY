@@ -116,7 +116,7 @@ export default function PricingPage() {
             {institutionPlans.map((plan) => (
               <article key={plan.name} className={styles.card}>
                 <h3>{plan.name}</h3>
-                <strong className={styles.price}>{plan.price}</strong>
+                <strong className={styles.price}>{plan.price} / 30 jours</strong>
                 <p>{plan.audience}</p>
                 <ul className={styles.list}>
                   {plan.features.map((feature) => (

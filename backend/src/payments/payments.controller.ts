@@ -46,6 +46,7 @@ export class PaymentsController {
     return this.paymentsService.createCourseCheckout(
       req.user,
       body.courseId?.trim(),
+      body,
     );
   }
 
@@ -55,6 +56,25 @@ export class PaymentsController {
     @Param('paymentId') paymentId: string,
   ) {
     return this.paymentsService.confirmCoursePayment(req.user, paymentId);
+  }
+
+  @Get('institutions/:institutionId/billing-summary')
+  getInstitutionBillingSummary(
+    @Req() req: RequestUser,
+    @Param('institutionId') institutionId: string,
+  ) {
+    return this.paymentsService.getInstitutionBillingSummary(
+      req.user,
+      institutionId,
+    );
+  }
+
+  @Get('institutions/:institutionId/billing')
+  getInstitutionBilling(
+    @Req() req: RequestUser,
+    @Param('institutionId') institutionId: string,
+  ) {
+    return this.paymentsService.getInstitutionBilling(req.user, institutionId);
   }
 
   @Post('institutions/:institutionId/checkout')
@@ -67,6 +87,7 @@ export class PaymentsController {
       req.user,
       institutionId,
       body.planName?.trim(),
+      body,
     );
   }
 

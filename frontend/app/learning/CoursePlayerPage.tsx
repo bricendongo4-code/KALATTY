@@ -327,35 +327,7 @@ export default function CoursePlayerPage({
         await load();
         return;
       } else {
-        const checkoutResponse = await fetch(
-          `${API_BASE}/payments/course-checkout`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ courseId }),
-          },
-        );
-        const checkout = await checkoutResponse.json();
-        if (!checkoutResponse.ok)
-          throw new Error(checkout.message ?? "Paiement impossible.");
-        if (!checkout.alreadyEnrolled) {
-          if (checkout.paymentUrl) {
-            window.location.assign(checkout.paymentUrl);
-            return;
-          }
-          setAccessMessage(
-            checkout.instructions ??
-              "Votre demande de paiement est enregistrée. L’accès sera activé après confirmation du paiement.",
-          );
-          return;
-        }
-        setAccessMessage(
-          "Paiement confirmé. Votre inscription au cours est maintenant active.",
-        );
-        await load();
+        router.push(`/checkout?course=${encodeURIComponent(courseId)}`);
         return;
       }
     } catch (reason) {

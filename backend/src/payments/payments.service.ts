@@ -1,3 +1,5 @@
+import { membershipPeriodActive } from '../commerce/billing-period';
+import { CheckoutDetailsDto } from './dto/checkout.dto';
 import {
   BadRequestException,
   ForbiddenException,
@@ -16,6 +18,10 @@ type InstitutionPlanName = 'starter' | 'growth' | 'campus';
 @Injectable()
 export class PaymentsService {
   constructor(private readonly supabaseService: SupabaseService) {}
+
+  private get db(): any {
+    return this.supabaseService.client;
+  }
 
   private readonly institutionPlans: Record<
     InstitutionPlanName,
@@ -57,12 +63,24 @@ export class PaymentsService {
         enabled: paymentsEnabled,
         testAccessEnabled,
         platformFeePercent: 15,
-        description:
-          paymentsEnabled
-            ? 'Les cours gratuits sont accessibles apres inscription. Les cours payants activent un paiement par cours.'
-            : testAccessEnabled
-              ? "Mode test actif : l'acces aux cours est accorde sans debit reel."
-              : "Les inscriptions gratuites restent disponibles. Les paiements sont desactives jusqu'a la connexion d'un prestataire securise.",
+        methods: [
+          {
+            code: 'mobile_money',
+            label: 'Orange Money / MTN MoMo',
+            enabled: paymentsEnabled,
+          },
+          {
+            code: 'card',
+            label: 'Carte bancaire',
+            enabled:
+              paymentsEnabled && process.env.CINETPAY_CARD_ENABLED === 'true',
+          },
+        ],
+        description: paymentsEnabled
+          ? 'Les cours gratuits sont accessibles apres inscription. Les cours payants activent un paiement par cours.'
+          : testAccessEnabled
+            ? "Mode test actif : l'acces aux cours est accorde sans debit reel."
+            : "Les inscriptions gratuites restent disponibles. Les paiements sont desactives jusqu'a la connexion d'un prestataire securise.",
       },
       institutionPlans: Object.entries(this.institutionPlans).map(
         ([code, plan]) => ({
@@ -71,6 +89,7 @@ export class PaymentsService {
           amountFcfa: plan.amountFcfa,
           maxStudents: plan.maxStudents,
           maxRooms: plan.maxRooms,
+          durationDays: 30,
         }),
       ),
       nextProviderIntegration: {
@@ -81,10 +100,10 @@ export class PaymentsService {
   }
 
   async getMyPayments(user: AuthUser) {
-    const { data, error } = await this.supabaseService.client
+    const { data, error } = await this.db
       .from('payments')
       .select(
-        'id, course_id, amount_fcfa, status, created_at, courses ( id, title )',
+        'id, course_id, amount_fcfa, status, verification_source, created_at, courses ( id, title )',
       )
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
@@ -107,7 +126,10 @@ export class PaymentsService {
           amountFcfa: Number(payment.amount_fcfa ?? 0),
           status: String(payment.status ?? 'pending'),
           createdAt: payment.created_at,
-          receiptAvailable: payment.status === 'paid',
+          verificationSource: payment.verification_source,
+          receiptAvailable:
+            payment.status === 'paid' &&
+            payment.verification_source === 'cinetpay',
         };
       }),
     };
@@ -121,16 +143,14 @@ export class PaymentsService {
       );
     }
 
-    let query = this.supabaseService.client
+    let query = this.db
       .from('payments')
       .select(
-        'id, user_id, course_id, amount_fcfa, platform_fee_fcfa, teacher_earning_fcfa, status, created_at, courses ( id, title )',
+        'id, user_id, course_id, amount_fcfa, platform_fee_fcfa, teacher_earning_fcfa, status, verification_source, created_at, courses ( id, title )',
       )
       .order('created_at', { ascending: false });
 
-    if (role !== 'admin') {
-      query = query.eq('teacher_id', user.id);
-    }
+    query = query.eq('teacher_id', user.id);
 
     const { data, error } = await query;
     if (error) {
@@ -151,11 +171,15 @@ export class PaymentsService {
         platformFeeFcfa: Number(payment.platform_fee_fcfa ?? 0),
         trainerNetFcfa: Number(payment.teacher_earning_fcfa ?? 0),
         status: String(payment.status ?? 'pending'),
+        verificationSource: payment.verification_source,
         createdAt: payment.created_at,
       };
     });
 
-    const paid = transactions.filter((item) => item.status === 'paid');
+    const paid = transactions.filter(
+      (item: any) =>
+        item.status === 'paid' && item.verificationSource === 'cinetpay',
+    );
     const pending = transactions.filter((item) =>
       ['pending', 'processing'].includes(item.status),
     );
@@ -176,7 +200,11 @@ export class PaymentsService {
     };
   }
 
-  async createCourseCheckout(user: AuthUser, courseId?: string) {
+  async createCourseCheckout(
+    user: AuthUser,
+    courseId?: string,
+    details: CheckoutDetailsDto = {},
+  ) {
     if (!courseId) {
       throw new BadRequestException('Le cours a payer est introuvable.');
     }
@@ -188,13 +216,12 @@ export class PaymentsService {
       );
     }
 
-    const { data: course, error: courseError } =
-      await this.supabaseService.client
-        .from('courses')
-        .select('id, title, teacher_id, price_fcfa, status')
-        .eq('id', courseId)
-        .eq('status', 'published')
-        .maybeSingle();
+    const { data: course, error: courseError } = await this.db
+      .from('courses')
+      .select('id, title, teacher_id, price_fcfa, status')
+      .eq('id', courseId)
+      .eq('status', 'published')
+      .maybeSingle();
 
     if (courseError || !course) {
       throw new BadRequestException(
@@ -226,13 +253,14 @@ export class PaymentsService {
     }
 
     const provider = process.env.PAYMENT_PROVIDER?.trim()?.toLowerCase();
+    const customer = this.checkoutCustomer(details);
     if (!this.isCinetPayConfigured()) {
       throw new BadRequestException(
         "Le paiement CinetPay n'est pas encore configuré. Aucun débit ni demande de paiement n'a été créé.",
       );
     }
 
-    const { data: enrollment } = await this.supabaseService.client
+    const { data: enrollment } = await this.db
       .from('enrollments')
       .select('id')
       .eq('user_id', user.id)
@@ -249,18 +277,17 @@ export class PaymentsService {
     const platformFeeFcfa = Math.round(priceFcfa * 0.15);
     const teacherEarningFcfa = Math.max(priceFcfa - platformFeeFcfa, 0);
 
-    const { data: existingPayment, error: existingPaymentError } =
-      await this.supabaseService.client
-        .from('payments')
-        .select(
-          'id, amount_fcfa, platform_fee_fcfa, teacher_earning_fcfa, status, created_at',
-        )
-        .eq('user_id', user.id)
-        .eq('course_id', course.id)
-        .in('status', ['pending', 'processing'])
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+    const { data: existingPayment, error: existingPaymentError } = await this.db
+      .from('payments')
+      .select(
+        'id, amount_fcfa, platform_fee_fcfa, teacher_earning_fcfa, status, created_at,checkout_url,checkout_channel',
+      )
+      .eq('user_id', user.id)
+      .eq('course_id', course.id)
+      .in('status', ['pending', 'processing'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     if (existingPaymentError) {
       throw new BadRequestException(
@@ -271,7 +298,7 @@ export class PaymentsService {
 
     let payment = existingPayment;
     if (!payment) {
-      const { data: createdPayment, error } = await this.supabaseService.client
+      const { data: createdPayment, error } = await this.db
         .from('payments')
         .insert({
           user_id: user.id,
@@ -283,7 +310,7 @@ export class PaymentsService {
           status: 'pending',
         })
         .select(
-          'id, amount_fcfa, platform_fee_fcfa, teacher_earning_fcfa, status, created_at',
+          'id, amount_fcfa, platform_fee_fcfa, teacher_earning_fcfa, status, created_at,checkout_url,checkout_channel',
         )
         .single();
 
@@ -295,23 +322,18 @@ export class PaymentsService {
       payment = createdPayment;
     }
 
-    let checkout: { paymentUrl: string };
-    try {
-      checkout = await this.initializeCinetPayCheckout({
-        paymentId: String(payment.id),
-        amountFcfa: Number(payment.amount_fcfa ?? 0),
-        courseId: String(course.id),
-        courseTitle: String(course.title ?? 'Cours Kalatty'),
-        userId: user.id,
-      });
-    } catch (error) {
-      await this.supabaseService.client
-        .from('payments')
-        .update({ status: 'failed' })
-        .eq('id', payment.id)
-        .neq('status', 'paid');
-      throw error;
-    }
+    if (Number(payment.amount_fcfa) !== priceFcfa)
+      throw new BadRequestException(
+        'Une transaction en attente utilise un autre prix. Contactez le support avant de payer.',
+      );
+    const checkout = await this.reuseCheckout('payments', payment, {
+      paymentId: String(payment.id),
+      amountFcfa: Number(payment.amount_fcfa),
+      courseId: String(course.id),
+      courseTitle: String(course.title ?? 'Cours Kalatty'),
+      userId: user.id,
+      customer,
+    });
 
     return {
       paymentId: payment.id,
@@ -346,14 +368,13 @@ export class PaymentsService {
       );
     }
 
-    const { data: payment, error: paymentError } =
-      await this.supabaseService.client
-        .from('payments')
-        .select(
-          'id, user_id, course_id, teacher_id, amount_fcfa, platform_fee_fcfa, teacher_earning_fcfa, status',
-        )
-        .eq('id', paymentId)
-        .maybeSingle();
+    const { data: payment, error: paymentError } = await this.db
+      .from('payments')
+      .select(
+        'id, user_id, course_id, teacher_id, amount_fcfa, platform_fee_fcfa, teacher_earning_fcfa, status',
+      )
+      .eq('id', paymentId)
+      .maybeSingle();
 
     if (paymentError || !payment) {
       throw new BadRequestException(
@@ -367,7 +388,7 @@ export class PaymentsService {
       );
     }
 
-    await this.activateCoursePayment(payment);
+    await this.activateCoursePayment(payment, false);
 
     return {
       paymentId: payment.id,
@@ -383,17 +404,32 @@ export class PaymentsService {
       throw new ServiceUnavailableException('CinetPay n’est pas configuré.');
     }
     const paymentId = this.paymentIdFromTransactionId(transactionId);
-    const { data: payment, error } = await this.supabaseService.client
+    const { data: coursePayment, error } = await this.db
       .from('payments')
       .select(
-        'id, user_id, course_id, teacher_id, amount_fcfa, platform_fee_fcfa, teacher_earning_fcfa, status',
+        'id,user_id,course_id,teacher_id,amount_fcfa,status,verification_source',
       )
       .eq('id', paymentId)
       .maybeSingle();
-    if (error || !payment) {
-      throw new BadRequestException(error?.message ?? 'Transaction inconnue.');
-    }
-
+    if (error)
+      throw new ServiceUnavailableException(
+        'Vérification momentanément indisponible.',
+      );
+    const institutionResult = coursePayment
+      ? null
+      : await this.db
+          .from('institution_billing_payments')
+          .select('id,amount_fcfa,status')
+          .eq('id', paymentId)
+          .maybeSingle();
+    if (institutionResult?.error)
+      throw new ServiceUnavailableException(
+        'Vérification momentanément indisponible.',
+      );
+    const payment = coursePayment ?? institutionResult?.data;
+    if (!payment) throw new BadRequestException('Transaction inconnue.');
+    if (payment.status === 'refunded')
+      throw new BadRequestException('Transaction remboursée.');
     const verification = await this.verifyCinetPayTransaction(
       this.transactionIdFromPaymentId(paymentId),
     );
@@ -407,15 +443,24 @@ export class PaymentsService {
     if (!accepted) {
       const nextStatus =
         verification.data?.status === 'REFUSED' ? 'failed' : 'processing';
-      await this.supabaseService.client
-        .from('payments')
+      await this.db
+        .from(coursePayment ? 'payments' : 'institution_billing_payments')
         .update({ status: nextStatus })
         .eq('id', payment.id)
         .neq('status', 'paid');
       return { received: true, paid: false, status: nextStatus };
     }
 
-    await this.activateCoursePayment(payment);
+    if (coursePayment) await this.activateCoursePayment(payment, true);
+    else {
+      const r = await this.db.rpc('confirm_institution_payment', {
+        payment: payment.id,
+      });
+      if (r.error)
+        throw new ServiceUnavailableException(
+          'Activation de l’abonnement à vérifier.',
+        );
+    }
     return { received: true, paid: true, status: 'paid' };
   }
 
@@ -423,6 +468,7 @@ export class PaymentsService {
     user: AuthUser,
     institutionId: string,
     planName?: string,
+    details: CheckoutDetailsDto = {},
   ) {
     const membershipRole = await this.getInstitutionAccessRole(
       user.id,
@@ -438,24 +484,188 @@ export class PaymentsService {
     const plan = this.institutionPlans[normalizedPlan];
     const institution = await this.getInstitutionForBilling(institutionId);
 
+    if (
+      institution.paid_until &&
+      new Date(institution.paid_until) > new Date() &&
+      institution.plan_name !== normalizedPlan
+    )
+      throw new BadRequestException(
+        'Le changement de forfait sera disponible à la fin de la période payée. Vous pouvez renouveler le forfait actuel.',
+      );
+    if (!this.isCinetPayConfigured())
+      throw new ServiceUnavailableException(
+        'Les paiements établissements seront disponibles après connexion du prestataire. Aucun débit effectué.',
+      );
+    const customer = this.checkoutCustomer(details);
+    const existing = await this.db
+      .from('institution_billing_payments')
+      .select('*')
+      .eq('institution_id', institutionId)
+      .eq('user_id', user.id)
+      .eq('plan_name', normalizedPlan)
+      .in('status', ['pending', 'processing'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (existing.error)
+      throw new ServiceUnavailableException('Abonnement indisponible.');
+    let payment = existing.data;
+    if (!payment) {
+      const r = await this.db
+        .from('institution_billing_payments')
+        .insert({
+          institution_id: institutionId,
+          user_id: user.id,
+          plan_name: normalizedPlan,
+          amount_fcfa: plan.amountFcfa,
+          max_students: plan.maxStudents,
+          max_rooms: plan.maxRooms,
+        })
+        .select()
+        .single();
+      if (r.error)
+        throw new ServiceUnavailableException(
+          'Actualisez avant de réessayer le paiement.',
+        );
+      payment = r.data;
+    }
+    const checkout = await this.reuseCheckout(
+      'institution_billing_payments',
+      payment,
+      {
+        paymentId: payment.id,
+        amountFcfa: payment.amount_fcfa,
+        courseTitle: `Forfait ${plan.label} 30 jours`,
+        userId: user.id,
+        institutionId,
+        customer,
+      },
+    );
     return {
-      enabled: false,
-      provider: 'pending_configuration',
-      providerLabel: 'Abonnement établissement bientôt disponible',
-      institution: {
-        id: institution.id,
-        name: institution.name ?? 'Etablissement',
-      },
-      plan: {
-        code: normalizedPlan,
-        label: plan.label,
-        amountFcfa: plan.amountFcfa,
-        maxStudents: plan.maxStudents,
-        maxRooms: plan.maxRooms,
-      },
+      ...checkout,
+      paymentId: payment.id,
+      amountFcfa: payment.amount_fcfa,
+      institution: { id: institution.id, name: institution.name },
+      plan: { code: normalizedPlan, durationDays: 30 },
       instructions:
-        "Aucun paiement n'est demandé pour le moment. L'abonnement sera activé uniquement après l'intégration d'un parcours marchand dédié aux établissements.",
+        'Accès activé pour 30 jours après confirmation du prestataire. Aucun prélèvement automatique.',
     };
+  }
+
+  private async reuseCheckout(
+    table: string,
+    payment: any,
+    input: Parameters<PaymentsService['initializeCinetPayCheckout']>[0],
+  ) {
+    if (!payment.checkout_channel) {
+      const claim = await this.db
+        .from(table)
+        .update({ checkout_channel: input.customer.channels })
+        .eq('id', payment.id)
+        .is('checkout_channel', null)
+        .select('checkout_url,checkout_channel')
+        .maybeSingle();
+      if (claim.error)
+        throw new ServiceUnavailableException(
+          'Paiement en attente de rapprochement.',
+        );
+      if (claim.data) payment = { ...payment, ...claim.data };
+      else {
+        const latest = await this.db
+          .from(table)
+          .select('checkout_url,checkout_channel')
+          .eq('id', payment.id)
+          .single();
+        if (latest.error)
+          throw new ServiceUnavailableException('Actualisez la transaction.');
+        payment = { ...payment, ...latest.data };
+      }
+    }
+    if (payment.checkout_channel !== input.customer.channels)
+      throw new BadRequestException(
+        'Un paiement est déjà préparé avec un autre moyen. Reprenez ce moyen ou contactez le support pour vérifier la transaction.',
+      );
+    if (payment.checkout_url)
+      return { paymentUrl: String(payment.checkout_url) };
+    const checkout = await this.initializeCinetPayCheckout(input);
+    const saved = await this.db
+      .from(table)
+      .update({ checkout_url: checkout.paymentUrl })
+      .eq('id', payment.id)
+      .eq('checkout_channel', input.customer.channels);
+    if (saved.error)
+      throw new ServiceUnavailableException(
+        'Paiement préparé chez le prestataire, retour en attente de rapprochement. Ne créez pas une seconde transaction.',
+      );
+    return checkout;
+  }
+
+  private checkoutCustomer(details: CheckoutDetailsDto) {
+    const card = details.paymentMethod === 'card';
+    if (card && process.env.CINETPAY_CARD_ENABLED !== 'true')
+      throw new BadRequestException(
+        'Le paiement par carte attend son activation par le prestataire.',
+      );
+    if (card) {
+      for (const field of [
+        'customerName',
+        'customerSurname',
+        'customerEmail',
+        'customerPhone',
+        'customerAddress',
+        'customerCity',
+        'customerCountry',
+        'customerZipCode',
+      ] as const)
+        if (!details[field]?.trim())
+          throw new BadRequestException(
+            'Complétez les coordonnées de facturation pour payer par carte.',
+          );
+      if (!/^[A-Z]{2}$/i.test(details.customerCountry!))
+        throw new BadRequestException('Code pays sur 2 lettres requis.');
+    }
+    return {
+      channels: card ? 'CREDIT_CARD' : 'MOBILE_MONEY',
+      customer_name: details.customerName,
+      customer_surname: details.customerSurname,
+      customer_email: details.customerEmail,
+      customer_phone_number: details.customerPhone,
+      customer_address: details.customerAddress,
+      customer_city: details.customerCity,
+      customer_country: details.customerCountry?.toUpperCase(),
+      customer_zip_code: details.customerZipCode,
+    };
+  }
+
+  async getInstitutionBillingSummary(user: AuthUser, institutionId: string) {
+    const role = await this.getInstitutionAccessRole(user.id, institutionId);
+    if (!role || !['owner', 'admin'].includes(role))
+      throw new ForbiddenException('Facturation réservée aux responsables.');
+    const r = await this.db
+      .from('institutions')
+      .select(
+        'id,name,plan_name,subscription_status,max_students,max_rooms,paid_until',
+      )
+      .eq('id', institutionId)
+      .single();
+    if (r.error)
+      throw new ServiceUnavailableException('Abonnement indisponible.');
+    return r.data;
+  }
+
+  async getInstitutionBilling(user: AuthUser, institutionId: string) {
+    const role = await this.getInstitutionAccessRole(user.id, institutionId);
+    if (!role || !['owner', 'admin'].includes(role))
+      throw new ForbiddenException('Facturation réservée aux responsables.');
+    const r = await this.db
+      .from('institution_billing_payments')
+      .select('id,amount_fcfa,plan_name,status,created_at,verified_at')
+      .eq('institution_id', institutionId)
+      .order('created_at', { ascending: false })
+      .limit(100);
+    if (r.error)
+      throw new ServiceUnavailableException('Historique indisponible.');
+    return r.data ?? [];
   }
 
   private isCinetPayConfigured() {
@@ -469,9 +679,8 @@ export class PaymentsService {
   }
 
   private isCourseTestAccessEnabled() {
-    const configured = process.env.COURSE_TEST_ACCESS_ENABLED
-      ?.trim()
-      .toLowerCase();
+    const configured =
+      process.env.COURSE_TEST_ACCESS_ENABLED?.trim().toLowerCase();
     if (configured === 'true') return true;
     if (configured === 'false') return false;
     return !this.isCinetPayConfigured();
@@ -480,7 +689,9 @@ export class PaymentsService {
   private async initializeCinetPayCheckout(input: {
     paymentId: string;
     amountFcfa: number;
-    courseId: string;
+    courseId?: string;
+    institutionId?: string;
+    customer: ReturnType<PaymentsService['checkoutCustomer']>;
     courseTitle: string;
     userId: string;
   }) {
@@ -490,25 +701,34 @@ export class PaymentsService {
       );
     }
     const transactionId = this.transactionIdFromPaymentId(input.paymentId);
-    const response = await fetch('https://api-checkout.cinetpay.com/v2/payment', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        apikey: process.env.CINETPAY_API_KEY,
-        site_id: process.env.CINETPAY_SITE_ID,
-        transaction_id: transactionId,
-        amount: input.amountFcfa,
-        currency: 'XAF',
-        description: `Cours Kalatty ${input.courseTitle}`
-          .replace(/[^a-zA-Z0-9À-ÿ ]/g, ' ')
-          .slice(0, 120),
-        notify_url: `${this.publicApiUrl()}/payments/cinetpay/notify`,
-        return_url: `${process.env.FRONTEND_URL?.replace(/\/$/, '')}/learn/courses/${input.courseId}?payment=return`,
-        channels: 'MOBILE_MONEY',
-        lang: 'FR',
-        metadata: JSON.stringify({ paymentId: input.paymentId, userId: input.userId }),
-      }),
-    });
+    const response = await fetch(
+      'https://api-checkout.cinetpay.com/v2/payment',
+      {
+        method: 'POST',
+        signal: AbortSignal.timeout(15000),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          apikey: process.env.CINETPAY_API_KEY,
+          site_id: process.env.CINETPAY_SITE_ID,
+          transaction_id: transactionId,
+          amount: input.amountFcfa,
+          currency: 'XAF',
+          description: `Kalatty ${input.courseTitle}`
+            .replace(/[^a-zA-Z0-9À-ÿ ]/g, ' ')
+            .slice(0, 120),
+          notify_url: `${this.publicApiUrl()}/payments/cinetpay/notify`,
+          return_url: input.institutionId
+            ? `${process.env.FRONTEND_URL?.replace(/\/$/, '')}/establishment/admin/finances?payment=return`
+            : `${process.env.FRONTEND_URL?.replace(/\/$/, '')}/learn/courses/${input.courseId}?payment=return`,
+          ...input.customer,
+          lang: 'FR',
+          metadata: JSON.stringify({
+            paymentId: input.paymentId,
+            userId: input.userId,
+          }),
+        }),
+      },
+    );
     const body = (await response.json().catch(() => ({}))) as {
       code?: string;
       message?: string;
@@ -517,10 +737,21 @@ export class PaymentsService {
     };
     if (!response.ok || body.code !== '201' || !body.data?.payment_url) {
       throw new ServiceUnavailableException(
-        body.description ?? body.message ?? 'CinetPay est momentanément indisponible.',
+        body.description ??
+          body.message ??
+          'CinetPay est momentanément indisponible.',
       );
     }
-    return { paymentUrl: body.data.payment_url };
+    const url = new URL(body.data.payment_url);
+    if (
+      url.protocol !== 'https:' ||
+      !(
+        url.hostname === 'checkout.cinetpay.com' ||
+        url.hostname.endsWith('.cinetpay.com')
+      )
+    )
+      throw new ServiceUnavailableException('Adresse de paiement inattendue.');
+    return { paymentUrl: url.toString() };
   }
 
   private async verifyCinetPayTransaction(transactionId: string) {
@@ -528,6 +759,7 @@ export class PaymentsService {
       'https://api-checkout.cinetpay.com/v2/payment/check',
       {
         method: 'POST',
+        signal: AbortSignal.timeout(15000),
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           apikey: process.env.CINETPAY_API_KEY,
@@ -549,29 +781,49 @@ export class PaymentsService {
     return body;
   }
 
-  private async activateCoursePayment(payment: {
-    id: string;
-    user_id: string;
-    course_id: string;
-    status: string;
-  }) {
-    if (payment.status !== 'paid') {
-      const { error } = await this.supabaseService.client
+  private async activateCoursePayment(
+    payment: {
+      id: string;
+      user_id: string;
+      course_id: string;
+      status: string;
+    },
+    providerVerified: boolean,
+  ) {
+    if (providerVerified) {
+      const r = await this.db.rpc('confirm_course_payment', {
+        payment: payment.id,
+      });
+      if (r.error)
+        throw new ServiceUnavailableException(
+          'Paiement à rapprocher : activation non confirmée.',
+        );
+      return;
+    }
+    if (payment.status === 'refunded')
+      throw new BadRequestException('Paiement remboursé.');
+    if (payment.status !== 'paid' || providerVerified) {
+      const { error } = await this.db
         .from('payments')
-        .update({ status: 'paid' })
+        .update({
+          status: 'paid',
+          verification_source: providerVerified ? 'cinetpay' : 'demo',
+          ...(providerVerified
+            ? { verified_at: new Date().toISOString() }
+            : {}),
+        })
         .eq('id', payment.id);
       if (error) throw new BadRequestException(error.message);
     }
-    const { data: enrollment, error: lookupError } =
-      await this.supabaseService.client
-        .from('enrollments')
-        .select('id')
-        .eq('user_id', payment.user_id)
-        .eq('course_id', payment.course_id)
-        .maybeSingle();
+    const { data: enrollment, error: lookupError } = await this.db
+      .from('enrollments')
+      .select('id')
+      .eq('user_id', payment.user_id)
+      .eq('course_id', payment.course_id)
+      .maybeSingle();
     if (lookupError) throw new BadRequestException(lookupError.message);
     if (!enrollment) {
-      const { error } = await this.supabaseService.client
+      const { error } = await this.db
         .from('enrollments')
         .insert({ user_id: payment.user_id, course_id: payment.course_id });
       if (error) throw new BadRequestException(error.message);
@@ -598,12 +850,11 @@ export class PaymentsService {
   }
 
   private async hasInstitutionCourseAccess(userId: string, courseId: string) {
-    const { data: memberships, error: membershipsError } =
-      await this.supabaseService.client
-        .from('room_members')
-        .select('room_id')
-        .eq('user_id', userId)
-        .eq('role', 'student');
+    const { data: memberships, error: membershipsError } = await this.db
+      .from('room_members')
+      .select('room_id,rooms(institutions(paid_until))')
+      .eq('user_id', userId)
+      .eq('role', 'student');
 
     if (membershipsError) {
       throw new BadRequestException(
@@ -613,19 +864,19 @@ export class PaymentsService {
     }
 
     const roomIds = (memberships ?? [])
+      .filter(membershipPeriodActive)
       .map((membership: any) => String(membership.room_id ?? ''))
       .filter(Boolean);
 
     if (roomIds.length === 0) return false;
 
-    const { data: assignedCourse, error: assignedCourseError } =
-      await this.supabaseService.client
-        .from('room_courses')
-        .select('id')
-        .eq('course_id', courseId)
-        .in('room_id', roomIds)
-        .limit(1)
-        .maybeSingle();
+    const { data: assignedCourse, error: assignedCourseError } = await this.db
+      .from('room_courses')
+      .select('id')
+      .eq('course_id', courseId)
+      .in('room_id', roomIds)
+      .limit(1)
+      .maybeSingle();
 
     if (assignedCourseError) {
       throw new BadRequestException(
@@ -660,7 +911,7 @@ export class PaymentsService {
     const normalizedPlan = this.normalizeInstitutionPlan(planName);
     const plan = this.institutionPlans[normalizedPlan];
 
-    const { data, error } = await this.supabaseService.client
+    const { data, error } = await this.db
       .from('institutions')
       .update({
         plan_name: normalizedPlan,
@@ -705,7 +956,7 @@ export class PaymentsService {
       return user.role;
     }
 
-    const { data, error } = await this.supabaseService.client
+    const { data, error } = await this.db
       .from('profiles')
       .select('role')
       .eq('id', user.id)
@@ -729,13 +980,15 @@ export class PaymentsService {
       return normalized;
     }
 
+    if (normalized !== 'starter')
+      throw new BadRequestException('Forfait inconnu.');
     return 'starter';
   }
 
   private async getInstitutionForBilling(institutionId: string) {
-    const { data, error } = await this.supabaseService.client
+    const { data, error } = await this.db
       .from('institutions')
-      .select('id, name, owner_user_id')
+      .select('id, name, owner_user_id,plan_name,paid_until')
       .eq('id', institutionId)
       .maybeSingle();
 
@@ -758,7 +1011,7 @@ export class PaymentsService {
       return 'owner';
     }
 
-    const { data, error } = await this.supabaseService.client
+    const { data, error } = await this.db
       .from('institution_members')
       .select('role')
       .eq('institution_id', institutionId)

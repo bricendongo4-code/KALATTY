@@ -1,4 +1,6 @@
 "use client";
+import SupportWorkspace from "../commerce/SupportWorkspace";
+import FinanceWorkspace from "../commerce/FinanceWorkspace";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import SessionAwareHomeLink from "../SessionAwareHomeLink";
@@ -16,7 +18,9 @@ type Screen =
   | "approvals"
   | "reports"
   | "settings"
-  | "growth";
+  | "growth"
+  | "support"
+  | "finance";
 type Proposal = {
   id: string;
   status: string;
@@ -61,6 +65,8 @@ const nav: { id: Screen; name: string; icon: string }[] = [
   { id: "analysis", name: "Analyses IA", icon: "✦" },
   { id: "approvals", name: "Centre de validation", icon: "✓" },
   { id: "growth", name: "Prospection & campagnes", icon: "◈" },
+  { id: "support", name: "Avis & support", icon: "support" },
+  { id: "finance", name: "Suivi financier", icon: "finance" },
   { id: "reports", name: "Rapports", icon: "▤" },
   { id: "settings", name: "Paramètres", icon: "⚙" },
 ];
@@ -326,6 +332,8 @@ export default function ControlCenterPage() {
               <Link href="/login?next=%2Fai-control-center">Se connecter</Link>
             </div>
           )}
+          {screen === "support" && <SupportWorkspace />}
+          {screen === "finance" && <FinanceWorkspace />}
           {screen === "overview" && (
             <>
               <div className={styles.pageHeading}>
@@ -520,6 +528,18 @@ export default function ControlCenterPage() {
                 ))}
               </div>
               <AgentCapabilities key={selected} department={selected} />
+              {["support", "finance"].includes(selected) && (
+                <button
+                  className={styles.primaryButton}
+                  onClick={() => navigate(selected as Screen)}
+                >
+                  Ouvrir{" "}
+                  {selected === "support"
+                    ? "les avis et le support"
+                    : "le suivi financier"}{" "}
+                  →
+                </button>
+              )}
               {["marketing", "sales", "crm"].includes(selected) && (
                 <button
                   className={styles.primaryButton}

@@ -1,3 +1,4 @@
+import {assertPaidPeriod} from '../commerce/billing-period';
 import {
   BadRequestException,
   ForbiddenException,
@@ -2397,9 +2398,9 @@ export class InstitutionsService {
     institutionId: string,
   ): Promise<InstitutionRole | null> {
     const { data: institution, error: institutionError } =
-      await this.supabaseService.client
+      await (this.supabaseService.client as any)
         .from('institutions')
-        .select('owner_user_id')
+        .select('owner_user_id,paid_until')
         .eq('id', institutionId)
         .maybeSingle();
 
@@ -2407,11 +2408,12 @@ export class InstitutionsService {
       throw new BadRequestException(institutionError.message);
     }
 
+    assertPaidPeriod(institution);
     if (institution?.owner_user_id === userId) {
       return 'owner';
     }
 
-    const { data, error } = await this.supabaseService.client
+    const { data, error } = await (this.supabaseService.client as any)
       .from('institution_members')
       .select('role')
       .eq('institution_id', institutionId)
@@ -2445,9 +2447,9 @@ export class InstitutionsService {
   }
 
   private async getInstitutionOrThrow(institutionId: string) {
-    const { data, error } = await this.supabaseService.client
+    const { data, error } = await (this.supabaseService.client as any)
       .from('institutions')
-      .select('id, name, slug, country')
+      .select('id, name, slug, country,paid_until')
       .eq('id', institutionId)
       .maybeSingle();
 
@@ -2459,13 +2461,14 @@ export class InstitutionsService {
       throw new NotFoundException('Etablissement introuvable.');
     }
 
+    assertPaidPeriod(data);
     return data;
   }
 
   private async getRoomOrThrow(roomId: string) {
-    const { data, error } = await this.supabaseService.client
+    const { data, error } = await (this.supabaseService.client as any)
       .from('rooms')
-      .select('id, institution_id, name')
+      .select('id, institution_id, name,institutions(paid_until)')
       .eq('id', roomId)
       .maybeSingle();
 
@@ -2477,6 +2480,7 @@ export class InstitutionsService {
       throw new NotFoundException('Salle introuvable.');
     }
 
+    assertPaidPeriod(Array.isArray(data.institutions)?data.institutions[0]:data.institutions);
     return data;
   }
 
