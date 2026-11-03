@@ -1,0 +1,63 @@
+name: Kalatty QA - parcours navigateur
+on:
+  schedule:
+    - cron: "30 4 * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: kalatty-browser-watch
+  cancel-in-progress: false
+jobs:
+  browser:
+    name: Parcours navigateur sans IA
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:4000
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: agent-browser-failures
+          path: frontend/test-results/
+          retention-days: 7
+  live:
+    name: Comptes QA connectés (configuration requise)
+    if: vars.KALATTY_LIVE_QA_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test --config playwright.live.config.ts
+        env:
+          KALATTY_QA_BASE_URL: ${{ vars.KALATTY_QA_BASE_URL }}
+          KALATTY_QA_API_BASE_URL: https://kalatty-backend-production.up.railway.app
+          KALATTY_QA_ACCOUNTS: ${{ secrets.KALATTY_QA_ACCOUNTS }}

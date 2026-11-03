@@ -13,6 +13,7 @@ const paths: Record<string, string[]> = {
   developer: ["m8 6-6 6 6 6 M16 6l6 6-6 6 M14 3l-4 18"],
   ux: ["m4 16 12-12 4 4-12 12H4z M13 7l4 4"],
   product: ["m12 3 9 5-9 5-9-5z M3 8v9l9 5 9-5V8 M12 13v9"],
+  growth: ["M4 10v6h4l11 4V6L8 10z M8 16l2 5 M19 10l3-1 M19 16l3 1"],
   marketing: ["M4 10v6h4l11 4V6L8 10z M8 16l2 5 M19 10l3-1 M19 16l3 1"],
   sales: ["m4 16 6-6 4 4 7-9 M15 5h6v6"],
   support: [

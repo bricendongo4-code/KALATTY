@@ -6,6 +6,7 @@ import KalattyLogo from "../_components/KalattyLogo";
 import AgentIcon from "./AgentIcon";
 import SupervisionPanel from "./SupervisionPanel";
 import ApprovalCenter from "./ApprovalCenter";
+import GrowthWorkspace from "./GrowthWorkspace";
 import AgentCapabilities from "./AgentCapabilities";
 import styles from "./control-center.module.css";
 type Screen =
@@ -14,7 +15,8 @@ type Screen =
   | "analysis"
   | "approvals"
   | "reports"
-  | "settings";
+  | "settings"
+  | "growth";
 type Proposal = {
   id: string;
   status: string;
@@ -58,6 +60,7 @@ const nav: { id: Screen; name: string; icon: string }[] = [
   { id: "agents", name: "Départements & agents", icon: "◈" },
   { id: "analysis", name: "Analyses IA", icon: "✦" },
   { id: "approvals", name: "Centre de validation", icon: "✓" },
+  { id: "growth", name: "Prospection & campagnes", icon: "◈" },
   { id: "reports", name: "Rapports", icon: "▤" },
   { id: "settings", name: "Paramètres", icon: "⚙" },
 ];
@@ -517,6 +520,14 @@ export default function ControlCenterPage() {
                 ))}
               </div>
               <AgentCapabilities key={selected} department={selected} />
+              {["marketing", "sales", "crm"].includes(selected) && (
+                <button
+                  className={styles.primaryButton}
+                  onClick={() => navigate("growth")}
+                >
+                  Ouvrir la prospection et les campagnes →
+                </button>
+              )}
               <div className={styles.detailGrid}>
                 <section className={styles.darkPanel}>
                   <h2>
@@ -594,6 +605,7 @@ export default function ControlCenterPage() {
               </div>
             </>
           )}
+          {screen === "growth" && <GrowthWorkspace />}
           {screen === "analysis" && (
             <>
               <div className={styles.pageHeading}>

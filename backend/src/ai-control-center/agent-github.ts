@@ -1,15 +1,19 @@
+import { GithubCredentials } from './github-credentials';
 import { AgentPatch, patchDigest, validatePatch } from './agent-patch';
 
 export class AgentGithub {
   private readonly repo = 'bricendongo4-code/KALATTY';
-  constructor(private readonly fetcher: typeof fetch = fetch) {}
+  private readonly credentials: GithubCredentials;
+  constructor(private readonly fetcher: typeof fetch = fetch) {
+    this.credentials = new GithubCredentials(fetcher);
+  }
   get writable() {
-    return !!process.env.KALATTY_AGENT_GITHUB_TOKEN;
+    return this.credentials.configured;
   }
   async api(path: string, method = 'GET', body?: unknown): Promise<any> {
     if (method !== 'GET' && !this.writable)
       throw Error('Accès GitHub des agents non configuré');
-    const token = process.env.KALATTY_AGENT_GITHUB_TOKEN;
+    const token = await this.credentials.token();
     const res = await this.fetcher(
       `https://api.github.com/repos/${this.repo}/${path}`,
       {
@@ -25,6 +29,40 @@ export class AgentGithub {
     );
     if (!res.ok) throw Error(`GitHub ${res.status}`);
     return res.status === 204 ? {} : res.json();
+  }
+  async diagnostic() {
+    if (!this.writable)
+      return {
+        configured: false,
+        authenticated: false,
+        mode: this.credentials.mode,
+        repositoryWritable: false,
+        message:
+          'Ajoutez un jeton limité au dépôt ou les identifiants de votre GitHub App dans Railway.',
+      };
+    try {
+      const repo = await this.api('');
+      await this.api('git/ref/heads/master');
+      return {
+        configured: true,
+        authenticated: true,
+        mode: this.credentials.mode,
+        repositoryWritable: repo.permissions?.push === true,
+        message:
+          repo.permissions?.push === true
+            ? 'Dépôt accessible en écriture. Les permissions PR seront vérifiées lors de la préparation.'
+            : 'Lecture vérifiée ; droits d’écriture non confirmés.',
+      };
+    } catch {
+      return {
+        configured: true,
+        authenticated: false,
+        mode: this.credentials.mode,
+        repositoryWritable: false,
+        message:
+          'Accès au dépôt refusé ou indisponible. Vérifiez les permissions et la validité des identifiants.',
+      };
+    }
   }
   async source(file: string, ref: string) {
     const data = await this.api(
@@ -166,7 +204,7 @@ export class AgentGithub {
         method: 'POST',
         signal: AbortSignal.timeout(20000),
         headers: {
-          Authorization: `Bearer ${process.env.KALATTY_AGENT_GITHUB_TOKEN}`,
+          Authorization: `Bearer ${await this.credentials.token()}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({

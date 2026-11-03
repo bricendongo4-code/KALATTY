@@ -21,7 +21,7 @@ const descriptions: Record<
     observes: "Activité du studio et un fichier de code inspecté par cycle IA.",
     proposes: "Un remplacement exact de code, présenté avant approbation.",
     missing:
-      "Un accès GitHub propre au backend est requis pour préparer les corrections.",
+      "Accès GitHub par jeton ou GitHub App requis. Vérifiez sa connexion dans Prospection & campagnes → Connexions.",
   },
   ux: {
     observes: "Compteurs de progression et favoris.",
@@ -36,16 +36,17 @@ const descriptions: Record<
       "Pas de carnet de produit ou de modification automatique des cours.",
   },
   marketing: {
-    observes: "Compteurs d’avis et de favoris.",
-    proposes: "Pistes de campagnes basées sur ces indicateurs.",
+    observes: "Avis, favoris et contenus commerciaux préparés.",
+    proposes: "Pistes de campagnes et brouillons issus du brief commercial.",
     missing:
-      "Aucune recherche de prospects, aucun calendrier éditorial et aucun canal de publication connectés.",
+      "Prospection sourcée, contenus et dates disponibles dans Prospection & campagnes. Connectez les canaux pour exécuter les publications approuvées.",
   },
   sales: {
-    observes: "Compteurs d’inscriptions et de paiements.",
-    proposes: "Questions sur la conversion.",
+    observes: "Inscriptions, paiements, prospects et actions commerciales.",
+    proposes:
+      "Messages personnalisés à examiner, qualification et relances à suivre.",
     missing:
-      "Aucune base de prospects, qualification, relance, prise de rendez-vous ou vente autonome.",
+      "Le pipeline et les rappels sont disponibles. Le statut Gagné est déclaré manuellement ; il ne confirme pas un paiement.",
   },
   support: {
     observes: "Compteurs de questions et de demandes de confidentialité.",
@@ -65,10 +66,11 @@ const descriptions: Record<
       "Pas d’attribution des campagnes ni d’analyse de tout l’historique.",
   },
   crm: {
-    observes: "Compteurs de profils et d’inscriptions.",
-    proposes: "Pistes de fidélisation.",
+    observes:
+      "Profils, inscriptions, fiches prospects et historique commercial.",
+    proposes: "Pistes de fidélisation et préparation des prochains contacts.",
     missing:
-      "Pas de CRM commercial, de contacts prospects ou de campagnes de relance connectés.",
+      "Le suivi des prospects est disponible. Les emails doivent être sourcés et les contacts refusant les sollicitations sont bloqués.",
   },
 };
 type State = {
@@ -135,7 +137,7 @@ export default function AgentCapabilities({
             Supervision : <b>{state.enabled ? "activée" : "en pause"}</b>
           </span>
           <span>
-            Analyse IA :{" "}
+            Analyse IA automatique :{" "}
             <b>
               {state.ai_enabled
                 ? state.brainConfigured
