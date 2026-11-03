@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { ROLES, isRoleSlug } from "../../roles";
 import EstablishmentHome from "../../EstablishmentHome";
+import FinancePage from "../../admin/FinancePage";
 import AdminUsersPage from "../../admin/UsersPage";
 import AdminAcademicsPage from "../../admin/FormationsPage";
 import StudentAssignmentsPage from "../../student/AssignmentsPage";
@@ -58,6 +59,7 @@ const BUILT_SECTIONS: Record<string, () => React.JSX.Element> = {
   "pedagogy/documents": () => <DocumentsPage role="pedagogy" />,
   "pedagogy/reports": () => <ReportsPage role="pedagogy" section="rapports" />,
   "pedagogy/notifications": () => <ActivityPage role="pedagogy" section="notifications" />,
+  "admin/finances": FinancePage,
   "admin/users": AdminUsersPage,
   "admin/organization": OrganizationPage,
   "admin/academics": AdminAcademicsPage,

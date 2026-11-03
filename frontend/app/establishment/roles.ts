@@ -146,6 +146,7 @@ export const ROLES: Record<RoleSlug, RoleConfig> = {
       { slug: "attendance", label: "Vie scolaire", icon: "shield" },
       { slug: "documents", label: "Documents officiels", icon: "file" },
       { slug: "communication", label: "Communication", icon: "megaphone" },
+      { slug: "finances", label: "Abonnement", icon: "euro" },
       { slug: "reports", label: "Rapports", icon: "list" },
       { slug: "messages", label: "Messagerie", icon: "mail" },
       { slug: "settings", label: "Paramètres", icon: "sliders" },
