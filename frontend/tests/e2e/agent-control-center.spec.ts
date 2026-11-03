@@ -250,3 +250,72 @@ test("homepage uses the same complete Kalatty artwork", async ({ page }) => {
   expect((await logo.boundingBox())!.width).toBeGreaterThan(50);
   await page.screenshot({ path: "/tmp/kalatty-brand-home-mobile.png" });
 });
+
+for (const configured of [false, true])
+  test(`Groq connection diagnostic keeps automatic AI disabled (key configured: ${configured})`, async ({
+    page,
+  }) => {
+    const mutations: string[] = [];
+    const cors = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "authorization,content-type",
+      "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+    };
+    await page.route("**/ai-control-center/supervision", (route) =>
+      route.fulfill({
+        headers: cors,
+        json: {
+          enabled: true,
+          ai_enabled: false,
+          brainConfigured: configured,
+          brainProvider: "groq",
+          brainModel: "openai/gpt-oss-20b",
+          githubConfigured: true,
+          runs: [],
+        },
+      }),
+    );
+    await page.route("**/ai-control-center/brain/check", (route) => {
+      if (route.request().method() === "OPTIONS")
+        return route.fulfill({ status: 204, headers: cors });
+      mutations.push("check");
+      return route.fulfill({
+        headers: cors,
+        json: {
+          connected: true,
+          message:
+            "Connexion IA vérifiée. Les analyses automatiques restent sous votre contrôle.",
+        },
+      });
+    });
+    await page.route("**/ai-control-center/supervision/configure", (route) => {
+      mutations.push("configure");
+      return route.fulfill({ headers: cors, json: {} });
+    });
+    await page.goto("/ai-control-center");
+    await page
+      .getByRole("navigation", { name: "Navigation du Control Center" })
+      .getByRole("button", { name: "Paramètres", exact: true })
+      .click();
+    await expect(page.getByText("Groq", { exact: true })).toBeVisible();
+    const automatic = page.getByRole("checkbox", {
+      name: /Analyses IA automatiques/,
+    });
+    await expect(automatic).not.toBeChecked();
+    const check = page.getByRole("button", { name: "Tester la connexion IA" });
+    if (configured) {
+      await check.click();
+      await expect(page.getByRole("status")).toContainText(
+        "Connexion IA vérifiée",
+      );
+      expect(mutations).toEqual(["check"]);
+      await expect(automatic).not.toBeChecked();
+    } else {
+      await expect(check).toBeDisabled();
+      await expect(automatic).toBeDisabled();
+      await expect(
+        page.getByText("Clé GROQ_API_KEY à ajouter dans Railway"),
+      ).toBeVisible();
+      expect(mutations).toEqual([]);
+    }
+  });

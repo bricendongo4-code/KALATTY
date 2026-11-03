@@ -272,7 +272,7 @@ export default function GrowthActions({
             checked={ai}
             onChange={(e) => setAI(e.target.checked)}
           />
-          Utiliser l’IA · appel payant possible après activation et recharge
+          Utiliser l’IA configurée · quota quotidien partagé
         </label>
         <p>
           Sans IA, le message utilise uniquement votre brief enregistré. Aucun

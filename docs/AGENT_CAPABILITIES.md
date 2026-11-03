@@ -56,3 +56,7 @@ Ce job est explicitement ignoré si l’activation est absente ; s’il est acti
 Tests backend pour la validation des entrées, les droits du propriétaire, les sources de prospection, la liaison du contenu approuvé, la révocation des approbations, les envois incertains et l’authentification GitHub App. Tests navigateur des parcours de préparation et d’approbation sur plusieurs largeurs. Le script `backend/test/growth-acceptance.sql` vérifie en transaction les claims, les quotas, le refus de sollicitation et le journal, puis annule toutes les données d’essai.
 
 Documentation des fournisseurs : [annuaire officiel](https://recherche-entreprises.api.gouv.fr/docs/), [Brave Web Search](https://api-dashboard.search.brave.com/app/documentation/web-search/get-started), [Resend](https://resend.com/docs/api-reference/emails/send-email), [LinkedIn Posts](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api), [GitHub App](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-an-installation-access-token-for-a-github-app).
+
+## Fournisseur IA des agents
+
+Les trois usages IA des agents peuvent utiliser Groq ou OpenAI via un connecteur commun, sans repli automatique vers un autre fournisseur. Le diagnostic du Control Center teste la connexion sans activer les analyses automatiques. Configuration et limites : [Fournisseurs IA](AGENT_AI_PROVIDERS.md).

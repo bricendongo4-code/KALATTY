@@ -22,6 +22,8 @@ type State = {
   last_error: string | null;
   lease_until: string | null;
   brainConfigured: boolean;
+  brainProvider?: string;
+  brainModel?: string;
   githubConfigured: boolean;
   runs: Run[];
 };
@@ -48,13 +50,14 @@ export default function SupervisionPanel({
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       cache: "no-store",
     });
+    const result = await r.json().catch(() => ({}));
     if (!r.ok)
       throw Error(
-        "Supervision indisponible (" +
-          r.status +
-          "). Vérifiez la connexion et les migrations.",
+        typeof result.message === "string"
+          ? result.message
+          : "Supervision indisponible. Vérifiez votre connexion.",
       );
-    return r.json();
+    return result;
   }, []);
   const load = useCallback(async () => {
     try {
@@ -75,11 +78,13 @@ export default function SupervisionPanel({
     setBusy(true);
     setNotice("");
     try {
-      await request(path, body);
+      const result = await request(path, body);
       setNotice(
-        path.endsWith("run")
-          ? "Contrôle demandé. Le rapport apparaîtra à la fin du cycle."
-          : "Configuration enregistrée.",
+        path === "brain/check"
+          ? (result.message ?? "Connexion IA vérifiée.")
+          : path.endsWith("run")
+            ? "Contrôle demandé. Le rapport apparaîtra à la fin du cycle."
+            : "Configuration enregistrée.",
       );
       await load();
       await onRefresh();
@@ -138,7 +143,9 @@ export default function SupervisionPanel({
                   ? state.brainConfigured
                     ? "Activée · 12 appels/jour maximum"
                     : "Configuration manquante"
-                  : "Désactivée · aucun appel payant"}
+                  : state.brainProvider
+                    ? "Analyses automatiques désactivées"
+                    : "Désactivée · aucun appel payant"}
               </b>
             </span>
             {!compact && (
@@ -152,6 +159,33 @@ export default function SupervisionPanel({
               </span>
             )}
           </div>
+          {!compact && state.brainProvider && (
+            <div className={styles.connection}>
+              <span>
+                Fournisseur :{" "}
+                <b>
+                  {state.brainProvider === "groq"
+                    ? "Groq"
+                    : state.brainProvider === "openai"
+                      ? "OpenAI"
+                      : "Configuration non prise en charge"}
+                </b>
+                {state.brainModel ? ` · ${state.brainModel}` : ""}
+                <br />
+                {state.brainConfigured
+                  ? "Clé serveur présente"
+                  : state.brainProvider === "groq"
+                    ? "Clé GROQ_API_KEY à ajouter dans Railway"
+                    : "Configuration serveur à compléter"}
+              </span>
+              <button
+                disabled={busy || !state.brainConfigured}
+                onClick={() => void action("brain/check", {})}
+              >
+                Tester la connexion IA
+              </button>
+            </div>
+          )}
           {state.last_error && (
             <p role="alert" className={styles.error}>
               {state.last_error}
@@ -186,7 +220,7 @@ export default function SupervisionPanel({
                       })
                     }
                   />{" "}
-                  Analyses IA payantes (plafond de 12 appels/jour)
+                  Analyses IA automatiques (plafond de 12 appels/jour)
                 </label>
               </div>
               <details className={styles.explanation}>
