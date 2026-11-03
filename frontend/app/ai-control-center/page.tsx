@@ -278,13 +278,26 @@ export default function ControlCenterPage() {
             <button
               key={n.id}
               className={screen === n.id ? styles.navActive : ""}
+              aria-label={
+                n.id === "approvals" && pending > 0
+                  ? `${n.name}, ${pending} proposition(s) en attente`
+                  : undefined
+              }
               onClick={() => navigate(n.id)}
             >
               <span className={styles.navIcon}>
                 <AgentIcon name={n.id} />
               </span>
-              <span>{n.name}</span>
-              {n.id === "approvals" && pending > 0 && <b>{pending}</b>}
+              <span className={styles.navLabel}>{n.name}</span>
+              {n.id === "approvals" && pending > 0 && (
+                <span
+                  className={styles.countBadge}
+                  aria-hidden="true"
+                  title={`${pending} proposition(s) en attente`}
+                >
+                  {pending > 99 ? "99+" : pending}
+                </span>
+              )}
             </button>
           ))}
         </nav>
@@ -803,13 +816,26 @@ export default function ControlCenterPage() {
           <button
             key={n.id}
             aria-current={screen === n.id ? "page" : undefined}
+            aria-label={
+              n.id === "approvals" && pending > 0
+                ? `${n.name}, ${pending} proposition(s) en attente`
+                : undefined
+            }
             onClick={() => navigate(n.id as Screen)}
           >
-            <span>
+            <span className={styles.mobileIcon}>
               <AgentIcon name={n.id} />
+              {n.id === "approvals" && pending > 0 && (
+                <span
+                  className={styles.countBadge}
+                  aria-hidden="true"
+                  title={`${pending} proposition(s) en attente`}
+                >
+                  {pending > 99 ? "99+" : pending}
+                </span>
+              )}
             </span>
             <small>{n.name}</small>
-            {n.id === "approvals" && pending > 0 && <b>{pending}</b>}
           </button>
         ))}
       </nav>

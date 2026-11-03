@@ -195,7 +195,7 @@ export default function FinanceWorkspace() {
           setRange({ from: String(f.get("from")), to: String(f.get("to")) });
         }}
       >
-        <div className={s.row}>
+        <div className={s.periodFields}>
           <label>
             Début inclus (UTC)
             <input name="from" type="date" required defaultValue={range.from} />

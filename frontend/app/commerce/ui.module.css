@@ -251,3 +251,39 @@
     font-size: 24px;
   }
 }
+
+.periodFields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  gap: 16px;
+  align-items: end;
+}
+.periodFields label {
+  min-width: 0;
+  margin: 0;
+}
+.workspace input[type="date"] {
+  box-sizing: border-box;
+  display: block;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  min-height: 44px;
+  appearance: none;
+}
+.workspace input[type="date"]::-webkit-date-and-time-value {
+  min-height: 1.5em;
+  text-align: left;
+}
+.workspace input[type="date"]::-webkit-datetime-edit {
+  min-width: 0;
+  padding: 0;
+}
+@media (max-width: 720px) {
+  .periodFields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .periodFields button {
+    justify-self: start;
+    max-width: 100%;
+  }
+}
