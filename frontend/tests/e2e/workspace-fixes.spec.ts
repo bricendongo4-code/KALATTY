@@ -1,4 +1,9 @@
 import { test, expect } from "@playwright/test";
+const cors = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization,content-type",
+  "Access-Control-Allow-Methods": "GET,OPTIONS",
+};
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() =>
@@ -6,6 +11,7 @@ test.beforeEach(async ({ page }) => {
   );
   await page.route("http://localhost:4000/**", (route) =>
     route.fulfill({
+      headers: cors,
       status: 503,
       json: { message: "Source indisponible de test" },
     }),
@@ -60,6 +66,7 @@ test("search queries real records and Enter opens complete results", async ({
       "creator",
     );
     await route.fulfill({
+      headers: cors,
       json: {
         results: [
           {
@@ -96,7 +103,7 @@ test("return from agents keeps the session and resolves the user's workspace", a
   page,
 }) => {
   await page.route("http://localhost:4000/campus/context", (route) =>
-    route.fulfill({ json: { campusRole: "admin" } }),
+    route.fulfill({ headers: cors, json: { campusRole: "admin" } }),
   );
   await page.goto("/ai-control-center");
   await page
@@ -111,12 +118,14 @@ test("browser history at login preserves an existing session", async ({
   page,
 }) => {
   await page.route("http://localhost:4000/campus/context", (route) =>
-    route.fulfill({ json: { campusRole: "teacher" } }),
+    route.fulfill({ headers: cors, json: { campusRole: "teacher" } }),
   );
   await page.goto("/login");
   await page.getByRole("heading", { name: /Heureux de te revoir/ }).waitFor();
   await page.getByRole("button", { name: "Afficher le mot de passe" }).click();
-  await expect(page.getByRole("button", { name: "Masquer le mot de passe" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Masquer le mot de passe" }),
+  ).toBeVisible();
   await page.evaluate(() =>
     window.dispatchEvent(
       new PageTransitionEvent("pageshow", { persisted: true }),
