@@ -1,0 +1,134 @@
+import { test, expect } from "@playwright/test";
+const id = "00000000-0000-4000-8000-000000000001";
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() =>
+    localStorage.setItem("kalatty_token", "test-only"),
+  );
+  await page.route("**/ai-control-center/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const data = path.endsWith("/signals")
+      ? {
+          agents: [
+            {
+              department: "security",
+              available: true,
+              sources: [
+                { table: "privacy_requests", available: true, count: 2 },
+              ],
+            },
+          ],
+        }
+      : path.endsWith("/proposals")
+        ? {
+            proposals: [
+              {
+                id,
+                department: "developer",
+                title: "Correction du catalogue",
+                rationale:
+                  "Constat de test pour vérifier le parcours de validation.",
+                status: "pending",
+                created_at: "2026-11-03T08:00:00Z",
+                patch: {
+                  file: "frontend/app/courses/page.tsx",
+                  oldText: "old",
+                  newText: "new",
+                  digest: "a".repeat(64),
+                },
+                execution_status: "awaiting_approval",
+              },
+            ],
+          }
+        : path.endsWith("/supervision")
+          ? {
+              enabled: true,
+              ai_enabled: false,
+              brainConfigured: true,
+              githubConfigured: false,
+              last_run_at: "2026-11-03T08:00:00Z",
+              runs: [],
+            }
+          : { reports: [] };
+    await route.fulfill({
+      json: data,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "authorization,content-type",
+        "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+      },
+    });
+  });
+});
+for (const width of [320, 768, 1024, 1440])
+  test(`Kalatty branding, navigation and approval at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/ai-control-center");
+    await expect(
+      page.getByRole("heading", { name: "Vue générale", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Supervision des agents" }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Désactivée · aucun appel payant"),
+    ).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    const logo = page.getByRole("img", { name: "Kalatty", exact: true });
+    await expect(logo.last()).toBeAttached();
+    await page
+      .getByRole("button", { name: /Sécurité/ })
+      .first()
+      .click();
+    await expect(
+      page.getByRole("heading", { name: /Agent Sécurité/ }),
+    ).toBeVisible();
+    if (width < 700)
+      await page
+        .getByRole("navigation", { name: "Navigation mobile" })
+        .getByRole("button", { name: /Validations/ })
+        .click();
+    else
+      await page
+        .getByRole("navigation", { name: "Navigation du Control Center" })
+        .getByRole("button", { name: /Centre de validation/ })
+        .click();
+    await expect(
+      page.getByRole("heading", { name: "Correction du catalogue" }),
+    ).toBeVisible();
+    await page
+      .getByText("Changement exact · frontend/app/courses/page.tsx")
+      .click();
+    await expect(
+      page.getByRole("heading", { name: "Avant", exact: true }),
+    ).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    if (width === 320 || width === 1440)
+      await page.screenshot({
+        path: `/tmp/kalatty-agents-${width}.png`,
+        fullPage: true,
+      });
+  });
+test("a refused confirmation never sends an approval", async ({ page }) => {
+  await page.goto("/ai-control-center");
+  await page
+    .getByRole("navigation", { name: "Navigation du Control Center" })
+    .getByRole("button", { name: /Centre de validation/ })
+    .click();
+  let mutations = 0;
+  page.on("request", (r) => {
+    if (r.url().endsWith("/decision")) mutations++;
+  });
+  page.once("dialog", (d) => d.dismiss());
+  await page.getByRole("button", { name: "Approuver la correction" }).click();
+  expect(mutations).toBe(0);
+});
