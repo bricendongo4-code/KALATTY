@@ -1,85 +1,191 @@
+import { AgentSupervisionService } from './agent-supervision.service';
 import { analyzeWithBrain } from './department-brain';
 import { planDepartments } from './department-planner';
-import { BadRequestException, Body, Controller, ForbiddenException, Get, HttpException, HttpStatus, Param, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  HttpException,
+  HttpStatus,
+  Param,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { SupabaseService } from '../supabase/supabase.service';
 
-type AuthenticatedRequest = { user?: { id?: string; role?: string; email?: string } };
-const AGENTS = ['security','qa','developer','ux','product','marketing','sales','support','finance','analytics','crm'] as const;
+type AuthenticatedRequest = {
+  user?: { id?: string; role?: string; email?: string };
+};
+const AGENTS = [
+  'security',
+  'qa',
+  'developer',
+  'ux',
+  'product',
+  'marketing',
+  'sales',
+  'support',
+  'finance',
+  'analytics',
+  'crm',
+] as const;
 const permitted = new Set<string>(AGENTS);
 type SafeAgent = {
-  department: string; status: 'reported' | 'error'; findings: number; queue: number;
-  reviewRequired: boolean; dataMode: 'synthetic' | 'unverified';
+  department: string;
+  status: 'reported' | 'error';
+  findings: number;
+  queue: number;
+  reviewRequired: boolean;
+  dataMode: 'synthetic' | 'unverified';
 };
 type SafeReport = {
-  version: 2; generatedAt: string; dataMode: 'synthetic' | 'unverified';
-  summary: { total: number; reported: number; errors: number; reviewRequired: number };
+  version: 2;
+  generatedAt: string;
+  dataMode: 'synthetic' | 'unverified';
+  summary: {
+    total: number;
+    reported: number;
+    errors: number;
+    reviewRequired: number;
+  };
   departments: SafeAgent[];
   errors: { department: string; code: string; message: string }[];
-  mergeAuthorized: false; deployAuthorized: false; liveMonitoringEnabled: false;
+  mergeAuthorized: false;
+  deployAuthorized: false;
+  liveMonitoringEnabled: false;
 };
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 function count(value: unknown): number {
-  if (!Number.isSafeInteger(value) || (value as number) < 0) throw new BadRequestException('Invalid report count');
+  if (!Number.isSafeInteger(value) || (value as number) < 0)
+    throw new BadRequestException('Invalid report count');
   return value as number;
 }
 /** Only aggregate counters and bounded diagnostic codes are retained: no raw report payloads or PII. */
 function sanitize(input: unknown): SafeReport {
-  if (!isRecord(input) || input.version !== 2 || !Array.isArray(input.departments) ||
-      !Array.isArray(input.errors) || !isRecord(input.summary) ||
-      input.mergeAuthorized !== false || input.deployAuthorized !== false ||
-      input.liveMonitoringEnabled !== false) throw new BadRequestException('Invalid read-only report');
-  if (input.dataMode !== 'synthetic' && input.dataMode !== 'unverified') throw new BadRequestException('Invalid data mode');
-  if (typeof input.generatedAt !== 'string' || !Number.isFinite(Date.parse(input.generatedAt))) throw new BadRequestException('Invalid report timestamp');
-  if (input.departments.length > AGENTS.length || input.errors.length > AGENTS.length) throw new BadRequestException('Too many report entries');
+  if (
+    !isRecord(input) ||
+    input.version !== 2 ||
+    !Array.isArray(input.departments) ||
+    !Array.isArray(input.errors) ||
+    !isRecord(input.summary) ||
+    input.mergeAuthorized !== false ||
+    input.deployAuthorized !== false ||
+    input.liveMonitoringEnabled !== false
+  )
+    throw new BadRequestException('Invalid read-only report');
+  if (input.dataMode !== 'synthetic' && input.dataMode !== 'unverified')
+    throw new BadRequestException('Invalid data mode');
+  if (
+    typeof input.generatedAt !== 'string' ||
+    !Number.isFinite(Date.parse(input.generatedAt))
+  )
+    throw new BadRequestException('Invalid report timestamp');
+  if (
+    input.departments.length > AGENTS.length ||
+    input.errors.length > AGENTS.length
+  )
+    throw new BadRequestException('Too many report entries');
   const mode = input.dataMode as 'synthetic' | 'unverified';
   const reportSummary = input.summary as Record<string, unknown>;
   const seen = new Set<string>();
   const departments: SafeAgent[] = input.departments.map((value: unknown) => {
-    if (!isRecord(value) || typeof value.department !== 'string' || !permitted.has(value.department) ||
-        seen.has(value.department) || (value.status !== 'reported' && value.status !== 'error') ||
-        typeof value.reviewRequired !== 'boolean' || value.dataMode !== input.dataMode) {
+    if (
+      !isRecord(value) ||
+      typeof value.department !== 'string' ||
+      !permitted.has(value.department) ||
+      seen.has(value.department) ||
+      (value.status !== 'reported' && value.status !== 'error') ||
+      typeof value.reviewRequired !== 'boolean' ||
+      value.dataMode !== input.dataMode
+    ) {
       throw new BadRequestException('Invalid agent entry');
     }
     seen.add(value.department);
-    return { department: value.department, status: value.status, findings: count(value.findings),
-      queue: count(value.queue), reviewRequired: value.reviewRequired, dataMode: mode };
+    return {
+      department: value.department,
+      status: value.status,
+      findings: count(value.findings),
+      queue: count(value.queue),
+      reviewRequired: value.reviewRequired,
+      dataMode: mode,
+    };
   });
   const errors = input.errors.map((value: unknown) => {
-    if (!isRecord(value) || typeof value.department !== 'string' || !seen.has(value.department) ||
-        typeof value.code !== 'string' || value.code.length > 64 ||
-        !/^[A-Z0-9_]+$/.test(value.code)) throw new BadRequestException('Invalid diagnostic entry');
+    if (
+      !isRecord(value) ||
+      typeof value.department !== 'string' ||
+      !seen.has(value.department) ||
+      typeof value.code !== 'string' ||
+      value.code.length > 64 ||
+      !/^[A-Z0-9_]+$/.test(value.code)
+    )
+      throw new BadRequestException('Invalid diagnostic entry');
     // Explicitly discard raw error messages, which can contain secrets and personal data.
-    return { department: value.department, code: value.code, message: 'Diagnostic available in restricted CI logs' };
+    return {
+      department: value.department,
+      code: value.code,
+      message: 'Diagnostic available in restricted CI logs',
+    };
   });
-  const summary = { total: departments.length,
-    reported: departments.filter(d => d.status === 'reported').length,
-    errors: errors.length, reviewRequired: departments.filter(d => d.reviewRequired).length };
-  if (Object.entries(summary).some(([key, value]) => reportSummary[key] !== value)) throw new BadRequestException('Inconsistent summary');
-  return { version: 2, generatedAt: input.generatedAt, dataMode: input.dataMode, summary,
-    departments, errors, mergeAuthorized: false, deployAuthorized: false, liveMonitoringEnabled: false };
+  const summary = {
+    total: departments.length,
+    reported: departments.filter((d) => d.status === 'reported').length,
+    errors: errors.length,
+    reviewRequired: departments.filter((d) => d.reviewRequired).length,
+  };
+  if (
+    Object.entries(summary).some(([key, value]) => reportSummary[key] !== value)
+  )
+    throw new BadRequestException('Inconsistent summary');
+  return {
+    version: 2,
+    generatedAt: input.generatedAt,
+    dataMode: input.dataMode,
+    summary,
+    departments,
+    errors,
+    mergeAuthorized: false,
+    deployAuthorized: false,
+    liveMonitoringEnabled: false,
+  };
 }
 
 @Controller('ai-control-center')
 @UseGuards(AuthGuard('jwt'))
 export class AiControlCenterController {
-  constructor(private readonly supabase: SupabaseService) {}
+  constructor(
+    private readonly supabase: SupabaseService,
+    private readonly supervision: AgentSupervisionService,
+  ) {}
 
-  private async requirePlatformAdmin(req: AuthenticatedRequest): Promise<string> {
+  private async requirePlatformAdmin(
+    req: AuthenticatedRequest,
+  ): Promise<string> {
     const id = req.user?.id;
     const email = req.user?.email?.trim().toLowerCase();
-    const allowed = (process.env.KALATTY_PLATFORM_ADMIN_EMAIL ?? '').trim().toLowerCase();
+    const allowed = (process.env.KALATTY_PLATFORM_ADMIN_EMAIL ?? '')
+      .trim()
+      .toLowerCase();
     // Fail closed if the deployment has not configured an explicit platform owner.
     if (!id || !email || !allowed || email !== allowed) {
       throw new ForbiddenException('Platform administrator access required');
     }
     // A signed Kalatty JWT is necessary but insufficient: verify the identity against
     // Supabase Auth rather than trusting profile roles or user-editable metadata.
-    const { data, error } = await this.supabase.client.auth.admin.getUserById(id);
-    if (error || !data.user || data.user.email?.trim().toLowerCase() !== allowed ||
-        !data.user.email_confirmed_at) {
+    const { data, error } =
+      await this.supabase.client.auth.admin.getUserById(id);
+    if (
+      error ||
+      !data.user ||
+      data.user.email?.trim().toLowerCase() !== allowed ||
+      !data.user.email_confirmed_at
+    ) {
       throw new ForbiddenException('Platform administrator access required');
     }
     return id;
@@ -88,11 +194,20 @@ export class AiControlCenterController {
   @Get('catalog')
   async catalog(@Req() req: AuthenticatedRequest) {
     await this.requirePlatformAdmin(req);
-    return { version: 1, dataMode: 'catalog-only', liveMonitoringEnabled: false,
-      mergeAuthorized: false, deployAuthorized: false, reportsConnected: false,
-      agents: AGENTS.map(department => ({ department, status: 'not-connected', reviewRequired: false })) };
+    return {
+      version: 1,
+      dataMode: 'catalog-only',
+      liveMonitoringEnabled: false,
+      mergeAuthorized: false,
+      deployAuthorized: false,
+      reportsConnected: false,
+      agents: AGENTS.map((department) => ({
+        department,
+        status: 'not-connected',
+        reviewRequired: false,
+      })),
+    };
   }
-
 
   /**
    * Real database-backed operational signals, read-only and aggregate-only.
@@ -116,30 +231,41 @@ export class AiControlCenterController {
       crm: ['profiles', 'enrollments'],
     };
     const tables = [...new Set(Object.values(sources).flat())];
-    const counts = await Promise.all(tables.map(async table => {
-      try {
-        const { count, error } = await this.supabase.client
-          .from(table as never).select('*', { count: 'exact', head: true });
-        if (error || count === null) return { table, available: false as const };
-        return { table, available: true as const, count };
-      } catch {
-        return { table, available: false as const };
-      }
-    }));
-    const byTable = new Map(counts.map(row => [row.table, row]));
-    const agents = AGENTS.map(department => ({
+    const counts = await Promise.all(
+      tables.map(async (table) => {
+        try {
+          const { count, error } = await this.supabase.client
+            .from(table as never)
+            .select('*', { count: 'exact', head: true });
+          if (error || count === null)
+            return { table, available: false as const };
+          return { table, available: true as const, count };
+        } catch {
+          return { table, available: false as const };
+        }
+      }),
+    );
+    const byTable = new Map(counts.map((row) => [row.table, row]));
+    const agents = AGENTS.map((department) => ({
       department,
       mode: 'real-aggregate-read-only' as const,
-      sources: sources[department].map(table => byTable.get(table)),
-      available: sources[department].every(table => byTable.get(table)?.available === true),
+      sources: sources[department].map((table) => byTable.get(table)),
+      available: sources[department].every(
+        (table) => byTable.get(table)?.available === true,
+      ),
       autonomousActionsEnabled: false,
       humanReviewRequired: true,
     }));
-    return { version: 1, generatedAt: new Date().toISOString(),
-      dataMode: 'real-aggregate-read-only', liveMonitoringEnabled: false,
-      mergeAuthorized: false, deployAuthorized: false, agents };
+    return {
+      version: 1,
+      generatedAt: new Date().toISOString(),
+      dataMode: 'real-aggregate-read-only',
+      liveMonitoringEnabled: false,
+      mergeAuthorized: false,
+      deployAuthorized: false,
+      agents,
+    };
   }
-
 
   /**
    * Executable analysis (not autonomous writes): per-department evidence-based
@@ -148,10 +274,14 @@ export class AiControlCenterController {
   @Get('recommendations')
   async recommendations(@Req() req: AuthenticatedRequest) {
     const snapshot = await this.signals(req);
-    const agents = snapshot.agents.map(agent => {
-      const available = agent.sources.filter(source => source?.available === true);
-      const total = available.reduce((sum, source) =>
-        sum + (source && 'count' in source ? source.count : 0), 0);
+    const agents = snapshot.agents.map((agent) => {
+      const available = agent.sources.filter(
+        (source) => source?.available === true,
+      );
+      const total = available.reduce(
+        (sum, source) => sum + (source && 'count' in source ? source.count : 0),
+        0,
+      );
       const complete = agent.available;
       const action = !complete
         ? 'Verify database connectivity and source permissions before analysis.'
@@ -161,8 +291,9 @@ export class AiControlCenterController {
       return {
         department: agent.department,
         status: complete ? 'analysis-ready' : 'source-unavailable',
-        evidence: available.map(source => ({
-          table: source?.table, count: source && 'count' in source ? source.count : null,
+        evidence: available.map((source) => ({
+          table: source?.table,
+          count: source && 'count' in source ? source.count : null,
         })),
         recommendation: action,
         confidence: complete ? 'limited-single-snapshot' : 'insufficient-data',
@@ -171,10 +302,16 @@ export class AiControlCenterController {
       };
     });
     return {
-      version: 1, generatedAt: snapshot.generatedAt,
+      version: 1,
+      generatedAt: snapshot.generatedAt,
       dataMode: 'real-aggregate-read-only',
-      agents, autonomousWritesEnabled: false,
-      limitations: ['No historical baseline', 'No raw record analysis', 'No external actions'],
+      agents,
+      autonomousWritesEnabled: false,
+      limitations: [
+        'No historical baseline',
+        'No raw record analysis',
+        'No external actions',
+      ],
     };
   }
 
@@ -194,66 +331,207 @@ export class AiControlCenterController {
   @Post('analyze')
   async analyze(@Req() req: AuthenticatedRequest, @Body() input: unknown) {
     await this.requirePlatformAdmin(req);
-    if (!isRecord(input) || typeof input.department !== 'string' ||
-        !permitted.has(input.department)) throw new BadRequestException('Invalid department');
+    if (
+      !isRecord(input) ||
+      typeof input.department !== 'string' ||
+      !permitted.has(input.department)
+    )
+      throw new BadRequestException('Invalid department');
     const plans = await this.workPlan(req);
-    const plan = plans.agents.find(agent => agent.department === input.department);
+    const plan = plans.agents.find(
+      (agent) => agent.department === input.department,
+    );
     if (!plan) throw new BadRequestException('Unknown department');
+    const reserved = await (this.supabase.client as any).rpc('reserve_ai_call');
+    if (reserved.error || !reserved.data)
+      throw new HttpException(
+        'Quota IA quotidien atteint ou indisponible',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
     return analyzeWithBrain(plan);
   }
 
-  /** Proposals are non-executable recommendations. Approval does not run code or modify records. */
+  /** Owner approval queues only the exact stored patch on an isolated branch. */
   @Get('proposals')
   async proposals(@Req() req: AuthenticatedRequest) {
     await this.requirePlatformAdmin(req);
-    const { data, error } = await this.supabase.client.from('ai_agent_proposals' as never)
-      .select('id,department,title,rationale,status,decision_note,created_at,decided_at')
-      .order('created_at', { ascending: false }).limit(100);
-    if (error) throw new HttpException('Proposal storage unavailable', HttpStatus.SERVICE_UNAVAILABLE);
-    return { proposals: data ?? [], executionEnabled: false };
+    const { data, error } = await this.supabase.client
+      .from('ai_agent_proposals' as never)
+      .select(
+        'id,department,title,rationale,status,decision_note,created_at,decided_at,evidence,patch,execution_status,execution_error,pull_request_url,result_sha',
+      )
+      .order('created_at', { ascending: false })
+      .limit(100);
+    if (error)
+      throw new HttpException(
+        'Proposal storage unavailable',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    return {
+      proposals: data ?? [],
+      executionEnabled: true,
+      productionReleaseRequired: true,
+    };
   }
 
   @Post('proposals')
-  async createProposal(@Req() req: AuthenticatedRequest, @Body() input: unknown) {
+  async createProposal(
+    @Req() req: AuthenticatedRequest,
+    @Body() input: unknown,
+  ) {
     const ownerId = await this.requirePlatformAdmin(req);
-    if (!isRecord(input) || typeof input.department !== 'string' || !permitted.has(input.department) ||
-      typeof input.title !== 'string' || input.title.trim().length < 3 || input.title.length > 200 ||
-      typeof input.rationale !== 'string' || input.rationale.trim().length < 3 || input.rationale.length > 4000) {
+    if (
+      !isRecord(input) ||
+      typeof input.department !== 'string' ||
+      !permitted.has(input.department) ||
+      typeof input.title !== 'string' ||
+      input.title.trim().length < 3 ||
+      input.title.length > 200 ||
+      typeof input.rationale !== 'string' ||
+      input.rationale.trim().length < 3 ||
+      input.rationale.length > 4000
+    ) {
       throw new BadRequestException('Invalid proposal');
     }
-    const { data, error } = await this.supabase.client.from('ai_agent_proposals' as never)
-      .insert({ department: input.department, title: input.title.trim(),
-        rationale: input.rationale.trim(), created_by: ownerId } as never)
-      .select('id,department,title,rationale,status,created_at').single();
-    if (error) throw new HttpException('Proposal storage unavailable', HttpStatus.SERVICE_UNAVAILABLE);
+    const { data, error } = await this.supabase.client
+      .from('ai_agent_proposals' as never)
+      .insert({
+        department: input.department,
+        title: input.title.trim(),
+        rationale: input.rationale.trim(),
+        created_by: ownerId,
+      } as never)
+      .select('id,department,title,rationale,status,created_at')
+      .single();
+    if (error)
+      throw new HttpException(
+        'Proposal storage unavailable',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
     return { proposal: data, executionEnabled: false };
   }
 
   @Post('proposals/:id/decision')
-  async decideProposal(@Req() req: AuthenticatedRequest, @Param('id') id: string, @Body() input: unknown) {
+  async decideProposal(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Body() input: unknown,
+  ) {
     const ownerId = await this.requirePlatformAdmin(req);
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id) ||
-      !isRecord(input) || !['approved', 'rejected', 'revision_requested'].includes(String(input.decision)) ||
-      (input.note !== undefined && (typeof input.note !== 'string' || input.note.length > 2000)) ||
-      (input.decision === 'revision_requested' && (typeof input.note !== 'string' || !input.note.trim()))) {
+    if (
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        id,
+      ) ||
+      !isRecord(input) ||
+      !['approved', 'rejected', 'revision_requested'].includes(
+        String(input.decision),
+      ) ||
+      (input.note !== undefined &&
+        (typeof input.note !== 'string' || input.note.length > 2000)) ||
+      (input.decision === 'revision_requested' &&
+        (typeof input.note !== 'string' || !input.note.trim()))
+    ) {
       throw new BadRequestException('Invalid decision');
     }
-    const { data, error } = await this.supabase.client.from('ai_agent_proposals' as never)
-      .update({ status: input.decision, decision_note: typeof input.note === 'string' ? input.note.trim() : null,
-        decided_by: ownerId, decided_at: new Date().toISOString() } as never)
-      .eq('id', id).eq('status', 'pending')
-      .select('id,status,decision_note,decided_at').maybeSingle();
-    if (error) throw new HttpException('Decision storage unavailable', HttpStatus.SERVICE_UNAVAILABLE);
-    if (!data) throw new BadRequestException('Proposal not pending or not found');
-    return { proposal: data, executionAuthorized: false, actionExecuted: false };
+    const { data, error } = await this.supabase.client
+      .from('ai_agent_proposals' as never)
+      .update({
+        status: input.decision,
+        decision_note:
+          typeof input.note === 'string' ? input.note.trim() : null,
+        decided_by: ownerId,
+        decided_at: new Date().toISOString(),
+        ...(input.decision === 'approved'
+          ? { execution_status: 'queued' }
+          : {}),
+      } as never)
+      .eq('id', id)
+      .eq('status', 'pending')
+      .select('id,status,decision_note,decided_at,patch')
+      .maybeSingle();
+    if (error)
+      throw new HttpException(
+        'Decision storage unavailable',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    if (!data)
+      throw new BadRequestException('Proposal not pending or not found');
+    if (input.decision === 'approved') {
+      if (!(data as { patch?: unknown }).patch) {
+        await this.supabase.client
+          .from('ai_agent_proposals' as never)
+          .update({ execution_status: 'not_applicable' } as never)
+          .eq('id', id);
+      } else void this.supervision.prepareApproved().catch(() => undefined);
+    }
+    return {
+      proposal: data,
+      correctionQueued:
+        input.decision === 'approved' && !!(data as { patch?: unknown }).patch,
+      productionModified: false,
+    };
+  }
+
+  @Get('supervision')
+  async supervisionStatus(@Req() req: AuthenticatedRequest) {
+    await this.requirePlatformAdmin(req);
+    return this.supervision.status();
+  }
+
+  @Post('supervision/configure')
+  async configureSupervision(
+    @Req() req: AuthenticatedRequest,
+    @Body() input: unknown,
+  ) {
+    await this.requirePlatformAdmin(req);
+    if (
+      !isRecord(input) ||
+      typeof input.enabled !== 'boolean' ||
+      typeof input.aiEnabled !== 'boolean'
+    )
+      throw new BadRequestException('Configuration invalide');
+    return this.supervision.configure(input.enabled, input.aiEnabled);
+  }
+
+  @Post('supervision/run')
+  async runSupervision(@Req() req: AuthenticatedRequest) {
+    await this.requirePlatformAdmin(req);
+    // Return promptly; durable run history exposes progress and errors.
+    void this.supervision.tick(true).catch(() => undefined);
+    return { requested: true };
+  }
+
+  @Post('proposals/:id/retry')
+  async retryCorrection(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    await this.requirePlatformAdmin(req);
+    return this.supervision.retry(id);
+  }
+
+  @Post('proposals/:id/release')
+  async releaseCorrection(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    await this.requirePlatformAdmin(req);
+    return this.supervision.release(id);
   }
 
   @Get('reports')
   async reports(@Req() req: AuthenticatedRequest) {
     await this.requirePlatformAdmin(req);
-    const { data, error } = await this.supabase.client.from('ai_agent_reports' as never)
-      .select('id,created_at,generated_at,data_mode,report').order('created_at', { ascending: false }).limit(20);
-    if (error) throw new HttpException('Report storage unavailable', HttpStatus.SERVICE_UNAVAILABLE);
+    const { data, error } = await this.supabase.client
+      .from('ai_agent_reports' as never)
+      .select('id,created_at,generated_at,data_mode,report')
+      .order('created_at', { ascending: false })
+      .limit(20);
+    if (error)
+      throw new HttpException(
+        'Report storage unavailable',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
     return { reports: data ?? [], liveMonitoringEnabled: false };
   }
 
@@ -261,10 +539,21 @@ export class AiControlCenterController {
   async submit(@Req() req: AuthenticatedRequest, @Body() input: unknown) {
     const userId = await this.requirePlatformAdmin(req);
     const report = sanitize(input);
-    const { data, error } = await this.supabase.client.from('ai_agent_reports' as never)
-      .insert({ generated_at: report.generatedAt, data_mode: report.dataMode,
-        report, submitted_by: userId } as never).select('id,created_at').single();
-    if (error) throw new HttpException('Report storage unavailable', HttpStatus.SERVICE_UNAVAILABLE);
+    const { data, error } = await this.supabase.client
+      .from('ai_agent_reports' as never)
+      .insert({
+        generated_at: report.generatedAt,
+        data_mode: report.dataMode,
+        report,
+        submitted_by: userId,
+      } as never)
+      .select('id,created_at')
+      .single();
+    if (error)
+      throw new HttpException(
+        'Report storage unavailable',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
     return { stored: true, receipt: data };
   }
 }
