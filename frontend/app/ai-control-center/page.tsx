@@ -188,12 +188,19 @@ export default function ControlCenterPage() {
         },
         body: JSON.stringify({ department: selected ?? "security" }),
       });
-      if (!r.ok)
+      if (!r.ok) {
+        const failure: unknown = await r.json().catch(() => null);
+        const message =
+          failure &&
+          typeof failure === "object" &&
+          "message" in failure &&
+          typeof failure.message === "string"
+            ? failure.message
+            : null;
         throw Error(
-          "Analyse indisponible (" +
-            r.status +
-            "). Vérifiez vos crédits et l'accès.",
+          message ?? `Analyse indisponible (${r.status}). Réessayez plus tard.`,
         );
+      }
       const x = (await r.json()) as {
         status: string;
         analysis?: string;

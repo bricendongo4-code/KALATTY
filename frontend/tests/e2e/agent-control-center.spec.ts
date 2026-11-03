@@ -1,5 +1,28 @@
 import { test, expect } from "@playwright/test";
 const id = "00000000-0000-4000-8000-000000000001";
+for (const response of [
+  {
+    body: JSON.stringify({ message: "Quota IA quotidien atteint ou indisponible" }),
+    expected: "Quota IA quotidien atteint ou indisponible",
+  },
+  {
+    body: "Service unavailable",
+    expected: "Analyse indisponible (503). Réessayez plus tard.",
+  },
+])
+  test(`analysis failure displays its cause: ${response.expected}`, async ({ page }) => {
+    await page.route("**/ai-control-center/analyze", (route) =>
+      route.fulfill({ status: 503, body: response.body }),
+    );
+    await page.goto("/ai-control-center");
+    await page
+      .getByRole("navigation", { name: "Navigation du Control Center" })
+      .getByRole("button", { name: /Analyses IA/ })
+      .click();
+    await page.getByRole("button", { name: /Lancer une analyse/ }).click();
+    await expect(page.getByText(response.expected, { exact: true })).toBeVisible();
+    await expect(page.getByText(/Vérifiez vos crédits/)).toHaveCount(0);
+  });
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() =>
     localStorage.setItem("kalatty_token", "test-only"),
