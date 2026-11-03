@@ -1,7 +1,8 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import KalattyLogo from "../_components/KalattyLogo";
+import AgentIcon from "./AgentIcon";
 import SupervisionPanel from "./SupervisionPanel";
 import ApprovalCenter from "./ApprovalCenter";
 import styles from "./control-center.module.css";
@@ -36,19 +37,6 @@ const names: Record<string, string> = {
   finance: "Finance",
   analytics: "Analytics",
   crm: "CRM",
-};
-const icons: Record<string, string> = {
-  security: "◈",
-  qa: "✓",
-  developer: "⌘",
-  ux: "◉",
-  product: "▣",
-  marketing: "✦",
-  sales: "↗",
-  support: "◎",
-  finance: "◫",
-  analytics: "▥",
-  crm: "◇",
 };
 const missions: Record<string, string> = {
   security: "Accès, risques et vulnérabilités",
@@ -148,6 +136,19 @@ export default function ControlCenterPage() {
     }, 30000);
     return () => clearInterval(timer);
   }, [refresh]);
+  useEffect(() => {
+    if (!mobileNav) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const close = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileNav(false);
+    };
+    window.addEventListener("keydown", close);
+    return () => {
+      document.body.style.overflow = previous;
+      window.removeEventListener("keydown", close);
+    };
+  }, [mobileNav]);
   function navigate(next: Screen) {
     setScreen(next);
     if (next !== "analysis") setSelected(null);
@@ -225,6 +226,9 @@ export default function ControlCenterPage() {
   }
   const pending = proposals.filter((p) => p.status === "pending").length;
   const current = agents.find((a) => a.department === selected);
+  const analysisAgent = agents.find(
+    (a) => a.department === (selected ?? "security"),
+  );
   const active = nav.find((n) => n.id === screen);
   return (
     <main className={styles.shell}>
@@ -244,13 +248,7 @@ export default function ControlCenterPage() {
             className={styles.brandLogo}
             aria-label="Kalatty, accueil"
           >
-            <Image
-              src="/kalatty-logo.png"
-              alt="Kalatty"
-              width={400}
-              height={400}
-              priority
-            />
+            <KalattyLogo />
           </Link>
           <span className={styles.brandLabel}>Pilotage des agents</span>
           <button
@@ -258,7 +256,7 @@ export default function ControlCenterPage() {
             onClick={() => setMobileNav(false)}
             aria-label="Fermer"
           >
-            ×
+            <AgentIcon name="close" />
           </button>
         </div>
         <div className={styles.sideCaption}>ESPACE DE PILOTAGE</div>
@@ -272,14 +270,18 @@ export default function ControlCenterPage() {
               className={screen === n.id ? styles.navActive : ""}
               onClick={() => navigate(n.id)}
             >
-              <span className={styles.navIcon}>{n.icon}</span>
+              <span className={styles.navIcon}>
+                <AgentIcon name={n.id} />
+              </span>
               <span>{n.name}</span>
               {n.id === "approvals" && pending > 0 && <b>{pending}</b>}
             </button>
           ))}
         </nav>
         <div className={styles.sideBottom}>
-          <div className={styles.safeIcon}>✓</div>
+          <div className={styles.safeIcon}>
+            <AgentIcon name="approvals" />
+          </div>
           <div>
             <strong>MODE SÉCURISÉ</strong>
             <small>Validation humaine obligatoire</small>
@@ -296,27 +298,22 @@ export default function ControlCenterPage() {
               className={styles.menuButton}
               onClick={() => setMobileNav(true)}
               aria-label="Ouvrir le menu"
+              aria-expanded={mobileNav}
             >
-              ☰
+              <AgentIcon name="menu" />
             </button>
             <Link
               href="/"
               className={styles.mobileLogo}
               aria-label="Kalatty, accueil"
             >
-              <Image
-                src="/kalatty-logo.png"
-                alt="Kalatty"
-                width={160}
-                height={160}
-              />
+              <KalattyLogo />
             </Link>
-            <span className={styles.breadcrumb}>
-              Kalatty <span>/</span> {active?.name}
-            </span>
+            <span className={styles.breadcrumb}>{active?.name}</span>
           </div>
           <span className={styles.humanBadge}>
-            <span>●</span> Contrôle humain actif
+            <AgentIcon name="security" />
+            <span>Validation requise</span>
           </span>
         </header>
         <div className={styles.content}>
@@ -341,7 +338,7 @@ export default function ControlCenterPage() {
                   ↻ Actualiser
                 </button>
               </div>
-              <SupervisionPanel compact onRefresh={refresh} />
+
               <div className={styles.kpis}>
                 <div className={styles.kpi}>
                   <span>Agents IA</span>
@@ -385,7 +382,9 @@ export default function ControlCenterPage() {
                       className={styles.agentCard}
                       onClick={() => openAgent(id)}
                     >
-                      <span className={styles.agentIcon}>{icons[id]}</span>
+                      <span className={styles.agentIcon}>
+                        <AgentIcon name={id} />
+                      </span>
                       <span className={styles.agentTitle}>{name}</span>
                       <small>{missions[id]}</small>
                       <span className={styles.cardFoot}>
@@ -393,6 +392,9 @@ export default function ControlCenterPage() {
                       </span>
                     </button>
                   ))}
+              </div>
+              <div className={styles.overviewSupervision}>
+                <SupervisionPanel compact onRefresh={refresh} />
               </div>
               <div className={styles.quickPanel}>
                 <div>
@@ -421,14 +423,16 @@ export default function ControlCenterPage() {
                   <p>Onze expertises, chacune avec son espace de travail.</p>
                 </div>
               </div>
-              <div className={styles.agentGrid}>
+              <div className={styles.agentGrid + " " + styles.directoryGrid}>
                 {Object.entries(names).map(([id, name]) => (
                   <button
                     key={id}
                     className={styles.agentCard}
                     onClick={() => openAgent(id)}
                   >
-                    <span className={styles.agentIcon}>{icons[id]}</span>
+                    <span className={styles.agentIcon}>
+                      <AgentIcon name={id} />
+                    </span>
                     <span className={styles.agentTitle}>{name}</span>
                     <small>{missions[id]}</small>
                     <span className={styles.cardFoot}>
@@ -455,7 +459,7 @@ export default function ControlCenterPage() {
                   <div className={styles.overline}>ESPACE INDIVIDUEL</div>
                   <h1>
                     <span className={styles.headingIcon}>
-                      {icons[selected]}
+                      <AgentIcon name={selected} />
                     </span>{" "}
                     Agent {names[selected]}
                   </h1>
@@ -603,50 +607,81 @@ export default function ControlCenterPage() {
                   </p>
                 </div>
               </div>
-              <section
-                className={styles.darkPanel + " " + styles.analysisPanel}
-              >
-                <label htmlFor="agent-select">Agent à analyser</label>
-                <select
-                  id="agent-select"
-                  value={selected ?? "security"}
-                  onChange={(e) => setSelected(e.target.value)}
+              <div className={styles.analysisWorkspace}>
+                <section
+                  className={styles.darkPanel + " " + styles.analysisPanel}
                 >
-                  {Object.entries(names).map(([id, name]) => (
-                    <option value={id} key={id}>
-                      {name}
-                    </option>
-                  ))}
-                </select>
-                <p>
-                  Chaque analyse est manuelle et peut entraîner des frais d'API.
-                </p>
-                <button
-                  className={styles.primaryButton}
-                  disabled={aiBusy}
-                  onClick={() => void analyze()}
-                >
-                  {aiBusy ? "Analyse en cours…" : "✦ Lancer une analyse"}
-                </button>
-                {aiResult && (
-                  <div className={styles.analysisResult}>
-                    <h3>Résultat</h3>
-                    <p>{aiResult}</p>
-                    {aiSuccess && (
-                      <button
-                        className={styles.primaryButton}
-                        disabled={saving}
-                        onClick={() => void submit()}
-                      >
-                        {saving
-                          ? "Enregistrement…"
-                          : "Soumettre à validation →"}
-                      </button>
+                  <h2>Analyse de l’agent</h2>
+                  <label htmlFor="agent-select">Agent à analyser</label>
+                  <select
+                    id="agent-select"
+                    value={selected ?? "security"}
+                    onChange={(e) => setSelected(e.target.value)}
+                  >
+                    {Object.entries(names).map(([id, name]) => (
+                      <option value={id} key={id}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                  <p>
+                    Chaque analyse est manuelle et peut entraîner des frais
+                    d'API.
+                  </p>
+                  <button
+                    className={styles.primaryButton}
+                    disabled={aiBusy}
+                    onClick={() => void analyze()}
+                  >
+                    {aiBusy ? "Analyse en cours…" : "✦ Lancer une analyse"}
+                  </button>
+                  {aiResult && (
+                    <div className={styles.analysisResult}>
+                      <h3>Résultat</h3>
+                      <p>{aiResult}</p>
+                      {aiSuccess && (
+                        <button
+                          className={styles.primaryButton}
+                          disabled={saving}
+                          onClick={() => void submit()}
+                        >
+                          {saving
+                            ? "Enregistrement…"
+                            : "Soumettre à validation →"}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {notice && <p role="status">{notice}</p>}
+                </section>
+                <aside className={styles.darkPanel}>
+                  <h2>Preuves &amp; contexte</h2>
+                  <p>
+                    Les indicateurs disponibles pour l’agent{" "}
+                    {names[selected ?? "security"].toLowerCase()}.
+                  </p>
+                  <div className={styles.sourceList}>
+                    {analysisAgent?.sources?.length ? (
+                      analysisAgent.sources.map((source) => (
+                        <div key={source.table}>
+                          <span>{source.table}</span>
+                          <b>
+                            {source.available
+                              ? (source.count ?? 0) + " éléments"
+                              : "Indisponible"}
+                          </b>
+                        </div>
+                      ))
+                    ) : (
+                      <p>Aucune source disponible pour le moment.</p>
                     )}
                   </div>
-                )}
-                {notice && <p role="status">{notice}</p>}
-              </section>
+                  <p className={styles.contextNote}>
+                    Les analyses s’appuient sur ces données agrégées. Toute
+                    correction reste soumise à votre validation.
+                  </p>
+                </aside>
+              </div>
             </>
           )}
           {screen === "approvals" && (
@@ -697,23 +732,26 @@ export default function ControlCenterPage() {
             <>
               <div className={styles.pageHeading}>
                 <div>
-                  <div className={styles.overline}>SÉCURITÉ</div>
+                  <div className={styles.overline}>
+                    VOTRE ESPACE DE PILOTAGE
+                  </div>
                   <h1>Paramètres</h1>
                   <p>Supervision et contrôle des accès.</p>
                 </div>
               </div>
-              <section className={styles.darkPanel}>
-                <h2>Mode sécurisé actif</h2>
+              <SupervisionPanel onRefresh={refresh} />
+              <section className={styles.infoPanel}>
+                <h2>Vous gardez la main</h2>
                 <p>
-                  Les agents surveillent les indicateurs et les pages publiques.
-                  Les corrections sont préparées après votre approbation, puis
-                  publiées sur votre demande lorsque les tests réussissent.
+                  Les agents proposent. Vous approuvez les corrections et leur
+                  publication depuis le centre de validation.
                 </p>
-                <SupervisionPanel onRefresh={refresh} />
-                <p>Les paramètres sensibles restent protégés côté serveur.</p>
-                <Link href="/" className={styles.textButton}>
-                  Retour à Kalatty →
-                </Link>
+                <button
+                  className={styles.textButton}
+                  onClick={() => navigate("approvals")}
+                >
+                  Voir les propositions →
+                </button>
               </section>
             </>
           )}
@@ -734,7 +772,9 @@ export default function ControlCenterPage() {
             aria-current={screen === n.id ? "page" : undefined}
             onClick={() => navigate(n.id as Screen)}
           >
-            <span>{n.icon}</span>
+            <span>
+              <AgentIcon name={n.id} />
+            </span>
             <small>{n.name}</small>
             {n.id === "approvals" && pending > 0 && <b>{pending}</b>}
           </button>

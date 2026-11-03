@@ -159,19 +159,6 @@ export default function ApprovalCenter({
       className={styles.root}
       aria-label="Centre de validation des agents"
     >
-      <div className={styles.head}>
-        <div>
-          <p className={styles.eyebrow}>VOS DÉCISIONS</p>
-          <h2>Propositions des agents</h2>
-          <p>
-            Examinez les preuves et le changement proposé. Approuvez la
-            préparation, puis publiez après vérification des tests.
-          </p>
-        </div>
-        <button onClick={() => void load()} type="button">
-          Actualiser
-        </button>
-      </div>
       <div className={styles.stats}>
         <div>
           <strong>{items.filter((p) => p.status === "pending").length}</strong>
@@ -185,6 +172,12 @@ export default function ApprovalCenter({
           <strong>{items.filter((p) => p.status === "rejected").length}</strong>
           <span>Refusées</span>
         </div>
+      </div>
+      <div className={styles.head}>
+        <h2>Propositions des agents</h2>
+        <button onClick={() => void load()} type="button">
+          Actualiser
+        </button>
       </div>
       <div className={styles.filters}>
         <label htmlFor="proposal-filter">Afficher</label>
@@ -212,26 +205,47 @@ export default function ApprovalCenter({
       <div className={styles.list}>
         {visible.map((p) => (
           <article key={p.id} className={styles.item}>
-            <div className={styles.itemHead}>
-              <span>{labels[p.department] ?? p.department}</span>
-              <span>
-                {p.status === "pending"
-                  ? "En attente"
-                  : p.status === "approved"
-                    ? "Approuvée"
-                    : p.status === "rejected"
-                      ? "Refusée"
-                      : "Modification demandée"}
-              </span>
+            <div className={styles.itemTop}>
+              <div className={styles.itemMain}>
+                <div className={styles.itemHead}>
+                  <span>{labels[p.department] ?? p.department}</span>
+                  <span>
+                    {p.status === "pending"
+                      ? "En attente"
+                      : p.status === "approved"
+                        ? "Approuvée"
+                        : p.status === "rejected"
+                          ? "Refusée"
+                          : "Modification demandée"}
+                  </span>
+                </div>
+                <h3>{p.title}</h3>
+                <small>{new Date(p.created_at).toLocaleString("fr-FR")}</small>
+              </div>
+              {p.status === "pending" && (
+                <div className={styles.actions}>
+                  <button
+                    disabled={busy !== null}
+                    onClick={() => void decide(p, "approved")}
+                  >
+                    {p.patch
+                      ? "Approuver la correction"
+                      : "Valider la recommandation"}
+                  </button>
+                  <button
+                    disabled={busy !== null}
+                    className={styles.reject}
+                    onClick={() => void decide(p, "rejected")}
+                  >
+                    Refuser
+                  </button>
+                </div>
+              )}
             </div>
-            <h3>{p.title}</h3>
-            <p>{p.rationale}</p>
-            <small>
-              Créée le {new Date(p.created_at).toLocaleString("fr-FR")}
-            </small>
-            {!!p.evidence?.length && (
-              <details>
-                <summary>Voir les preuves du contrôle</summary>
+            <details className={styles.proposalDetails}>
+              <summary>Voir l’analyse et les preuves</summary>
+              <p>{p.rationale}</p>
+              {!!p.evidence?.length && (
                 <ul>
                   {p.evidence.map((e, i) => (
                     <li key={i}>
@@ -242,20 +256,47 @@ export default function ApprovalCenter({
                     </li>
                   ))}
                 </ul>
-              </details>
-            )}
-            {p.patch && (
-              <details>
-                <summary>Changement exact · {p.patch.file}</summary>
-                <h4>Avant</h4>
-                <pre>{p.patch.oldText}</pre>
-                <h4>Après</h4>
-                <pre>{p.patch.newText}</pre>
-                <small>Empreinte : {p.patch.digest}</small>
-              </details>
-            )}
-            {p.execution_status && (
-              <p>
+              )}
+              {p.patch && (
+                <details className={styles.patchDetails}>
+                  <summary>Changement exact · {p.patch.file}</summary>
+                  <h4>Avant</h4>
+                  <pre>{p.patch.oldText}</pre>
+                  <h4>Après</h4>
+                  <pre>{p.patch.newText}</pre>
+                  <small>Empreinte : {p.patch.digest}</small>
+                </details>
+              )}
+              {p.decision_note && (
+                <p>
+                  <strong>Votre commentaire :</strong> {p.decision_note}
+                </p>
+              )}
+              {p.status === "pending" && (
+                <>
+                  <label className={styles.note}>
+                    Demander un ajustement
+                    <textarea
+                      maxLength={2000}
+                      value={note[p.id] ?? ""}
+                      onChange={(e) =>
+                        setNote((prev) => ({ ...prev, [p.id]: e.target.value }))
+                      }
+                      placeholder="Précisez ce que l’agent doit modifier"
+                    />
+                  </label>
+                  <button
+                    className={styles.revision}
+                    disabled={busy !== null || !(note[p.id] ?? "").trim()}
+                    onClick={() => void decide(p, "revision_requested")}
+                  >
+                    Demander une modification
+                  </button>
+                </>
+              )}
+            </details>
+            {p.status !== "pending" && p.execution_status && (
+              <p className={styles.execution}>
                 <strong>
                   {execution[p.execution_status] ?? p.execution_status}
                 </strong>
@@ -269,51 +310,9 @@ export default function ApprovalCenter({
                 p.pull_request_url,
               ) && (
                 <a href={p.pull_request_url} target="_blank" rel="noreferrer">
-                  Consulter la correction et les tests sur GitHub ↗
+                  Consulter la correction et les tests ↗
                 </a>
               )}
-            {p.decision_note && (
-              <p>
-                <strong>Commentaire :</strong> {p.decision_note}
-              </p>
-            )}
-            {p.status === "pending" && (
-              <>
-                <label className={styles.note}>
-                  Commentaire (obligatoire pour une modification)
-                  <textarea
-                    maxLength={2000}
-                    value={note[p.id] ?? ""}
-                    onChange={(e) =>
-                      setNote((prev) => ({ ...prev, [p.id]: e.target.value }))
-                    }
-                    placeholder="Votre retour à l'agent"
-                  />
-                </label>
-                <div className={styles.actions}>
-                  <button
-                    disabled={busy !== null}
-                    onClick={() => void decide(p, "approved")}
-                  >
-                    {p.patch
-                      ? "Approuver la correction"
-                      : "Valider la recommandation"}
-                  </button>
-                  <button
-                    disabled={busy !== null || !(note[p.id] ?? "").trim()}
-                    onClick={() => void decide(p, "revision_requested")}
-                  >
-                    Demander une modification
-                  </button>
-                  <button
-                    disabled={busy !== null}
-                    onClick={() => void decide(p, "rejected")}
-                  >
-                    Refuser
-                  </button>
-                </div>
-              </>
-            )}
             {p.status === "approved" && p.execution_status === "failed" && (
               <div className={styles.actions}>
                 <button
@@ -333,7 +332,7 @@ export default function ApprovalCenter({
                   onClick={() => {
                     if (
                       confirm(
-                        "Publier cette correction dans Kalatty ? La fusion est autorisée uniquement si la version approuvée et les tests requis sont valides. Les déploiements configurés peuvent alors démarrer.",
+                        "Publier cette correction dans Kalatty ? La version approuvée et les tests requis seront vérifiés avant fusion.",
                       )
                     )
                       void action(
@@ -351,11 +350,13 @@ export default function ApprovalCenter({
           </article>
         ))}
       </div>
-      <p className={styles.safety}>
-        Les recommandations métier restent à mettre en œuvre selon leur contenu.
-        Une correction de code exige votre approbation exacte et une publication
-        explicite après la CI.
-      </p>
+      <div className={styles.safety}>
+        <strong>Votre validation, à chaque étape</strong>
+        <p>
+          Approuver prépare la correction. Sa publication reste une décision
+          séparée, après les tests.
+        </p>
+      </div>
     </section>
   );
 }

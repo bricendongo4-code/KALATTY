@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import KalattyLogo from "./_components/KalattyLogo";
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
@@ -315,14 +316,7 @@ export default function Home() {
       <section className={styles.hero}>
         <header className={styles.topbar}>
           <Link href="/" className={styles.brand}>
-            <Image
-              src="/kalatty-logo.png"
-              alt="Logo Kalatty"
-              width={88}
-              height={88}
-              className={styles.brandLogo}
-              priority
-            />
+            <KalattyLogo className={styles.brandLogo} label="Logo Kalatty"/>
             <div>
               <span className={styles.brandTag}>Plateforme éducative</span>
               <strong className={styles.brandName}>Kalatty</strong>
