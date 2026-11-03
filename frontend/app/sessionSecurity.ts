@@ -35,8 +35,10 @@ export const useProtectedHistoryGuard = () => {
   useEffect(() => {
     const handlePageShow = (event: PageTransitionEvent) => {
       if (!isHistoryRestore(event)) return;
-      clearKalattySession();
-      router.replace("/login?reason=session-expired");
+      // A history restore is not a logout. Only an absent session requires login.
+      if (!localStorage.getItem("kalatty_token")) {
+        router.replace("/login?reason=session-expired");
+      }
     };
 
     window.addEventListener("pageshow", handlePageShow);
@@ -48,7 +50,7 @@ export const useAuthEntryHistoryGuard = () => {
   useEffect(() => {
     const handlePageShow = (event: PageTransitionEvent) => {
       if (!isHistoryRestore(event)) return;
-      clearKalattySession();
+      if (localStorage.getItem("kalatty_token")) window.location.replace("/dashboard");
     };
 
     window.addEventListener("pageshow", handlePageShow);

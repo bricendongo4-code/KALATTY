@@ -1,10 +1,12 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import SessionAwareHomeLink from "../SessionAwareHomeLink";
 import KalattyLogo from "../_components/KalattyLogo";
 import AgentIcon from "./AgentIcon";
 import SupervisionPanel from "./SupervisionPanel";
 import ApprovalCenter from "./ApprovalCenter";
+import AgentCapabilities from "./AgentCapabilities";
 import styles from "./control-center.module.css";
 type Screen =
   | "overview"
@@ -243,13 +245,12 @@ export default function ControlCenterPage() {
         className={styles.sidebar + " " + (mobileNav ? styles.sidebarOpen : "")}
       >
         <div className={styles.brand}>
-          <Link
-            href="/"
+          <SessionAwareHomeLink
             className={styles.brandLogo}
-            aria-label="Kalatty, accueil"
+            ariaLabel="Retour à mon compte Kalatty"
           >
             <KalattyLogo />
-          </Link>
+          </SessionAwareHomeLink>
           <span className={styles.brandLabel}>Pilotage des agents</span>
           <button
             className={styles.closeNav}
@@ -287,9 +288,9 @@ export default function ControlCenterPage() {
             <small>Validation humaine obligatoire</small>
           </div>
         </div>
-        <Link className={styles.backLink} href="/">
-          ← Retour à Kalatty
-        </Link>
+        <SessionAwareHomeLink className={styles.backLink}>
+          ← Retour à mon compte
+        </SessionAwareHomeLink>
       </aside>
       <div className={styles.workspace}>
         <header className={styles.topbar}>
@@ -302,13 +303,12 @@ export default function ControlCenterPage() {
             >
               <AgentIcon name="menu" />
             </button>
-            <Link
-              href="/"
+            <SessionAwareHomeLink
               className={styles.mobileLogo}
-              aria-label="Kalatty, accueil"
+              ariaLabel="Retour à mon compte Kalatty"
             >
               <KalattyLogo />
-            </Link>
+            </SessionAwareHomeLink>
             <span className={styles.breadcrumb}>{active?.name}</span>
           </div>
           <span className={styles.humanBadge}>
@@ -516,6 +516,7 @@ export default function ControlCenterPage() {
                   </button>
                 ))}
               </div>
+              <AgentCapabilities key={selected} department={selected} />
               <div className={styles.detailGrid}>
                 <section className={styles.darkPanel}>
                   <h2>

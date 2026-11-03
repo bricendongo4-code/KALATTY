@@ -121,6 +121,13 @@ export class CampusService {
     };
   }
 
+  /** Reuse the same verified pedagogical perimeter as the campus workspace. */
+  async getSearchRoomIds(user: AuthUser) {
+    const context = await this.getContext(user);
+    if (context.campusRole !== 'pedagogy') throw new ForbiddenException('Périmètre pédagogique requis.');
+    return this.pedagogyScopeRoomIds(user.id, context.institutionId);
+  }
+
   async getHome(user: AuthUser) {
     const context = await this.getContext(user);
     switch (context.campusRole) {

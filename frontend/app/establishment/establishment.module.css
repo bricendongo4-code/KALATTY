@@ -1783,3 +1783,6 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Remain attached to the document viewport while long workspaces scroll. */
+@media(min-width:1101px){.side{align-self:start;height:100dvh;max-height:100dvh;overscroll-behavior-y:contain}}
