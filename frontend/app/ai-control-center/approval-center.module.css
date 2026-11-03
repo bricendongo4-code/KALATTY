@@ -150,6 +150,14 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+.approvalScope {
+  padding: 12px 16px;
+  background: var(--surface-soft);
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
 .proposalDetails {
   margin-top: 16px;
   font-size: 13px;

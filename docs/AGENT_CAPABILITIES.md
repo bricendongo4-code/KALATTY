@@ -60,3 +60,7 @@ Documentation des fournisseurs : [annuaire officiel](https://recherche-entrepris
 ## Fournisseur IA des agents
 
 Les trois usages IA des agents peuvent utiliser Groq ou OpenAI via un connecteur commun, sans repli automatique vers un autre fournisseur. Le diagnostic du Control Center teste la connexion sans activer les analyses automatiques. Configuration et limites : [Fournisseurs IA](AGENT_AI_PROVIDERS.md).
+
+## Explications des propositions
+
+Les nouvelles analyses manuelles et automatiques demandent six rubriques en français simple : constat, preuves, action proposée, résultat attendu, limites et risques, décision demandée. Les contrôles sans IA utilisent aussi ce format et comparent les compteurs disponibles, sans présenter une variation comme une panne confirmée. Les détails sont ouverts dans le Centre de validation, avec la portée réelle de l'approbation affichée selon la présence d'un patch. Une recommandation seule n'exécute aucune action ; un patch approuvé autorise la préparation isolée, puis la publication nécessite une décision séparée. Les anciennes propositions conservent leur texte d'origine ; demander une modification permet leur réexamen lors d'un prochain cycle disposant d'un quota IA. Aucun appel supplémentaire ni changement de quota n'est introduit ; les réponses IA disposent d'un budget de sortie plus grand pour leurs explications.

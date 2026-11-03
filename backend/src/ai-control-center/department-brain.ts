@@ -1,6 +1,7 @@
 import { generateAgentText } from '../agent-ai/agent-brain';
 import { ServiceUnavailableException } from '@nestjs/common';
 import { DEPARTMENTS, Department, Plan } from './department-planner';
+import { PROPOSAL_EXPLANATION } from './proposal-explanation';
 
 const INSTRUCTIONS: Record<Department, string> = {
   security:
@@ -39,14 +40,15 @@ export async function analyzeWithBrain(
       await generateAgentText(
         {
           instructions: `You are Kalatty's ${plan.department} analysis agent. ${INSTRUCTIONS[plan.department]}
-Return a concise French recommendation grounded ONLY in the provided aggregate evidence.
-Do not invent records or claim to have executed actions. Any change needs human approval.`,
+Ground the recommendation ONLY in the provided aggregate evidence. No code patch is attached to this analysis.
+Do not invent records or claim to have executed actions. Any change needs human approval.
+${PROPOSAL_EXPLANATION}`,
           input: JSON.stringify({
             department: plan.department,
             evidence: plan.evidence,
             tasks: plan.tasks,
           }),
-          maxOutputTokens: 250,
+          maxOutputTokens: 850,
           timeoutMs: 15000,
         },
         fetcher,

@@ -242,20 +242,29 @@ export default function ApprovalCenter({
                 </div>
               )}
             </div>
-            <details className={styles.proposalDetails}>
+            <p className={styles.approvalScope}>
+              <strong>Ce que votre validation autorise :</strong>{" "}
+              {p.patch
+                ? "préparer uniquement le changement de code joint sur une branche isolée. Vous devrez vérifier les tests et autoriser séparément sa publication."
+                : "enregistrer votre accord sur cette recommandation. Aucune correction, publication, prise de contact ou transaction n’est exécutée par cette validation."}
+            </p>
+            <details className={styles.proposalDetails} open>
               <summary>Voir l’analyse et les preuves</summary>
               <p>{p.rationale}</p>
               {!!p.evidence?.length && (
-                <ul>
-                  {p.evidence.map((e, i) => (
-                    <li key={i}>
-                      {e.source} :{" "}
-                      {e.available
-                        ? (e.count ?? e.detail ?? "Disponible")
-                        : "Indisponible"}
-                    </li>
-                  ))}
-                </ul>
+                <>
+                  <h4>Sources consultées</h4>
+                  <ul>
+                    {p.evidence.map((e, i) => (
+                      <li key={i}>
+                        {e.source} :{" "}
+                        {e.available
+                          ? (e.count ?? e.detail ?? "Disponible")
+                          : "Indisponible"}
+                      </li>
+                    ))}
+                  </ul>
+                </>
               )}
               {p.patch && (
                 <details className={styles.patchDetails}>

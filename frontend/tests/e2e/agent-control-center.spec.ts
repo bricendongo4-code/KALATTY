@@ -2,7 +2,9 @@ import { test, expect } from "@playwright/test";
 const id = "00000000-0000-4000-8000-000000000001";
 for (const response of [
   {
-    body: JSON.stringify({ message: "Quota IA quotidien atteint ou indisponible" }),
+    body: JSON.stringify({
+      message: "Quota IA quotidien atteint ou indisponible",
+    }),
     expected: "Quota IA quotidien atteint ou indisponible",
   },
   {
@@ -10,7 +12,9 @@ for (const response of [
     expected: "Analyse indisponible (503). Réessayez plus tard.",
   },
 ])
-  test(`analysis failure displays its cause: ${response.expected}`, async ({ page }) => {
+  test(`analysis failure displays its cause: ${response.expected}`, async ({
+    page,
+  }) => {
     await page.route("**/ai-control-center/analyze", (route) => {
       const headers = {
         "Access-Control-Allow-Origin": "*",
@@ -29,7 +33,9 @@ for (const response of [
       .getByRole("button", { name: /Analyses IA/ })
       .click();
     await page.getByRole("button", { name: /Lancer une analyse/ }).click();
-    await expect(page.getByText(response.expected, { exact: true })).toBeVisible();
+    await expect(
+      page.getByText(response.expected, { exact: true }),
+    ).toBeVisible();
     await expect(page.getByText(/Vérifiez vos crédits/)).toHaveCount(0);
   });
 test.beforeEach(async ({ page }) => {
@@ -133,7 +139,17 @@ for (const width of [320, 768, 1024, 1440])
     await expect(
       page.getByRole("heading", { name: "Correction du catalogue" }),
     ).toBeVisible();
-    await page.getByText("Voir l’analyse et les preuves").click();
+    await expect(
+      page.getByText(
+        "Constat de test pour vérifier le parcours de validation.",
+      ),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Ce que votre validation autorise :"),
+    ).toBeVisible();
+    await expect(
+      page.getByText(/préparer uniquement le changement de code joint/),
+    ).toBeVisible();
     await page
       .getByText("Changement exact · frontend/app/courses/page.tsx")
       .click();
