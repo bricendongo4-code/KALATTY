@@ -1,5 +1,128 @@
 import { test, expect } from "@playwright/test";
 const id = "00000000-0000-4000-8000-000000000001";
+for (const outcome of ["blocked", "review_ready"])
+  test(`approving a recommendation starts preparation and shows ${outcome}`, async ({
+    page,
+  }) => {
+    const parentId = "00000000-0000-4000-8000-000000000002";
+    let approved = false;
+    const calls: string[] = [];
+    const headers = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "authorization,content-type",
+      "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+    };
+    await page.route("**/ai-control-center/proposals", (route) =>
+      route.fulfill({
+        headers,
+        json: {
+          proposals: [
+            {
+              id: parentId,
+              department: "ux",
+              title: "Clarifier le catalogue",
+              rationale: "Clarifier le titre de la liste des cours.",
+              created_at: "2026-11-03T10:00:00Z",
+              status: approved ? "approved" : "pending",
+              execution_status: approved ? outcome : "not_applicable",
+              execution_error:
+                approved && outcome === "blocked"
+                  ? "Quota IA du jour épuisé. Relancez demain."
+                  : null,
+              implementation_proposal_id:
+                approved && outcome === "review_ready" ? id : null,
+            },
+            ...(approved && outcome === "review_ready"
+              ? [
+                  {
+                    id,
+                    department: "developer",
+                    title: "Correction du titre préparée",
+                    rationale: "Le titre sera plus explicite.",
+                    created_at: "2026-11-03T10:01:00Z",
+                    status: "pending",
+                    execution_status: "awaiting_approval",
+                    patch: {
+                      file: "frontend/app/courses/page.tsx",
+                      oldText: "Cours",
+                      newText: "Tous les cours",
+                      digest: "a".repeat(64),
+                    },
+                  },
+                ]
+              : []),
+          ],
+        },
+      }),
+    );
+    await page.route(
+      `**/ai-control-center/proposals/${parentId}/decision`,
+      (route) => {
+        if (route.request().method() === "OPTIONS")
+          return route.fulfill({ status: 204, headers });
+        calls.push("decision");
+        expect(route.request().postDataJSON()).toMatchObject({
+          decision: "approved",
+          prepareImplementation: true,
+        });
+        approved = true;
+        return route.fulfill({
+          headers,
+          json: { preparationQueued: true, productionModified: false },
+        });
+      },
+    );
+    await page.route(
+      `**/ai-control-center/proposals/${parentId}/retry`,
+      (route) => {
+        if (route.request().method() === "OPTIONS")
+          return route.fulfill({ status: 204, headers });
+        calls.push("retry");
+        return route.fulfill({ headers, json: { queued: true } });
+      },
+    );
+    await page.goto("/ai-control-center");
+    await page
+      .getByRole("navigation", { name: "Navigation du Control Center" })
+      .getByRole("button", { name: /Centre de validation/ })
+      .click();
+    await expect(
+      page.getByText(/lancer la recherche et la préparation/),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "Valider et préparer une modification" })
+      .click();
+    if (outcome === "blocked") {
+      await expect(
+        page.getByText("Quota IA du jour épuisé. Relancez demain."),
+      ).toBeVisible();
+      await page
+        .getByRole("button", {
+          name: "Relancer la préparation de la modification",
+        })
+        .click();
+      expect(calls).toEqual(["decision", "retry"]);
+    } else {
+      await expect(
+        page.getByText("Correction préparée · changement exact à approuver"),
+      ).toBeVisible();
+      await page
+        .getByRole("button", { name: "Voir la correction liée" })
+        .click();
+      await expect(
+        page.getByRole("heading", { name: "Correction du titre préparée" }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "Approuver la correction" }),
+      ).toBeVisible();
+      expect(calls).toEqual(["decision"]);
+    }
+    await expect(
+      page.getByRole("button", {
+        name: "Publier la correction après les tests",
+      }),
+    ).toHaveCount(0);
+  });
 for (const response of [
   {
     body: JSON.stringify({

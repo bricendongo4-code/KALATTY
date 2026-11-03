@@ -20,7 +20,7 @@ describe('plain-language control explanations', () => {
     );
     expect(text).toContain('7 (avant : 4)');
     expect(text).toContain('ne prouve pas un dysfonctionnement');
-    expect(text).toContain('ne lance ni correction');
+    expect(text).toContain('Le changement exact restera à approuver');
   });
   it('proposes checking access when evidence is unavailable, without inventing a cause', () => {
     const rows = [{ source: 'GitHub CI', available: false }];

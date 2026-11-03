@@ -20,6 +20,7 @@ type Proposal = {
   execution_status?: string;
   execution_error?: string;
   pull_request_url?: string;
+  implementation_proposal_id?: string;
 };
 const labels: Record<string, string> = {
   security: "Sécurité",
@@ -42,6 +43,10 @@ const execution: Record<string, string> = {
   failed: "Préparation interrompue",
   merged: "Fusion effectuée · consulter le déploiement",
   not_applicable: "Recommandation sans correction de code",
+  planning_queued: "Préparation de la modification en attente",
+  planning: "L’agent prépare une correction concrète",
+  blocked: "Préparation bloquée · consultez le motif",
+  review_ready: "Correction préparée · changement exact à approuver",
 };
 const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
 export default function ApprovalCenter({
@@ -146,10 +151,16 @@ export default function ApprovalCenter({
     await action(
       p,
       "decision",
-      { decision, note: note[p.id] ?? "" },
+      {
+        decision,
+        note: note[p.id] ?? "",
+        prepareImplementation: decision === "approved" && !p.patch,
+      },
       decision === "approved" && p.patch
         ? "Correction approuvée et mise en préparation."
-        : "Décision enregistrée.",
+        : decision === "approved"
+          ? "Préparation de la modification lancée. Son résultat apparaîtra dans le suivi."
+          : "Décision enregistrée.",
     );
     if (decision === "approved") setFilter("all");
   }
@@ -204,7 +215,7 @@ export default function ApprovalCenter({
       )}
       <div className={styles.list}>
         {visible.map((p) => (
-          <article key={p.id} className={styles.item}>
+          <article key={p.id} id={`proposal-${p.id}`} className={styles.item}>
             <div className={styles.itemTop}>
               <div className={styles.itemMain}>
                 <div className={styles.itemHead}>
@@ -230,7 +241,7 @@ export default function ApprovalCenter({
                   >
                     {p.patch
                       ? "Approuver la correction"
-                      : "Valider la recommandation"}
+                      : "Valider et préparer une modification"}
                   </button>
                   <button
                     disabled={busy !== null}
@@ -246,7 +257,7 @@ export default function ApprovalCenter({
               <strong>Ce que votre validation autorise :</strong>{" "}
               {p.patch
                 ? "préparer uniquement le changement de code joint sur une branche isolée. Vous devrez vérifier les tests et autoriser séparément sa publication."
-                : "enregistrer votre accord sur cette recommandation. Aucune correction, publication, prise de contact ou transaction n’est exécutée par cette validation."}
+                : "lancer la recherche et la préparation d’une correction de code liée à cette recommandation (jusqu’à 2 appels IA). Le changement exact sera présenté pour approbation. Si la demande ne peut pas être traitée, le motif du blocage sera affiché. Aucun paiement ni message n’est déclenché ici."}
             </p>
             <details className={styles.proposalDetails} open>
               <summary>Voir l’analyse et les preuves</summary>
@@ -314,6 +325,59 @@ export default function ApprovalCenter({
             {p.execution_error && (
               <p className={styles.error}>{p.execution_error}</p>
             )}
+            {p.implementation_proposal_id && (
+              <div className={styles.actions}>
+                <button
+                  onClick={() => {
+                    setFilter("all");
+                    requestAnimationFrame(() =>
+                      document
+                        .getElementById(
+                          `proposal-${p.implementation_proposal_id}`,
+                        )
+                        ?.scrollIntoView({ block: "center" }),
+                    );
+                  }}
+                >
+                  Voir la correction liée
+                </button>
+              </div>
+            )}
+            {p.status === "approved" &&
+              !p.patch &&
+              ["blocked", "not_applicable", "queued"].includes(
+                p.execution_status ?? "",
+              ) && (
+                <div className={styles.actions}>
+                  <label className={styles.note}>
+                    Préciser la demande avant de relancer
+                    <textarea
+                      maxLength={2000}
+                      value={note[p.id] ?? p.decision_note ?? ""}
+                      onChange={(e) =>
+                        setNote((previous) => ({
+                          ...previous,
+                          [p.id]: e.target.value,
+                        }))
+                      }
+                      placeholder="Indiquez la page concernée et le résultat attendu"
+                    />
+                  </label>
+                  <button
+                    disabled={busy !== null}
+                    onClick={() =>
+                      void action(
+                        p,
+                        "retry",
+                        { note: note[p.id] ?? p.decision_note ?? "" },
+                        "Préparation de la modification relancée.",
+                      )
+                    }
+                  >
+                    Relancer la préparation de la modification
+                  </button>
+                </div>
+              )}
             {p.pull_request_url &&
               /^https:\/\/github\.com\/bricendongo4-code\/KALATTY\/pull\/\d+$/.test(
                 p.pull_request_url,
