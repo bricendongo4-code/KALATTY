@@ -247,8 +247,8 @@ export default function ControlCenterPage() {
             <Image
               src="/kalatty-logo.png"
               alt="Kalatty"
-              width={150}
-              height={60}
+              width={400}
+              height={400}
               priority
             />
           </Link>
