@@ -1,3 +1,4 @@
+import { assertAgentBrainConfigured } from '../agent-ai/agent-brain';
 import { AgentSupervisionService } from './agent-supervision.service';
 import { analyzeWithBrain } from './department-brain';
 import { planDepartments } from './department-planner';
@@ -224,7 +225,12 @@ export class AiControlCenterController {
       ux: ['progress', 'course_favorites'],
       product: ['courses', 'course_modules', 'lessons'],
       marketing: ['course_reviews', 'course_favorites', 'ai_growth_actions'],
-      sales: ['enrollments', 'payments', 'ai_growth_leads', 'ai_growth_actions'],
+      sales: [
+        'enrollments',
+        'payments',
+        'ai_growth_leads',
+        'ai_growth_actions',
+      ],
       support: ['course_questions', 'privacy_requests'],
       finance: ['payments'],
       analytics: ['enrollments', 'progress', 'courses'],
@@ -337,11 +343,13 @@ export class AiControlCenterController {
       !permitted.has(input.department)
     )
       throw new BadRequestException('Invalid department');
+    assertAgentBrainConfigured();
     const plans = await this.workPlan(req);
     const plan = plans.agents.find(
       (agent) => agent.department === input.department,
     );
     if (!plan) throw new BadRequestException('Unknown department');
+    if (plan.state === 'blocked') return analyzeWithBrain(plan);
     const reserved = await (this.supabase.client as any).rpc('reserve_ai_call');
     if (reserved.error || !reserved.data)
       throw new HttpException(
@@ -476,6 +484,12 @@ export class AiControlCenterController {
   async supervisionStatus(@Req() req: AuthenticatedRequest) {
     await this.requirePlatformAdmin(req);
     return this.supervision.status();
+  }
+
+  @Post('brain/check')
+  async checkBrain(@Req() req: AuthenticatedRequest) {
+    await this.requirePlatformAdmin(req);
+    return this.supervision.checkBrain();
   }
 
   @Post('supervision/configure')

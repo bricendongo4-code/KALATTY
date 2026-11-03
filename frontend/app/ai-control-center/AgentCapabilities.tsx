@@ -82,6 +82,8 @@ type State = {
   enabled: boolean;
   ai_enabled: boolean;
   brainConfigured: boolean;
+  brainProvider?: string;
+  brainModel?: string;
   githubConfigured: boolean;
   last_run_at: string | null;
 };
@@ -138,6 +140,18 @@ export default function AgentCapabilities({
       {error && <p role="alert">{error}</p>}
       {state && (
         <div className={styles.status}>
+          {state.brainProvider && (
+            <span>
+              Fournisseur IA :{" "}
+              <b>
+                {state.brainProvider === "groq"
+                  ? "Groq"
+                  : state.brainProvider === "openai"
+                    ? "OpenAI"
+                    : "configuration invalide"}
+              </b>
+            </span>
+          )}
           <span>
             Supervision : <b>{state.enabled ? "activée" : "en pause"}</b>
           </span>
@@ -146,7 +160,7 @@ export default function AgentCapabilities({
             <b>
               {state.ai_enabled
                 ? state.brainConfigured
-                  ? "activée — crédits à vérifier"
+                  ? "activée — quotas du fournisseur à vérifier"
                   : "configuration manquante"
                 : "désactivée"}
             </b>

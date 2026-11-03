@@ -1,3 +1,4 @@
+import { generateAgentText } from '../agent-ai/agent-brain';
 import { ServiceUnavailableException } from '@nestjs/common';
 import { DEPARTMENTS, Department, Plan } from './department-planner';
 
@@ -32,70 +33,25 @@ export async function analyzeWithBrain(
       reason: 'Source evidence unavailable',
     };
   }
-  const key = process.env.OPENAI_API_KEY;
-  const model = process.env.KALATTY_AI_MODEL;
-  if (!key || !model) {
-    throw new ServiceUnavailableException('AI brain is not configured');
-  }
-  const abort = new AbortController();
-  const timer = setTimeout(() => abort.abort(), 15000);
   try {
-    // The model receives only bounded aggregate counts, never raw student data.
-    const response = await fetcher('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${key}`,
-        'Content-Type': 'application/json',
-      },
-      signal: abort.signal,
-      body: JSON.stringify({
-        model,
-        store: false,
-        max_output_tokens: 250,
-        instructions: `You are Kalatty's ${plan.department} analysis agent. ${INSTRUCTIONS[plan.department]}
+    // Only bounded aggregate counts are sent, never raw student data.
+    const analysis = (
+      await generateAgentText(
+        {
+          instructions: `You are Kalatty's ${plan.department} analysis agent. ${INSTRUCTIONS[plan.department]}
 Return a concise French recommendation grounded ONLY in the provided aggregate evidence.
 Do not invent records or claim to have executed actions. Any change needs human approval.`,
-        input: JSON.stringify({
-          department: plan.department,
-          evidence: plan.evidence,
-          tasks: plan.tasks,
-        }),
-      }),
-    });
-    if (!response.ok)
-      throw new ServiceUnavailableException('AI provider unavailable');
-    const result: unknown = await response.json();
-    if (
-      !result ||
-      typeof result !== 'object' ||
-      !('output' in result) ||
-      !Array.isArray(result.output)
-    ) {
-      throw new ServiceUnavailableException('Invalid AI response');
-    }
-    const parts: unknown[] = result.output.flatMap((item: unknown) =>
-      item &&
-      typeof item === 'object' &&
-      'content' in item &&
-      Array.isArray(item.content)
-        ? item.content
-        : [],
-    );
-    const analysis = parts
-      .filter(
-        (part: unknown) =>
-          part &&
-          typeof part === 'object' &&
-          'type' in part &&
-          part.type === 'output_text' &&
-          'text' in part &&
-          typeof part.text === 'string',
+          input: JSON.stringify({
+            department: plan.department,
+            evidence: plan.evidence,
+            tasks: plan.tasks,
+          }),
+          maxOutputTokens: 250,
+          timeoutMs: 15000,
+        },
+        fetcher,
       )
-      .map((part: { text: string }) => part.text)
-      .join('\n')
-      .slice(0, 3000);
-    if (!analysis)
-      throw new ServiceUnavailableException('AI returned no analysis');
+    ).slice(0, 3000);
     return {
       department: plan.department,
       status: 'analyzed',
@@ -104,9 +60,8 @@ Do not invent records or claim to have executed actions. Any change needs human 
       requiresApproval: true,
       executedActions: 0,
     };
-  } catch {
+  } catch (error) {
+    if (error instanceof ServiceUnavailableException) throw error;
     throw new ServiceUnavailableException('AI analysis failed');
-  } finally {
-    clearTimeout(timer);
   }
 }

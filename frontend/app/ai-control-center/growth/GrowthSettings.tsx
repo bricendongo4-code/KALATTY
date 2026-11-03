@@ -122,7 +122,7 @@ export function GrowthBrief({
           La prospection quotidienne ne contacte personne. Les relances échues
           des prospects qualifiés, contactés ou en rendez-vous préparent aussi
           un brouillon à valider. Elle conserve les sources, ignore les doublons
-          et prépare des brouillons sans appel OpenAI.
+          et prépare des brouillons sans appel IA.
         </p>
         <p>
           Les résultats web sont des pistes à qualifier. Aucun email ni besoin
