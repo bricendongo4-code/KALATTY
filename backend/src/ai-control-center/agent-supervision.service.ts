@@ -15,6 +15,7 @@ import { DEPARTMENTS } from './department-planner';
 import { AgentGithub } from './agent-github';
 import { AgentPatch, allowedPatchFile, validatePatch } from './agent-patch';
 import { explainControl, PROPOSAL_EXPLANATION } from './proposal-explanation';
+import { AgentImplementationService } from './agent-implementation.service';
 
 type Evidence = {
   department: string;
@@ -48,16 +49,23 @@ export class AgentSupervisionService implements OnModuleInit, OnModuleDestroy {
   private timer?: ReturnType<typeof setInterval>;
   private busy = false;
   private github = new AgentGithub();
-  constructor(private readonly supabase: SupabaseService) {}
+  constructor(
+    private readonly supabase: SupabaseService,
+    private readonly implementation: AgentImplementationService = new AgentImplementationService(
+      supabase,
+    ),
+  ) {}
   private get db(): any {
     return this.supabase.client;
   }
   onModuleInit() {
     // Database lease prevents multiple Railway replicas from executing the same cycle.
     this.timer = setInterval(() => {
+      void this.prepareRecommendation().catch(() => undefined);
       void this.tick().catch(() => undefined);
     }, 60000);
     this.timer.unref();
+    void this.prepareRecommendation().catch(() => undefined);
     void this.tick().catch(() => undefined);
   }
   onModuleDestroy() {
@@ -143,6 +151,7 @@ export class AgentSupervisionService implements OnModuleInit, OnModuleDestroy {
       leased = true;
       // Pending approved jobs are retried on each hourly cycle, even without AI credits.
       await this.prepareApproved();
+      await this.prepareRecommendation();
       await this.inspect();
       return { started: true };
     } catch (error) {
@@ -515,7 +524,29 @@ ${PROPOSAL_EXPLANATION}`,
         .eq('id', proposal.id);
     }
   }
-  async retry(id: string) {
+  async prepareRecommendation() {
+    return this.implementation.prepareOne();
+  }
+  async retry(id: string, note?: string) {
+    const recommendation = await this.db
+      .from('ai_agent_proposals')
+      .update({
+        execution_status: 'planning_queued',
+        execution_error: null,
+        ...(note !== undefined ? { decision_note: note.trim() } : {}),
+      })
+      .eq('id', id)
+      .eq('status', 'approved')
+      .is('patch', null)
+      .in('execution_status', ['blocked', 'not_applicable', 'queued'])
+      .select('id')
+      .maybeSingle();
+    if (recommendation.error)
+      throw new ServiceUnavailableException('Préparation non relançable');
+    if (recommendation.data) {
+      void this.prepareRecommendation().catch(() => undefined);
+      return { queued: true, preparation: true };
+    }
     const { data, error } = await this.db
       .from('ai_agent_proposals')
       .update({ execution_status: 'queued', execution_error: null })

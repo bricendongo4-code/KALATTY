@@ -366,7 +366,7 @@ export class AiControlCenterController {
     const { data, error } = await this.supabase.client
       .from('ai_agent_proposals' as never)
       .select(
-        'id,department,title,rationale,status,decision_note,created_at,decided_at,evidence,patch,execution_status,execution_error,pull_request_url,result_sha',
+        'id,department,title,rationale,status,decision_note,created_at,decided_at,evidence,patch,execution_status,execution_error,pull_request_url,result_sha,implementation_proposal_id',
       )
       .order('created_at', { ascending: false })
       .limit(100);
@@ -416,7 +416,7 @@ export class AiControlCenterController {
         'Proposal storage unavailable',
         HttpStatus.SERVICE_UNAVAILABLE,
       );
-    return { proposal: data, executionEnabled: false };
+    return { proposal: data, executionEnabled: true, requiresApproval: true };
   }
 
   @Post('proposals/:id/decision')
@@ -436,27 +436,27 @@ export class AiControlCenterController {
       ) ||
       (input.note !== undefined &&
         (typeof input.note !== 'string' || input.note.length > 2000)) ||
+      (input.prepareImplementation !== undefined &&
+        typeof input.prepareImplementation !== 'boolean') ||
       (input.decision === 'revision_requested' &&
         (typeof input.note !== 'string' || !input.note.trim()))
     ) {
       throw new BadRequestException('Invalid decision');
     }
-    const { data, error } = await this.supabase.client
-      .from('ai_agent_proposals' as never)
-      .update({
-        status: input.decision,
-        decision_note:
-          typeof input.note === 'string' ? input.note.trim() : null,
-        decided_by: ownerId,
-        decided_at: new Date().toISOString(),
-        ...(input.decision === 'approved'
-          ? { execution_status: 'queued' }
-          : {}),
-      } as never)
-      .eq('id', id)
-      .eq('status', 'pending')
-      .select('id,status,decision_note,decided_at,patch')
-      .maybeSingle();
+    const decided = await (this.supabase.client as any).rpc(
+      'decide_ai_proposal',
+      {
+        p_id: id,
+        p_owner: ownerId,
+        p_decision:
+          input.decision === 'approved' && input.prepareImplementation === true
+            ? 'approved_prepare'
+            : input.decision,
+        p_note: typeof input.note === 'string' ? input.note.trim() : null,
+      },
+    );
+    const { error } = decided;
+    const data = decided.data?.[0];
     if (error)
       throw new HttpException(
         'Decision storage unavailable',
@@ -465,17 +465,22 @@ export class AiControlCenterController {
     if (!data)
       throw new BadRequestException('Proposal not pending or not found');
     if (input.decision === 'approved') {
-      if (!(data as { patch?: unknown }).patch) {
-        await this.supabase.client
-          .from('ai_agent_proposals' as never)
-          .update({ execution_status: 'not_applicable' } as never)
-          .eq('id', id);
-      } else void this.supervision.prepareApproved().catch(() => undefined);
+      if (
+        !(data as { patch?: unknown }).patch &&
+        input.prepareImplementation === true
+      ) {
+        void this.supervision.prepareRecommendation().catch(() => undefined);
+      } else if ((data as { patch?: unknown }).patch)
+        void this.supervision.prepareApproved().catch(() => undefined);
     }
     return {
       proposal: data,
       correctionQueued:
         input.decision === 'approved' && !!(data as { patch?: unknown }).patch,
+      preparationQueued:
+        input.decision === 'approved' &&
+        input.prepareImplementation === true &&
+        !(data as { patch?: unknown }).patch,
       productionModified: false,
     };
   }
@@ -519,9 +524,19 @@ export class AiControlCenterController {
   async retryCorrection(
     @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
+    @Body() input: unknown,
   ) {
     await this.requirePlatformAdmin(req);
-    return this.supervision.retry(id);
+    if (
+      !isRecord(input) ||
+      (input.note !== undefined &&
+        (typeof input.note !== 'string' || input.note.length > 2000))
+    )
+      throw new BadRequestException('Précision invalide');
+    return this.supervision.retry(
+      id,
+      typeof input.note === 'string' ? input.note : undefined,
+    );
   }
 
   @Post('proposals/:id/release')
