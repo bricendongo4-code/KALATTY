@@ -1,3 +1,4 @@
+import { GrowthModule } from './agent-growth/growth.module';
 import { SearchModule } from './search/search.module';
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
@@ -23,6 +24,7 @@ import { ObservabilityMiddleware } from './observability.middleware';
     ConfigModule.forRoot({ isGlobal: true }), // <<< OBLIGATOIRE !!
     SupabaseModule,
     SearchModule,
+    GrowthModule,
     AiControlCenterModule,
     AuthModule,
     CampusModule,

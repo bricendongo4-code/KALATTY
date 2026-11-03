@@ -223,12 +223,12 @@ export class AiControlCenterController {
       developer: ['studio_ai_generations', 'studio_projects'],
       ux: ['progress', 'course_favorites'],
       product: ['courses', 'course_modules', 'lessons'],
-      marketing: ['course_reviews', 'course_favorites'],
-      sales: ['enrollments', 'payments'],
+      marketing: ['course_reviews', 'course_favorites', 'ai_growth_actions'],
+      sales: ['enrollments', 'payments', 'ai_growth_leads', 'ai_growth_actions'],
       support: ['course_questions', 'privacy_requests'],
       finance: ['payments'],
       analytics: ['enrollments', 'progress', 'courses'],
-      crm: ['profiles', 'enrollments'],
+      crm: ['profiles', 'enrollments', 'ai_growth_leads', 'ai_growth_events'],
     };
     const tables = [...new Set(Object.values(sources).flat())];
     const counts = await Promise.all(

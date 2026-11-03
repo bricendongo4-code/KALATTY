@@ -1,0 +1,340 @@
+.workspace {
+  min-width: 0;
+  color: var(--foreground);
+}
+.heading {
+  margin-bottom: 24px;
+}
+.heading > span {
+  color: var(--primary-dark);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+}
+.heading h1 {
+  font-size: clamp(26px, 3vw, 34px);
+  margin: 10px 0;
+}
+.heading p,
+.panel p {
+  color: var(--muted);
+  line-height: 1.65;
+  font-size: 14px;
+}
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.metrics > div {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  padding: 20px;
+  border-radius: 12px;
+}
+.metrics strong {
+  font-size: 26px;
+  color: var(--primary-dark);
+}
+.metrics span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+}
+.workspace button {
+  min-height: 42px;
+  padding: 10px 16px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: var(--secondary, #ff6a1f);
+  color: var(--foreground);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.tabs button,
+.workspace .secondary {
+  background: var(--surface);
+  color: var(--foreground);
+  border-color: var(--border);
+}
+.tabs button[aria-selected="true"] {
+  background: var(--secondary-soft);
+  color: var(--primary-dark);
+  border-color: var(--secondary);
+}
+.workspace button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.workspace :is(button, input, select, textarea, a, summary):focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 3px;
+}
+.columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(260px, 1fr);
+  align-items: start;
+  gap: 24px;
+}
+.panel {
+  min-width: 0;
+  background: var(--surface, #fff);
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin: 0 0 20px;
+  overflow-wrap: anywhere;
+}
+.panel h2 {
+  font-size: 20px;
+  margin: 0 0 16px;
+}
+.panel h3 {
+  font-size: 16px;
+  margin: 0 0 12px;
+}
+.panel form,
+.panel > form {
+  margin-top: 16px;
+}
+.workspace label {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 650;
+}
+.workspace :is(input, textarea, select) {
+  width: 100%;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--foreground);
+  font: inherit;
+  font-size: 14px;
+}
+.workspace textarea {
+  resize: vertical;
+}
+.workspace .check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  line-height: 1.6;
+}
+.check input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+}
+.workspace dl {
+  margin: 16px 0;
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 12px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.workspace dt {
+  color: var(--muted);
+}
+.workspace dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.workspace a {
+  color: var(--primary-dark);
+  font-weight: 650;
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.toolbar label {
+  flex: 1;
+  min-width: 180px;
+  margin: 0;
+}
+.toolbar button {
+  margin-bottom: 0;
+}
+.cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+.cards .panel {
+  margin: 0;
+}
+.cardHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.cardHead h3 {
+  line-height: 1.5;
+}
+.cardHead p {
+  margin: 6px 0 16px;
+  font-size: 12px;
+}
+.badge {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 7px;
+  background: var(--surface-soft, #e9f7f5);
+  color: var(--primary-dark);
+  font-size: 11px;
+  font-weight: 750;
+  max-width: 160px;
+  flex: none;
+  line-height: 1.5;
+}
+.workspace summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.6;
+}
+.panel details {
+  margin: 20px 0;
+}
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 20px 0 12px;
+}
+.workspace small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+.message {
+  white-space: pre-wrap;
+  padding: 16px;
+  background: var(--surface-soft, #f2f9f8);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.error,
+.notice {
+  padding: 16px;
+  border-radius: 9px;
+  line-height: 1.6;
+  font-size: 13px;
+}
+.error {
+  color: #9f3219;
+  background: #fff0e9;
+  border: 1px solid #f2c4b5;
+}
+.notice {
+  color: #006763;
+  background: #e9f8f4;
+  border: 1px solid #a6dcd5;
+}
+.connection {
+  padding: 20px 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+.connection code {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  line-height: 1.8;
+}
+.journal {
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-top: 24px;
+  background: var(--surface);
+}
+.journal ol {
+  padding-left: 20px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.8;
+}
+.filter {
+  max-width: 320px;
+}
+.panel > h3 {
+  margin-top: 24px;
+}
+@media (max-width: 1100px) {
+  .columns,
+  .cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 500px) {
+  .panel {
+    padding: 18px;
+  }
+  .metrics {
+    gap: 10px;
+  }
+  .metrics > div {
+    padding: 14px;
+  }
+  .metrics strong {
+    font-size: 23px;
+  }
+  .tabs button {
+    flex: 1;
+    font-size: 12px;
+    padding: 10px;
+  }
+  .workspace dl {
+    grid-template-columns: 90px minmax(0, 1fr);
+  }
+  .cardHead {
+    display: grid;
+    gap: 8px;
+  }
+  .badge {
+    max-width: 100%;
+  }
+  .toolbar label,
+  .toolbar button {
+    min-width: 0;
+    width: 100%;
+    flex: auto;
+  }
+  .buttons button {
+    width: 100%;
+  }
+  .connection code {
+    font-size: 11px;
+  }
+}
