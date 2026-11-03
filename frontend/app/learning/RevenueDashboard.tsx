@@ -1,5 +1,6 @@
 "use client";
 
+import Wallet from "../commerce/Wallet";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Icon } from "../establishment/ui";
@@ -15,7 +16,7 @@ type Revenue = {
   pendingNetFcfa: number;
   refundsFcfa: number;
   paidSalesCount: number;
-  transactions: Array<{ id: string; courseTitle: string; amountGrossFcfa: number; platformFeeFcfa: number; trainerNetFcfa: number; status: string; createdAt: string }>;
+  transactions: Array<{ id: string; courseTitle: string; amountGrossFcfa: number; platformFeeFcfa: number; trainerNetFcfa: number; status: string; verificationSource?:string; createdAt: string }>;
 };
 
 const money = (value: number) => `${new Intl.NumberFormat("fr-FR").format(value)} FCFA`;
@@ -49,10 +50,11 @@ export default function RevenueDashboard() {
   }, [load]);
 
   return <>
-    <header className={styles.pageHead}><div><h1>Aperçu des revenus</h1><p>Montant brut, frais et revenu net sont séparés à partir des transactions réelles.</p></div><button className={styles.smallButton} onClick={load}>Actualiser</button></header>
+    <header className={styles.pageHead}><div><h1>Aperçu des revenus</h1><p>Les totaux incluent uniquement les paiements confirmés par le prestataire. Les anciens paiements et démonstrations restent visibles dans l’historique.</p></div><button className={styles.smallButton} onClick={load}>Actualiser</button></header>
     {loading ? <section className={styles.loadingState}><span /><h2>Calcul des revenus</h2></section> : error ? <section className={styles.loadingState}><Icon name="alert" /><h2>Chargement impossible</h2><p>{error}</p><button onClick={load}>Réessayer</button></section> : data ? <>
       <div className={styles.stats}><article className={styles.stat}><span className={styles.statIcon}><Icon name="chart" /></span><span><strong>{money(data.grossPaidFcfa)}</strong><small>Ventes brutes payées</small></span></article><article className={styles.stat}><span className={`${styles.statIcon} ${styles.stat_orange}`}><Icon name="euro" /></span><span><strong>{money(data.feesPaidFcfa)}</strong><small>Frais plateforme</small></span></article><article className={styles.stat}><span className={`${styles.statIcon} ${styles.stat_blue}`}><Icon name="euro" /></span><span><strong>{money(data.netPaidFcfa)}</strong><small>Revenu net</small></span></article><article className={styles.stat}><span className={`${styles.statIcon} ${styles.stat_purple}`}><Icon name="clock" /></span><span><strong>{money(data.pendingNetFcfa)}</strong><small>En attente</small></span></article></div>
-      <section className={styles.panel}><div className={styles.sectionHead}><h2>Transactions ({data.transactions.length})</h2><span className={styles.mutedText}>{data.paidSalesCount} vente(s) confirmée(s)</span></div>{data.transactions.length ? <div className={styles.tableWrap}><table><thead><tr><th>Formation</th><th>Date</th><th>Brut</th><th>Frais</th><th>Net</th><th>Statut</th></tr></thead><tbody>{data.transactions.map((item) => <tr key={item.id}><td><strong>{item.courseTitle}</strong></td><td>{new Date(item.createdAt).toLocaleDateString("fr-FR")}</td><td>{money(item.amountGrossFcfa)}</td><td>{money(item.platformFeeFcfa)}</td><td>{money(item.trainerNetFcfa)}</td><td><span className={item.status === "paid" ? styles.statusActive : styles.statusCertified}>{item.status}</span></td></tr>)}</tbody></table></div> : <div className={styles.empty}><Icon name="chart" /><h3>Aucune transaction</h3><p>Les revenus apparaîtront après la confirmation serveur d’un paiement.</p></div>}</section>
+      <section className={styles.panel}><div className={styles.sectionHead}><h2>Transactions ({data.transactions.length})</h2><span className={styles.mutedText}>{data.paidSalesCount} vente(s) confirmée(s)</span></div>{data.transactions.length ? <div className={styles.tableWrap}><table><thead><tr><th>Formation</th><th>Date</th><th>Brut</th><th>Frais</th><th>Net</th><th>Statut</th></tr></thead><tbody>{data.transactions.map((item) => <tr key={item.id}><td><strong>{item.courseTitle}</strong></td><td>{new Date(item.createdAt).toLocaleDateString("fr-FR")}</td><td>{money(item.amountGrossFcfa)}</td><td>{money(item.platformFeeFcfa)}</td><td>{money(item.trainerNetFcfa)}</td><td><span className={item.status === "paid" ? styles.statusActive : styles.statusCertified}>{item.status}{item.status === "paid" && item.verificationSource !== "cinetpay" ? " · non vérifié / démonstration" : ""}</span></td></tr>)}</tbody></table></div> : <div className={styles.empty}><Icon name="chart" /><h3>Aucune transaction</h3><p>Les revenus apparaîtront après la confirmation serveur d’un paiement.</p></div>}</section>
+    <Wallet/>
     </> : null}
   </>;
 }

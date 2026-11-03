@@ -1,0 +1,55 @@
+begin;
+do $$
+declare teacher uuid;student uuid;course uuid;institution uuid;owner uuid;payment uuid;invoice uuid;feedback public.app_feedback;request public.teacher_payout_requests;
+ base_available bigint;end_date timestamptz;confirmed_date timestamptz;before_totals jsonb;after_totals jsonb;key uuid:=gen_random_uuid();t text;
+begin
+ select id into teacher from public.profiles where role='teacher' limit 1;
+ select id into student from public.profiles where role='student' limit 1;
+ select id into course from public.courses limit 1;
+ select id,owner_user_id into institution,owner from public.institutions limit 1;
+ if teacher is null or student is null or course is null or owner is null then raise exception 'Rollback fixture needs existing roles and an institution';end if;
+ update public.commerce_settings set withdrawal_min_fcfa=5000,withdrawal_hold_days=0 where id;
+ base_available:=(public.teacher_wallet(teacher)->>'availableFcfa')::numeric;
+ before_totals:=public.finance_totals('1970-01-01','2099-01-01');
+ insert into public.payments(user_id,teacher_id,course_id,amount_fcfa,platform_fee_fcfa,teacher_earning_fcfa,status)
+ values(student,teacher,course,20000,3000,17000,'pending') returning id into payment;
+ perform public.confirm_course_payment(payment);
+ select verified_at into confirmed_date from public.payments where id=payment;
+ perform public.confirm_course_payment(payment);
+ if (select verified_at from public.payments where id=payment)<>confirmed_date then raise exception 'Webhook replay changed verification date';end if;
+ if (public.teacher_wallet(teacher)->>'availableFcfa')::numeric<>base_available+17000 then raise exception 'Wrong teacher earning';end if;
+ insert into public.teacher_payout_accounts(teacher_id,method,phone,holder_name) values(teacher,'orange_money','237699123456','Rollback fixture') on conflict(teacher_id) do update set method=excluded.method,phone=excluded.phone,holder_name=excluded.holder_name;
+ select * into request from public.request_teacher_payout(teacher,5000,key);
+ perform public.request_teacher_payout(teacher,5000,key);
+ if (select count(*) from public.teacher_payout_requests where request_key=key)<>1 then raise exception 'Duplicate payout accepted';end if;
+ if (public.teacher_wallet(teacher)->>'availableFcfa')::numeric<>base_available+12000 then raise exception 'Reservation incorrect';end if;
+ update public.teacher_payout_accounts set phone='237677123456' where teacher_id=teacher;
+ if (select phone from public.teacher_payout_requests where id=request.id)<>'237699123456' then raise exception 'Payout destination not frozen';end if;
+ begin perform public.request_teacher_payout(teacher,499,gen_random_uuid());raise exception 'Unsafe minimum accepted';exception when others then if sqlerrm='Unsafe minimum accepted' then raise;end if;end;
+ begin perform public.request_teacher_payout(teacher,700001,gen_random_uuid());raise exception 'Overdraft accepted';exception when others then if sqlerrm='Overdraft accepted' then raise;end if;end;
+ update public.teacher_payout_requests set status='rejected' where id=request.id;
+ if (public.teacher_wallet(teacher)->>'availableFcfa')::numeric<>base_available+17000 then raise exception 'Rejected reservation not released';end if;
+ insert into public.institution_billing_payments(institution_id,user_id,plan_name,amount_fcfa,max_students,max_rooms) values(institution,owner,'starter',25000,100,10) returning id into invoice;
+ perform public.confirm_institution_payment(invoice);
+ select paid_until into end_date from public.institutions where id=institution;
+ perform public.confirm_institution_payment(invoice);
+ if (select paid_until from public.institutions where id=institution)<>end_date then raise exception 'Duplicate webhook extended subscription';end if;
+ insert into public.finance_expenses(created_by,label,category,amount_fcfa,expense_date,status,reference) values(owner,'Rollback fixture','hosting',1000,current_date,'paid','No real expense');
+ after_totals:=public.finance_totals('1970-01-01','2099-01-01');
+ if (after_totals->>'grossCollectedFcfa')::numeric-(before_totals->>'grossCollectedFcfa')::numeric<>45000 then raise exception 'Gross wrong';end if;
+ if (after_totals->>'kalattyRevenueFcfa')::numeric-(before_totals->>'kalattyRevenueFcfa')::numeric<>28000 then raise exception 'Teacher share counted as Kalatty revenue';end if;
+ if (after_totals->>'operatingResultFcfa')::numeric-(before_totals->>'operatingResultFcfa')::numeric<>27000 then raise exception 'Expense deduction wrong';end if;
+ select * into feedback from public.submit_app_feedback(student,2,'payment','Rollback fixture: payment issue','finance','Review payment');
+ select * into feedback from public.route_app_feedback(feedback.id,owner,feedback.version,'finance','À examiner sans transfert');
+ if feedback.proposal_id is null or feedback.status<>'routed' then raise exception 'Routing not persisted';end if;
+ if (select status from public.ai_agent_proposals where id=feedback.proposal_id)<>'pending' then raise exception 'Auto-approved support proposal';end if;
+ begin perform public.route_app_feedback(feedback.id,owner,1,'developer','Wrong stale version');raise exception 'Duplicate feedback routing';exception when others then if sqlerrm='Duplicate feedback routing' then raise;end if;end;
+ foreach t in array array['commerce_settings','app_feedback','finance_expenses','teacher_payout_accounts','teacher_payout_requests','institution_billing_payments','commerce_events'] loop
+ if has_table_privilege('authenticated','public.'||t,'SELECT') or has_table_privilege('anon','public.'||t,'INSERT') then raise exception 'Client table access: %',t;end if;
+ if not (select relrowsecurity from pg_class where oid=('public.'||t)::regclass) then raise exception 'Missing RLS';end if;
+ end loop;
+ if has_function_privilege('authenticated','public.request_teacher_payout(uuid,bigint,uuid)','EXECUTE') or has_function_privilege('anon','public.confirm_course_payment(uuid)','EXECUTE') then raise exception 'Client monetary function access';end if;
+ if not exists(select 1 from public.commerce_events where record_id=request.id::text) then raise exception 'Audit missing';end if;
+end $$;
+select 'PASS: verified revenue, expense deduction, private data, payout reservation/idempotency/frozen recipient, subscription webhook replay and support routing; fixtures rolled back' as verification;
+rollback;

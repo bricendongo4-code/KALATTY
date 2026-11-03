@@ -49,15 +49,20 @@ const descriptions: Record<
       "Le pipeline et les rappels sont disponibles. Le statut Gagné est déclaré manuellement ; il ne confirme pas un paiement.",
   },
   support: {
-    observes: "Compteurs de questions et de demandes de confidentialité.",
-    proposes: "Priorités de support.",
-    missing: "Aucun traitement ni réponse automatique aux utilisateurs.",
+    observes:
+      "Avis sur Kalatty, propositions d’orientation et suivi des demandes.",
+    proposes:
+      "Le classement initial des avis et leur service proposé fonctionnent sans crédits. L’orientation crée une proposition à examiner.",
+    missing:
+      "Les notes de suivi sont visibles par l’auteur ; aucune réponse ni correction automatique n’est publiée.",
   },
   finance: {
-    observes: "Nombre de paiements.",
-    proposes: "Points de rapprochement à vérifier.",
+    observes:
+      "Encaissements vérifiés, part de Kalatty, dépenses saisies et demandes de retrait.",
+    proposes:
+      "Vérifications à mener ; les calculs du tableau financier fonctionnent sans crédits IA.",
     missing:
-      "Pas de comptabilité complète, de transfert ou de remboursement automatique.",
+      "Les dépenses doivent être renseignées. Les prestataires de paiement et de versement restent à activer ; pas de comptabilité complète ni de remboursement automatique.",
   },
   analytics: {
     observes: "Compteurs d’inscriptions, de progression et de cours.",

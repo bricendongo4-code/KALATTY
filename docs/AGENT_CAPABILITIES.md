@@ -49,7 +49,7 @@ Ce job est explicitement ignoré si l’activation est absente ; s’il est acti
 - Une piste n’est pas un contact qualifié. Aucun email n’est deviné, aucun contact étudiant n’est transformé en prospect et les besoins commerciaux ne sont pas supposés.
 - Le statut commercial « gagné » est déclaré par le propriétaire. Le paiement et son rapprochement doivent être opérationnels pour confirmer une vente encaissée.
 - Pas de publicité payante, de publication Instagram/Facebook native, de lecture automatique des réponses email ou de synchronisation agenda OAuth dans cette version. Les contenus s’exportent et les dates se téléchargent en .ics.
-- Les agents UX, produit, support, finance et analyse conservent leurs fonctions d’observation et de recommandation ; ils ne réalisent pas de remboursement, de réponse client ou d’édition autonome du catalogue.
+- Support dispose désormais des avis privés sur Kalatty, d’un classement proposé et d’une orientation confirmée vers un service. Finance dispose des agrégats monétaires vérifiés, des dépenses déclarées et des demandes de retrait. Ces circuits déterministes fonctionnent sans crédits IA ; ils n’exécutent pas de transfert, de remboursement ou de réponse automatique. Voir [le fonctionnement détaillé](SUPPORT_FINANCE_PAYMENTS.md).
 
 ## Vérifications
 

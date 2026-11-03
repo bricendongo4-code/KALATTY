@@ -22,8 +22,8 @@ const TASKS: Record<Department, { key: string; title: string }> = {
   product: { key: 'review-catalog', title: 'Review course catalog completeness and lessons' },
   marketing: { key: 'review-reviews', title: 'Review feedback and course interest signals' },
   sales: { key: 'review-conversion', title: 'Review enrollment and payment conversion signals' },
-  support: { key: 'review-questions', title: 'Review unanswered questions and privacy requests' },
-  finance: { key: 'review-payments', title: 'Reconcile payment counts with trusted billing records' },
+  support: { key: 'review-questions', title: 'Review feedback routing, questions and privacy requests' },
+  finance: { key: 'review-payments', title: 'Review financial dashboard and missing verification; counts alone are not revenue' },
   analytics: { key: 'review-funnel', title: 'Review course engagement and enrollment funnel' },
   crm: { key: 'review-retention', title: 'Review account and enrollment retention signals' },
 };

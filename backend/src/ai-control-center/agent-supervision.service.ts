@@ -25,8 +25,8 @@ const SOURCES: Record<string, string[]> = {
   product: ['courses', 'course_modules', 'lessons'],
   marketing: ['course_reviews', 'course_favorites', 'ai_growth_actions'],
   sales: ['enrollments', 'payments', 'ai_growth_leads', 'ai_growth_actions'],
-  support: ['course_questions', 'privacy_requests'],
-  finance: ['payments'],
+  support: ['app_feedback', 'course_questions', 'privacy_requests'],
+  finance: ['payments', 'institution_billing_payments', 'finance_expenses', 'teacher_payout_requests'],
   analytics: ['enrollments', 'progress', 'courses'],
   crm: ['profiles', 'enrollments', 'ai_growth_leads', 'ai_growth_events'],
 };

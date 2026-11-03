@@ -1,3 +1,4 @@
+import { CommerceModule } from './commerce/commerce.module';
 import { GrowthModule } from './agent-growth/growth.module';
 import { SearchModule } from './search/search.module';
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
@@ -25,6 +26,7 @@ import { ObservabilityMiddleware } from './observability.middleware';
     SupabaseModule,
     SearchModule,
     GrowthModule,
+    CommerceModule,
     AiControlCenterModule,
     AuthModule,
     CampusModule,

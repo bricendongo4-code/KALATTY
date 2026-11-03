@@ -1,3 +1,4 @@
+import {membershipPeriodActive} from '../commerce/billing-period';
 import {
   BadRequestException,
   ForbiddenException,
@@ -1741,9 +1742,9 @@ export class CoursesService {
         .eq('user_id', userId)
         .eq('course_id', courseId)
         .maybeSingle(),
-      this.supabaseService.client
+      (this.supabaseService.client as any)
         .from('room_members')
-        .select('room_id')
+        .select('room_id,rooms(institutions(paid_until))')
         .eq('user_id', userId)
         .eq('role', 'student'),
     ]);
@@ -1767,6 +1768,7 @@ export class CoursesService {
     }
 
     const roomIds = (membershipsResult.data ?? [])
+      .filter(membershipPeriodActive)
       .map((membership: any) => String(membership.room_id ?? ''))
       .filter(Boolean);
 
@@ -1800,15 +1802,16 @@ export class CoursesService {
         .from('enrollments')
         .select('course_id')
         .eq('user_id', userId),
-      this.supabaseService.client
+      (this.supabaseService.client as any)
         .from('room_members')
-        .select('room_id')
+        .select('room_id,rooms(institutions(paid_until))')
         .eq('user_id', userId)
         .eq('role', 'student'),
     ]);
     const error = enrollmentsResult.error ?? membershipsResult.error;
     if (error) throw new BadRequestException(error.message);
     const roomIds = (membershipsResult.data ?? [])
+      .filter(membershipPeriodActive)
       .map((item) => item.room_id)
       .filter(Boolean);
     const { data: roomCourses, error: roomCoursesError } = roomIds.length

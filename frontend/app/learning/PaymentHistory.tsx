@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Icon } from "../establishment/ui";
@@ -14,6 +15,7 @@ type Payment = {
   status: string;
   createdAt: string;
   receiptAvailable: boolean;
+  verificationSource?:string;
 };
 
 export default function PaymentHistory() {
@@ -44,14 +46,15 @@ export default function PaymentHistory() {
     load();
   }, [load]);
 
-  const paidTotal = transactions.filter((item) => item.status === "paid").reduce((sum, item) => sum + item.amountFcfa, 0);
+  const paidTotal = transactions.filter((item) => item.status === "paid" && item.verificationSource === "cinetpay").reduce((sum, item) => sum + item.amountFcfa, 0);
   const pendingCount = transactions.filter((item) => ["pending", "processing"].includes(item.status)).length;
 
   return <>
+    <p>Orange Money, MTN MoMo et carte bancaire : choisissez votre formation pour ouvrir son paiement sécurisé. Les moyens actifs sont affichés avant tout règlement. <Link href="/learn/explore">Explorer les formations</Link> · <Link href="/feedback">Signaler un problème</Link></p>
     <header className={styles.pageHead}><div><h1>Paiements & factures</h1><p>Historique réel de vos achats de formations et de leur statut.</p></div><button className={styles.smallButton} onClick={load}>Actualiser</button></header>
     {loading ? <section className={styles.loadingState}><span /><h2>Chargement des transactions</h2></section> : error ? <section className={styles.loadingState}><Icon name="alert" /><h2>Chargement impossible</h2><p>{error}</p><button onClick={load}>Réessayer</button></section> : <>
       <div className={styles.stats}><article className={styles.stat}><span className={styles.statIcon}><Icon name="euro" /></span><span><strong>{new Intl.NumberFormat("fr-FR").format(paidTotal)} FCFA</strong><small>Total payé</small></span></article><article className={styles.stat}><span className={`${styles.statIcon} ${styles.stat_blue}`}><Icon name="clipboard" /></span><span><strong>{transactions.length}</strong><small>Transactions</small></span></article><article className={styles.stat}><span className={`${styles.statIcon} ${styles.stat_orange}`}><Icon name="clock" /></span><span><strong>{pendingCount}</strong><small>En traitement</small></span></article><article className={styles.stat}><span className={`${styles.statIcon} ${styles.stat_purple}`}><Icon name="shield" /></span><span><strong>Serveur</strong><small>Confirmation sécurisée</small></span></article></div>
-      <section className={styles.panel}><div className={styles.sectionHead}><h2>Historique</h2></div>{transactions.length ? <div className={styles.tableWrap}><table><thead><tr><th>Formation</th><th>Date</th><th>Montant</th><th>Statut</th><th>Document</th></tr></thead><tbody>{transactions.map((item) => <tr key={item.id}><td><strong>{item.courseTitle}</strong></td><td>{new Date(item.createdAt).toLocaleDateString("fr-FR")}</td><td>{new Intl.NumberFormat("fr-FR").format(item.amountFcfa)} FCFA</td><td><span className={item.status === "paid" ? styles.statusActive : styles.statusCertified}>{item.status}</span></td><td>{item.receiptAvailable ? "Reçu enregistré" : "Après confirmation"}</td></tr>)}</tbody></table></div> : <div className={styles.empty}><Icon name="euro" /><h3>Aucun paiement</h3><p>Vos achats apparaîtront ici après création de la transaction.</p></div>}</section>
+      <section className={styles.panel}><div className={styles.sectionHead}><h2>Historique</h2></div>{transactions.length ? <div className={styles.tableWrap}><table><thead><tr><th>Formation</th><th>Date</th><th>Montant</th><th>Statut</th><th>Document</th></tr></thead><tbody>{transactions.map((item) => <tr key={item.id}><td><strong>{item.courseTitle}</strong></td><td>{new Date(item.createdAt).toLocaleDateString("fr-FR")}</td><td>{new Intl.NumberFormat("fr-FR").format(item.amountFcfa)} FCFA</td><td><span className={item.status === "paid" ? styles.statusActive : styles.statusCertified}>{item.status}</span></td><td>{item.receiptAvailable ? "Paiement confirmé" : item.status === "paid" ? "Non vérifié / démonstration" : "Après confirmation"}</td></tr>)}</tbody></table></div> : <div className={styles.empty}><Icon name="euro" /><h3>Aucun paiement</h3><p>Vos achats apparaîtront ici après création de la transaction.</p></div>}</section>
     </>}
   </>;
 }

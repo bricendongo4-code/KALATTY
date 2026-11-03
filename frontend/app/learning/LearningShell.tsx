@@ -52,6 +52,7 @@ export default function LearningShell({
               <span>{item.label}</span>
             </Link>
           ))}
+          <Link href="/feedback" className={styles.navItem} onClick={() => setOpen(false)}><Icon name="message"/><span>Avis & support</span></Link>
           <OwnerControlCenterLink className={styles.navItem} onNavigate={() => setOpen(false)} />
         </nav>
         <div className={styles.sidebarFoot}>

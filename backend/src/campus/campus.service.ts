@@ -1,3 +1,4 @@
+import {assertPaidPeriod} from '../commerce/billing-period';
 import {
   BadRequestException,
   ForbiddenException,
@@ -59,7 +60,7 @@ export class CampusService {
   }
 
   // ------------------------------------------------------------ contexte
-  async getContext(user: AuthUser) {
+  async getContext(user: AuthUser, allowExpired = false) {
     const { data: profile, error: profileError } = await this.client
       .from('profiles')
       .select('id, fullname, email')
@@ -70,9 +71,9 @@ export class CampusService {
       throw new BadRequestException(profileError.message);
     }
 
-    const { data: memberships, error: membershipError } = await this.client
+    const { data: memberships, error: membershipError } = await (this.client as any)
       .from('institution_members')
-      .select('institution_id, role, institutions ( id, name, updated_at )')
+      .select('institution_id, role, institutions ( id, name, updated_at, paid_until )')
       .eq('user_id', user.id);
 
     if (membershipError) {
@@ -111,6 +112,7 @@ export class CampusService {
       );
     }
 
+    if(!allowExpired) assertPaidPeriod(institution);
     return {
       userId: user.id,
       displayName: String(profile?.fullname ?? profile?.email ?? 'Utilisateur'),
@@ -1881,9 +1883,9 @@ export class CampusService {
 
   // ------------------------------------------------------------ actions de seance (mode Classe)
   private async assertTeacherOfRoom(userId: string, roomId: string) {
-    const { data, error } = await this.client
+    const { data, error } = await (this.client as any)
       .from('room_members')
-      .select('role')
+      .select('role,rooms(institutions(paid_until))')
       .eq('room_id', roomId)
       .eq('user_id', userId)
       .maybeSingle();
@@ -1891,6 +1893,9 @@ export class CampusService {
     if (!data || data.role !== 'teacher') {
       throw new ForbiddenException("Tu n'es pas professeur de cette classe.");
     }
+    const room=Array.isArray(data.rooms)?data.rooms[0]:data.rooms;
+    const institution=Array.isArray(room?.institutions)?room.institutions[0]:room?.institutions;
+    assertPaidPeriod(institution);
   }
 
   async startSession(user: AuthUser, roomId: string, body: StartSessionDto) {
@@ -2096,9 +2101,9 @@ export class CampusService {
     institutionId: string,
     allowedRoles: string[] = ['owner', 'admin'],
   ) {
-    const { data, error } = await this.client
+    const { data, error } = await (this.client as any)
       .from('institution_members')
-      .select('role')
+      .select('role,institutions(paid_until)')
       .eq('institution_id', institutionId)
       .eq('user_id', userId)
       .maybeSingle();
@@ -2108,6 +2113,7 @@ export class CampusService {
         'Cette action est reservee au personnel autorise de cet etablissement.',
       );
     }
+    assertPaidPeriod(Array.isArray(data.institutions)?data.institutions[0]:data.institutions);
     return String(data.role);
   }
 

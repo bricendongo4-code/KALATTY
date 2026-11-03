@@ -93,6 +93,7 @@ export default function Shell({
           <nav className={styles.nav}>{cfg.nav.map(renderItem)}</nav>
           <div className={styles.sideFoot}>
             {cfg.foot.map(renderItem)}
+            <Link href="/feedback" className={styles.navItem} onClick={()=>setOpen(false)}><Icon name="message"/>Avis & support</Link>
           </div>
         </div>
       </aside>
