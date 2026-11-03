@@ -90,7 +90,10 @@ export default function SupervisionPanel({
     }
   }
   return (
-    <section className={styles.panel} aria-label="Supervision autonome">
+    <section
+      className={styles.panel + (compact ? " " + styles.compact : "")}
+      aria-label="Supervision autonome"
+    >
       <div className={styles.header}>
         <div>
           <h2>Supervision des agents</h2>
@@ -106,7 +109,7 @@ export default function SupervisionPanel({
           disabled={busy || !state}
           onClick={() => void action("supervision/run", {})}
         >
-          Contrôler maintenant
+          {compact ? "Contrôler" : "Contrôler maintenant"}
         </button>
       </div>
       {error && (
@@ -118,14 +121,16 @@ export default function SupervisionPanel({
       {state && (
         <>
           <div className={styles.status}>
-            <span>
-              Dernier contrôle :{" "}
-              <b>
-                {state.last_run_at
-                  ? new Date(state.last_run_at).toLocaleString("fr-FR")
-                  : "Pas encore terminé"}
-              </b>
-            </span>
+            {!compact && (
+              <span>
+                Dernier contrôle :{" "}
+                <b>
+                  {state.last_run_at
+                    ? new Date(state.last_run_at).toLocaleString("fr-FR")
+                    : "Pas encore terminé"}
+                </b>
+              </span>
+            )}
             <span>
               IA :{" "}
               <b>
@@ -136,14 +141,16 @@ export default function SupervisionPanel({
                   : "Désactivée · aucun appel payant"}
               </b>
             </span>
-            <span>
-              Corrections GitHub :{" "}
-              <b>
-                {state.githubConfigured
-                  ? "Accès configuré"
-                  : "Accès à configurer"}
-              </b>
-            </span>
+            {!compact && (
+              <span>
+                Préparation des corrections :{" "}
+                <b>
+                  {state.githubConfigured
+                    ? "Accès configuré"
+                    : "Accès à configurer"}
+                </b>
+              </span>
+            )}
           </div>
           {state.last_error && (
             <p role="alert" className={styles.error}>
@@ -182,13 +189,16 @@ export default function SupervisionPanel({
                   Analyses IA payantes (plafond de 12 appels/jour)
                 </label>
               </div>
-              <p>
-                Les contrôles gratuits lisent les compteurs, la CI et les pages
-                publiques. Les parcours connectés et les paiements nécessitent
-                des tests dédiés. L’agent développeur peut proposer une
-                correction sur un fichier inspecté par cycle ; vous voyez le
-                changement exact avant de décider.
-              </p>
+              <details className={styles.explanation}>
+                <summary>Que vérifient les agents ?</summary>
+                <p>
+                  Les contrôles gratuits lisent les compteurs, la CI et les
+                  pages publiques. Les parcours connectés et les paiements
+                  nécessitent des tests dédiés. L’agent développeur peut
+                  proposer une correction sur un fichier inspecté par cycle ;
+                  vous voyez le changement exact avant de décider.
+                </p>
+              </details>
               <h3>Derniers contrôles</h3>
               {state.runs.length === 0 && <p>Aucun contrôle enregistré.</p>}
               {state.runs.map((run) => (

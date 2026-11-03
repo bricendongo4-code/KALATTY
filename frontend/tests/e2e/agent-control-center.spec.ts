@@ -101,6 +101,7 @@ for (const width of [320, 768, 1024, 1440])
     await expect(
       page.getByRole("heading", { name: "Correction du catalogue" }),
     ).toBeVisible();
+    await page.getByText("Voir l’analyse et les preuves").click();
     await page
       .getByText("Changement exact · frontend/app/courses/page.tsx")
       .click();
@@ -131,4 +132,121 @@ test("a refused confirmation never sends an approval", async ({ page }) => {
   page.once("dialog", (d) => d.dismiss());
   await page.getByRole("button", { name: "Approuver la correction" }).click();
   expect(mutations).toBe(0);
+});
+
+test("mobile menu keeps the complete logo and every section visible", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/ai-control-center");
+  await expect(
+    page.getByRole("heading", { name: "Vue générale", exact: true }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: "/tmp/kalatty-brand-overview-mobile.png",
+    fullPage: true,
+  });
+  await page
+    .getByRole("button", { name: "Ouvrir le menu", exact: true })
+    .click();
+  const sidebar = page.locator("aside");
+  const logo = sidebar.getByRole("img", { name: "Kalatty", exact: true });
+  await expect(logo).toBeVisible();
+  const [container, art] = await Promise.all([
+    sidebar.boundingBox(),
+    logo.boundingBox(),
+  ]);
+  expect(art!.x).toBeGreaterThanOrEqual(container!.x);
+  expect(art!.x + art!.width).toBeLessThanOrEqual(
+    container!.x + container!.width,
+  );
+  expect(await logo.evaluate((e) => getComputedStyle(e).transform)).toBe(
+    "none",
+  );
+  for (const name of [
+    "Vue générale",
+    "Départements & agents",
+    "Analyses IA",
+    "Centre de validation",
+    "Rapports",
+    "Paramètres",
+  ]) {
+    const box = await sidebar
+      .getByRole("button", { name: new RegExp(name) })
+      .boundingBox();
+    expect(box!.y + box!.height).toBeLessThanOrEqual(844);
+  }
+  await page.screenshot({ path: "/tmp/kalatty-brand-drawer-mobile.png" });
+  await sidebar.getByRole("button", { name: /Paramètres/ }).click();
+  await expect(
+    page.getByRole("heading", { name: "Paramètres", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Supervision des agents", exact: true }),
+  ).toBeVisible();
+  const button = page.getByRole("button", { name: "Contrôler maintenant" });
+  expect(
+    await button.evaluate((e) => getComputedStyle(e).backgroundImage),
+  ).toContain("255, 106, 31");
+  await page.screenshot({
+    path: "/tmp/kalatty-brand-settings-mobile.png",
+    fullPage: true,
+  });
+  await page
+    .getByRole("navigation", { name: "Navigation mobile" })
+    .getByRole("button", { name: /Validations/ })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Correction du catalogue" }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: "/tmp/kalatty-brand-approvals-mobile.png",
+    fullPage: true,
+  });
+});
+
+test("each workspace retains its own layout on mobile and desktop", async ({
+  page,
+}) => {
+  for (const width of [390, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/ai-control-center");
+    for (const [menu, title, key] of [
+      ["Départements & agents", "Vos agents IA", "agents"],
+      ["Analyses IA", "Analyses IA", "analysis"],
+      ["Rapports", "Rapports", "reports"],
+    ]) {
+      if (width < 700)
+        await page
+          .getByRole("button", { name: "Ouvrir le menu", exact: true })
+          .click();
+      await page
+        .getByRole("navigation", { name: "Navigation du Control Center" })
+        .getByRole("button", { name: new RegExp(menu) })
+        .click();
+      await expect(
+        page.getByRole("heading", { name: title, exact: true }),
+      ).toBeVisible();
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true);
+      await page.screenshot({
+        path: `/tmp/kalatty-brand-${key}-${width}.png`,
+        fullPage: true,
+      });
+    }
+  }
+});
+
+test("homepage uses the same complete Kalatty artwork", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  const logo = page
+    .locator("main")
+    .getByRole("img", { name: "Logo Kalatty", exact: true });
+  await expect(logo).toBeVisible();
+  expect((await logo.boundingBox())!.width).toBeGreaterThan(50);
+  await page.screenshot({ path: "/tmp/kalatty-brand-home-mobile.png" });
 });

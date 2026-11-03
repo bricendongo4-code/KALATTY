@@ -1,38 +1,44 @@
 .panel {
   padding: 24px;
   margin-bottom: 24px;
-  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 15px;
+  border-radius: 14px;
+  background: var(--surface);
 }
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 24px;
 }
-.panel h2 {
+.header h2 {
   font-size: 20px;
-  margin: 0 0 8px;
-  color: var(--primary-dark);
+  margin: 0 0 6px;
+  color: var(--foreground);
+  font-weight: 750;
 }
 .panel h3 {
   font-size: 16px;
+  margin: 20px 0 12px;
 }
 .panel p {
   font-size: 13px;
   color: var(--muted);
   line-height: 1.6;
+  margin: 0;
 }
 .panel button {
-  background: var(--primary-dark);
-  color: var(--surface);
-  border: 0;
-  border-radius: 10px;
-  padding: 12px 16px;
+  flex: none;
   min-height: 44px;
-  font-weight: 700;
+  padding: 12px 18px;
+  border: 1px solid var(--secondary);
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--secondary), #ff8a2b);
+  color: var(--foreground);
+  font-weight: 800;
+  font-size: 13px;
   cursor: pointer;
+  white-space: nowrap;
 }
 .panel button:disabled {
   opacity: 0.5;
@@ -40,59 +46,153 @@
 }
 .status {
   display: grid;
-  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
   font-size: 12px;
+  line-height: 1.5;
   color: var(--muted);
-  margin-top: 16px;
+}
+.status span {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 .status b {
   color: var(--foreground);
+  font-weight: 650;
 }
 .options {
   display: grid;
-  gap: 16px;
+  gap: 0;
   margin: 24px 0;
-  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
 }
 .options label {
   display: flex;
   align-items: center;
   gap: 12px;
+  padding: 16px;
+  font-size: 13px;
+  line-height: 1.5;
+  background: var(--surface-soft);
+}
+.options label + label {
+  border-top: 1px solid var(--border);
 }
 .options input {
   width: 20px;
   height: 20px;
-  accent-color: var(--primary-dark);
+  flex: none;
+  accent-color: var(--primary);
 }
 .error {
   color: var(--danger) !important;
+  margin-top: 12px !important;
 }
 .run {
-  padding: 16px 0;
+  padding: 14px 0;
   border-top: 1px solid var(--border);
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.7;
 }
 .run summary {
   cursor: pointer;
-  font-weight: 700;
+  font-weight: 650;
+}
+.run ul {
+  margin-top: 12px;
+  padding-left: 20px;
 }
 .run li {
   overflow-wrap: anywhere;
 }
+.explanation {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.explanation summary {
+  font-weight: 700;
+  color: var(--primary-dark);
+  cursor: pointer;
+}
+.explanation p {
+  margin-top: 12px;
+}
 .panel button:focus-visible {
-  outline: 3px solid var(--secondary);
+  outline: 3px solid var(--primary);
   outline-offset: 3px;
 }
 @media (max-width: 700px) {
   .panel {
-    padding: 16px;
+    padding: 20px;
+    margin-bottom: 20px;
   }
   .header {
     align-items: flex-start;
-    flex-direction: column;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .header h2 {
+    font-size: 19px;
   }
   .header button {
     width: 100%;
   }
+  .status {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-top: 20px;
+    padding-top: 16px;
+  }
+  .status span {
+    display: block;
+    line-height: 1.7;
+  }
+  .status b {
+    display: block;
+  }
+  .options {
+    margin: 20px 0;
+  }
+  .options label {
+    padding: 14px;
+    font-size: 12px;
+  }
+}
+.compact .header h2 {
+  font-size: 16px;
+}
+.compact .header p {
+  font-size: 12px;
+}
+.compact .status {
+  display: block;
+  margin-top: 12px;
+  padding-top: 12px;
+  font-size: 11px;
+}
+.compact .status span {
+  display: block;
+}
+.compact .status b {
+  display: inline;
+}
+.compact .header {
+  flex-wrap: nowrap;
+  gap: 12px;
+}
+.compact .header > div {
+  min-width: 0;
+  flex: 1;
+}
+.compact .header button {
+  width: auto;
+  padding: 10px 14px;
+  font-size: 12px;
 }
