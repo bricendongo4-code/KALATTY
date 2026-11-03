@@ -2101,8 +2101,9 @@
   }
 
   .brandLogo {
-    width: 3rem;
-    height: 3rem;
+    width: 4rem;
+    height: auto;
+    flex-shrink: 0;
   }
 
   .heroCopy {
