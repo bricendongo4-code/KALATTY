@@ -986,3 +986,5 @@
     gap: 16px;
   }
 }
+
+@media(min-width:701px){.sidebar{align-self:flex-start;max-height:100dvh;overscroll-behavior-y:contain}}

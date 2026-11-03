@@ -1,6 +1,14 @@
 "use client";
 
-import { FormEvent, KeyboardEvent, useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+  FormEvent,
+  KeyboardEvent,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Icon } from "./establishment/ui";
 import styles from "./global-search.module.css";
@@ -11,10 +19,13 @@ export type GlobalSearchItem = {
   icon?: string;
   category?: string;
   keywords?: string;
+  snippet?: string;
+  source?: "data" | "navigation";
 };
 
 const ICON_KEYWORDS: Record<string, string> = {
-  users: "utilisateur étudiant élève apprenant professeur enseignant classe groupe",
+  users:
+    "utilisateur étudiant élève apprenant professeur enseignant classe groupe",
   user: "profil compte utilisateur professeur formateur",
   userPlus: "inscription admission nouvel étudiant créer compte",
   book: "cours formation matière module leçon programme",
@@ -63,42 +74,79 @@ export default function GlobalSearch({
   const [open, setOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [contextItems, setContextItems] = useState<GlobalSearchItem[]>([]);
+  const [dataItems, setDataItems] = useState<GlobalSearchItem[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState("");
+  const scope = pathname.startsWith("/establishment")
+    ? "campus"
+    : pathname.startsWith("/creator")
+      ? "creator"
+      : "learn";
 
   useEffect(() => {
-    const collect = () => {
-      const discovered = Array.from(document.querySelectorAll<HTMLElement>("main a[href]"))
-        .map((anchor) => ({
-          label: anchor.innerText.replace(/\s+/g, " ").trim(),
-          href: anchor.getAttribute("href") ?? "",
-          category: "Dans cette page",
-          icon: "search",
-        }))
-        .filter((item) => item.label.length >= 3 && item.href.startsWith("/"));
-      const unique = Array.from(new Map(discovered.map((item) => [`${item.href}|${item.label}`, item])).values());
-      setContextItems(unique.slice(0, 80));
-    };
-    collect();
-    const main = document.querySelector("main");
-    if (!main) return;
-    let timer = 0;
-    const observer = new MutationObserver(() => {
-      window.clearTimeout(timer);
-      timer = window.setTimeout(collect, 150);
-    });
-    observer.observe(main, { childList: true, subtree: true, characterData: true });
+    const term = query.trim();
+    if (term.length < 2) return;
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      try {
+        const token = localStorage.getItem("kalatty_token");
+        const r = await fetch(
+          (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000") +
+            "/search?q=" +
+            encodeURIComponent(term) +
+            "&scope=" +
+            scope,
+          {
+            headers: { Authorization: "Bearer " + token },
+            signal: controller.signal,
+            cache: "no-store",
+          },
+        );
+        if (!r.ok)
+          throw Error(
+            r.status === 401
+              ? "Reconnectez-vous pour rechercher vos données."
+              : "Recherche des données indisponible.",
+          );
+        const body = (await r.json()) as {
+          results?: GlobalSearchItem[];
+          unavailableSources?: string[];
+        };
+        if (!controller.signal.aborted) {
+          setDataItems(
+            (body.results ?? [])
+              .filter((x) => x.href.startsWith("/") && !x.href.startsWith("//"))
+              .map((x) => ({ ...x, source: "data" })),
+          );
+          if (body.unavailableSources?.length)
+            setSearchError(
+              "Certaines sources sont momentanément indisponibles.",
+            );
+        }
+      } catch (e) {
+        if (!controller.signal.aborted)
+          setSearchError(
+            e instanceof Error ? e.message : "Recherche indisponible",
+          );
+      } finally {
+        if (!controller.signal.aborted) setSearching(false);
+      }
+    }, 300);
     return () => {
-      window.clearTimeout(timer);
-      observer.disconnect();
+      clearTimeout(timer);
+      controller.abort();
     };
-  }, [pathname]);
+  }, [query, scope]);
 
   useEffect(() => {
     const closeOutside = (event: PointerEvent) => {
       if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
     };
     const shortcut = (event: globalThis.KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLocaleLowerCase() === "k") {
+      if (
+        (event.ctrlKey || event.metaKey) &&
+        event.key.toLocaleLowerCase() === "k"
+      ) {
         event.preventDefault();
         setOpen(true);
         desktopInputRef.current?.focus();
@@ -112,38 +160,70 @@ export default function GlobalSearch({
     };
   }, []);
 
-  const mergedItems = useMemo(() => {
-    const map = new Map<string, GlobalSearchItem>();
-    [...items, ...contextItems].forEach((item) => {
-      if (!map.has(item.href)) map.set(item.href, item);
-    });
-    return Array.from(map.values());
-  }, [contextItems, items]);
+  const mergedItems = useMemo(
+    () =>
+      items.map((item) => ({
+        ...item,
+        source: "navigation" as const,
+        category: "Rubrique · " + (item.category ?? "Navigation"),
+      })),
+    [items],
+  );
 
   const results = useMemo(() => {
     const terms = normalize(query).split(/\s+/).filter(Boolean);
     if (!terms.length) return mergedItems.slice(0, 7);
-    return mergedItems
+    const navigation = mergedItems
       .map((item) => {
-        const haystack = normalize(`${item.label} ${item.category ?? ""} ${item.keywords ?? ""} ${ICON_KEYWORDS[item.icon ?? ""] ?? ""}`);
-        const score = terms.reduce((total, term) => total + (haystack.startsWith(term) ? 4 : haystack.includes(term) ? 1 : -20), 0);
+        const haystack = normalize(
+          `${item.label} ${item.category ?? ""} ${item.keywords ?? ""} ${ICON_KEYWORDS[item.icon ?? ""] ?? ""}`,
+        );
+        const score = terms.reduce(
+          (total, term) =>
+            total +
+            (haystack.startsWith(term) ? 4 : haystack.includes(term) ? 1 : -20),
+          0,
+        );
         return { item, score };
       })
       .filter(({ score }) => score >= terms.length)
-      .sort((a, b) => b.score - a.score || a.item.label.localeCompare(b.item.label, "fr"))
+      .sort(
+        (a, b) =>
+          b.score - a.score || a.item.label.localeCompare(b.item.label, "fr"),
+      )
       .slice(0, 8)
       .map(({ item }) => item);
-  }, [mergedItems, query]);
+    return [
+      ...dataItems.slice(0, 6),
+      ...navigation.slice(0, dataItems.length ? 2 : 5),
+    ];
+  }, [dataItems, mergedItems, query]);
+
+  const changeQuery = (value: string) => {
+    setQuery(value);
+    setActiveIndex(0);
+    setDataItems([]);
+    setSearchError("");
+    setSearching(value.trim().length >= 2);
+  };
 
   const choose = (item: GlobalSearchItem) => {
     setOpen(false);
     setMobileOpen(false);
-    setQuery("");
+    changeQuery("");
     router.push(item.href);
   };
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
+    if (query.trim().length >= 2) {
+      setOpen(false);
+      setMobileOpen(false);
+      router.push(
+        `/search?q=${encodeURIComponent(query.trim())}&scope=${scope}`,
+      );
+      return;
+    }
     const item = results[activeIndex] ?? results[0];
     if (item) choose(item);
   };
@@ -151,7 +231,9 @@ export default function GlobalSearch({
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      setActiveIndex((current) => Math.min(current + 1, Math.max(0, results.length - 1)));
+      setActiveIndex((current) =>
+        Math.min(current + 1, Math.max(0, results.length - 1)),
+      );
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
       setActiveIndex((current) => Math.max(current - 1, 0));
@@ -162,23 +244,61 @@ export default function GlobalSearch({
   };
 
   const resultList = (mobile = false) => (
-    <div className={mobile ? styles.mobileResults : styles.results} id={mobile ? `${listId}-mobile` : listId} role="listbox" aria-label="Résultats de recherche">
-      <div className={styles.resultHead}>{query.trim() ? `${results.length} résultat${results.length > 1 ? "s" : ""}` : "Accès rapides"}<span>Entrée pour ouvrir</span></div>
-      {results.length ? results.map((item, index) => (
-        <button
-          type="button"
-          role="option"
-          aria-selected={index === activeIndex}
-          className={index === activeIndex ? styles.activeResult : undefined}
-          key={`${item.href}-${item.label}`}
-          onMouseEnter={() => setActiveIndex(index)}
-          onClick={() => choose(item)}
-        >
-          <span className={styles.resultIcon}><Icon name={item.icon ?? "search"} /></span>
-          <span><strong>{item.label}</strong><small>{item.category ?? "Navigation"}</small></span>
-          <Icon name="chevron" />
-        </button>
-      )) : <div className={styles.empty}><Icon name="search" /><strong>Aucun résultat</strong><span>Essayez un autre mot ou utilisez le menu principal.</span></div>}
+    <div
+      className={mobile ? styles.mobileResults : styles.results}
+      id={mobile ? `${listId}-mobile` : listId}
+      role="listbox"
+      aria-label="Résultats de recherche"
+    >
+      <div className={styles.resultHead}>
+        {query.trim()
+          ? `${dataItems.length} résultat${dataItems.length > 1 ? "s" : ""} dans vos données`
+          : "Accès rapides"}
+        <span>Entrée pour ouvrir</span>
+      </div>
+      {searching && (
+        <p className={styles.searchStatus} role="status">
+          Recherche dans vos données…
+        </p>
+      )}
+      {searchError && (
+        <p className={styles.searchStatus} role="alert">
+          {searchError}
+        </p>
+      )}
+      {results.length ? (
+        results.map((item, index) => (
+          <button
+            type="button"
+            role="option"
+            aria-selected={index === activeIndex}
+            className={index === activeIndex ? styles.activeResult : undefined}
+            key={`${item.href}-${item.label}`}
+            onMouseEnter={() => setActiveIndex(index)}
+            onClick={() => choose(item)}
+          >
+            <span className={styles.resultIcon}>
+              <Icon name={item.icon ?? "search"} />
+            </span>
+            <span>
+              <strong>{item.label}</strong>
+              <small>
+                {item.category ?? "Navigation"}
+                {item.snippet ? " · " + item.snippet : ""}
+              </small>
+            </span>
+            <Icon name="chevron" />
+          </button>
+        ))
+      ) : (
+        <div className={styles.empty}>
+          <Icon name="search" />
+          <strong>Aucun résultat</strong>
+          <span>
+            Aucun titre ou nom correspondant dans vos données accessibles.
+          </span>
+        </div>
+      )}
     </div>
   );
 
@@ -191,7 +311,10 @@ export default function GlobalSearch({
           type="search"
           value={query}
           onFocus={() => setOpen(true)}
-          onChange={(event) => { setQuery(event.target.value); setActiveIndex(0); setOpen(true); }}
+          onChange={(event) => {
+            changeQuery(event.target.value);
+            setOpen(true);
+          }}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           aria-label="Recherche globale"
@@ -204,17 +327,49 @@ export default function GlobalSearch({
         <kbd>Ctrl K</kbd>
       </form>
       {open ? resultList() : null}
-      <button type="button" className={styles.mobileTrigger} onClick={() => { setMobileOpen(true); window.setTimeout(() => mobileInputRef.current?.focus(), 0); }} aria-label="Ouvrir la recherche">
+      <button
+        type="button"
+        className={styles.mobileTrigger}
+        onClick={() => {
+          setMobileOpen(true);
+          window.setTimeout(() => mobileInputRef.current?.focus(), 0);
+        }}
+        aria-label="Ouvrir la recherche"
+      >
         <Icon name="search" />
       </button>
-      {mobileOpen ? <div className={styles.mobileOverlay} role="dialog" aria-modal="true" aria-label="Recherche globale">
-        <form className={styles.mobileForm} role="search" onSubmit={submit}>
-          <Icon name="search" />
-          <input ref={mobileInputRef} type="search" value={query} onChange={(event) => { setQuery(event.target.value); setActiveIndex(0); }} onKeyDown={handleKeyDown} placeholder={placeholder} aria-label="Recherche globale" autoComplete="off" />
-          <button type="button" onClick={() => setMobileOpen(false)} aria-label="Fermer la recherche"><Icon name="x" /></button>
-        </form>
-        {resultList(true)}
-      </div> : null}
+      {mobileOpen ? (
+        <div
+          className={styles.mobileOverlay}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Recherche globale"
+        >
+          <form className={styles.mobileForm} role="search" onSubmit={submit}>
+            <Icon name="search" />
+            <input
+              ref={mobileInputRef}
+              type="search"
+              value={query}
+              onChange={(event) => {
+                changeQuery(event.target.value);
+              }}
+              onKeyDown={handleKeyDown}
+              placeholder={placeholder}
+              aria-label="Recherche globale"
+              autoComplete="off"
+            />
+            <button
+              type="button"
+              onClick={() => setMobileOpen(false)}
+              aria-label="Fermer la recherche"
+            >
+              <Icon name="x" />
+            </button>
+          </form>
+          {resultList(true)}
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -13,6 +13,7 @@ export default function SiteChrome({
     pathname?.startsWith("/establishment") ||
     pathname?.startsWith("/learn") ||
     pathname?.startsWith("/creator") ||
+    pathname?.startsWith("/search") ||
     pathname?.startsWith("/ai-control-center")
   ) {
     return null;
