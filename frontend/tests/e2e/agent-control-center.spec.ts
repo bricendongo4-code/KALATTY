@@ -11,9 +11,18 @@ for (const response of [
   },
 ])
   test(`analysis failure displays its cause: ${response.expected}`, async ({ page }) => {
-    await page.route("**/ai-control-center/analyze", (route) =>
-      route.fulfill({ status: 503, body: response.body }),
-    );
+    await page.route("**/ai-control-center/analyze", (route) => {
+      const headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "authorization,content-type",
+        "Access-Control-Allow-Methods": "POST,OPTIONS",
+      };
+      return route.fulfill({
+        status: route.request().method() === "OPTIONS" ? 204 : 503,
+        body: route.request().method() === "OPTIONS" ? "" : response.body,
+        headers,
+      });
+    });
     await page.goto("/ai-control-center");
     await page
       .getByRole("navigation", { name: "Navigation du Control Center" })
