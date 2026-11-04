@@ -1,4 +1,5 @@
 import { agentBrainStatus, generateAgentText } from '../agent-ai/agent-brain';
+import { reserveAgentAiCall } from '../agent-ai/agent-budget';
 import {
   BadRequestException,
   ConflictException,
@@ -379,7 +380,7 @@ export class GrowthService implements OnModuleInit, OnModuleDestroy {
       throw new BadRequestException(
         'Configurez le fournisseur et activez les analyses IA. Le brouillon sans IA reste disponible.',
       );
-    if (!(await this.result(this.db.rpc('reserve_ai_call'))))
+    if (!(await this.result(reserveAgentAiCall(this.db))))
       throw new ServiceUnavailableException('Quota IA quotidien atteint.');
     try {
       const output = await generateAgentText({

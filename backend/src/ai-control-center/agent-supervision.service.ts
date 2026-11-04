@@ -16,6 +16,7 @@ import { AgentGithub } from './agent-github';
 import { AgentPatch, allowedPatchFile, validatePatch } from './agent-patch';
 import { explainControl, PROPOSAL_EXPLANATION } from './proposal-explanation';
 import { AgentImplementationService } from './agent-implementation.service';
+import { agentBudget, reserveAgentAiCall } from '../agent-ai/agent-budget';
 
 type Evidence = {
   department: string;
@@ -94,13 +95,13 @@ export class AgentSupervisionService implements OnModuleInit, OnModuleDestroy {
       githubConfigured: this.github.writable,
       ...agentBrainStatus(),
       intervalMinutes: 60,
-      dailyAiCallLimit: 12,
+      ...agentBudget(),
       productionChangesRequireRelease: true,
     };
   }
   async checkBrain() {
     assertAgentBrainConfigured();
-    const quota = await this.db.rpc('reserve_ai_call');
+    const quota = await reserveAgentAiCall(this.db);
     if (quota.error || !quota.data)
       throw new ServiceUnavailableException(
         'Quota IA quotidien atteint ou indisponible.',
@@ -429,7 +430,7 @@ export class AgentSupervisionService implements OnModuleInit, OnModuleDestroy {
     revision?: string,
   ) {
     if (!agentBrainStatus().brainConfigured) return null;
-    const quota = await this.db.rpc('reserve_ai_call');
+    const quota = await reserveAgentAiCall(this.db, true);
     if (quota.error || !quota.data) return null;
     let source: { file: string; content: string; baseSha: string } | null =
       null;

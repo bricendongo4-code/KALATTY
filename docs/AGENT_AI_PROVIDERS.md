@@ -27,7 +27,7 @@ En mode Groq, une clé absente/refusée, une limite atteinte (429), une indispon
 
 `brainConfigured` signifie seulement que la configuration serveur requise est présente. Le bouton de test vérifie une requête réelle ; un succès n’est pas une garantie de disponibilité future du fournisseur.
 
-Les analyses automatiques restent désactivées jusqu’à activation par le propriétaire. Le plafond existant de **12 appels IA/jour** est partagé par les trois usages et le diagnostic, via `reserve_ai_call`. Les quotas Groq peuvent limiter davantage les requêtes. Les propositions de patch restent validées contre la source exacte, approuvées par le propriétaire, préparées en PR et publiées uniquement par une décision distincte après CI. Les brouillons ne sont jamais envoyés par le connecteur IA.
+Les analyses automatiques restent désactivées jusqu’à activation par le propriétaire. Le plafond partagé est de **100 appels IA/jour avec Groq**, dont au plus **80 automatiques**, ce qui réserve 20 appels aux analyses manuelles, diagnostics, brouillons et préparations de corrections. Avec OpenAI, le plafond reste de **12 appels/jour**, dont au plus 10 automatiques. Les consommateurs réservent atomiquement via `reserve_agent_ai_call(fournisseur, automatique)`. Les quotas Groq peuvent limiter davantage les requêtes. Les propositions de patch restent validées contre la source exacte, approuvées par le propriétaire, préparées en PR et publiées uniquement par une décision distincte après CI. Les brouillons ne sont jamais envoyés par le connecteur IA.
 
 ## Compatibilité et confidentialité
 
@@ -58,3 +58,5 @@ Références primaires :
 - https://console.groq.com/docs/responses-api
 - https://console.groq.com/docs/openai
 - https://console.groq.com/docs/rate-limits
+
+Le compteur quotidien UTC existant est conservé : le relèvement ne remet pas les appels du jour à zéro. Les anciens appels sont classés automatiquement de façon conservatrice pour préserver la réserve manuelle. Le compteur total reste partagé entre fournisseurs : un passage à OpenAI après 12 appels Groq bloque les nouveaux appels pour cette journée, sans remise à zéro ni contournement du plafond payant. Les anciennes versions utilisant `reserve_ai_call()` gardent le plafond de 12. Les limites Groq portent aussi sur les tokens et la minute ; 100 appels Kalatty ne garantissent pas 100 réponses du fournisseur. Les erreurs 429 arrêtent la demande sans repli vers OpenAI.

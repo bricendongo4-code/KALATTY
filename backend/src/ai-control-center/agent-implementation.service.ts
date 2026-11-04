@@ -7,6 +7,7 @@ import {
 import { AgentGithub } from './agent-github';
 import { allowedPatchFile, validatePatch } from './agent-patch';
 import { PROPOSAL_EXPLANATION } from './proposal-explanation';
+import { reserveAgentAiCall } from '../agent-ai/agent-budget';
 
 /** Approved recommendations prepare a reviewable patch, never execute arbitrary model actions. */
 @Injectable()
@@ -18,7 +19,7 @@ export class AgentImplementationService {
     return this.supabase.client;
   }
   private async reserve() {
-    const result = await this.db.rpc('reserve_ai_call');
+    const result = await reserveAgentAiCall(this.db);
     if (result.error || !result.data)
       throw new ServiceUnavailableException(
         'Quota IA du jour épuisé ou indisponible. Relancez la préparation après son renouvellement.',

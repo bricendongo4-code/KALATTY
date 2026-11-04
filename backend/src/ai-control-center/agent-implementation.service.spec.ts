@@ -112,7 +112,7 @@ it('creates an exact pending patch linked to the recommendation, with no reposit
   const s = setup();
   expect(await s.service.prepareOne()).toMatchObject({ prepared: true });
   expect(
-    s.rpc.mock.calls.filter(([name]) => name === 'reserve_ai_call'),
+    s.rpc.mock.calls.filter(([name]) => name === 'reserve_agent_ai_call'),
   ).toHaveLength(2);
   expect(s.inserts[0]).toMatchObject({
     status: 'pending',

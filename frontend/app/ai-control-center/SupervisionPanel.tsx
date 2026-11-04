@@ -24,6 +24,9 @@ type State = {
   brainConfigured: boolean;
   brainProvider?: string;
   brainModel?: string;
+  dailyAiCallLimit?: number;
+  automaticDailyAiCallLimit?: number;
+  reservedManualAiCalls?: number;
   githubConfigured: boolean;
   runs: Run[];
 };
@@ -141,7 +144,7 @@ export default function SupervisionPanel({
               <b>
                 {state.ai_enabled
                   ? state.brainConfigured
-                    ? "Activée · 12 appels/jour maximum"
+                    ? `Activée · ${state.dailyAiCallLimit ?? 12} appels/jour maximum`
                     : "Configuration manquante"
                   : state.brainProvider
                     ? "Analyses automatiques désactivées"
@@ -220,9 +223,21 @@ export default function SupervisionPanel({
                       })
                     }
                   />{" "}
-                  Analyses IA automatiques (plafond de 12 appels/jour)
+                  Analyses IA automatiques (plafond de{" "}
+                  {state.automaticDailyAiCallLimit ??
+                    state.dailyAiCallLimit ??
+                    12}{" "}
+                  appels/jour)
                 </label>
               </div>
+              {state.reservedManualAiCalls !== undefined && (
+                <p>
+                  Budget partagé : {state.dailyAiCallLimit} appels/jour, dont{" "}
+                  {state.reservedManualAiCalls} réservés aux analyses manuelles,
+                  diagnostics et préparations de corrections. Les limites du
+                  fournisseur peuvent être atteintes avant ce plafond.
+                </p>
+              )}
               <details className={styles.explanation}>
                 <summary>Que vérifient les agents ?</summary>
                 <p>
