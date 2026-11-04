@@ -19,6 +19,7 @@ import { agentBudget, reserveAgentAiCall } from '../agent-ai/agent-budget';
 import { PROPOSAL_EXPLANATION } from './proposal-explanation';
 import {
   automaticMissions,
+  guardMissionReview,
   financialAggregates,
   missionInput,
   MissionEvidence,
@@ -262,8 +263,11 @@ export class AgentOrchestratorService implements OnModuleInit, OnModuleDestroy {
         maxOutputTokens: 1600,
         timeoutMs: 25000,
       });
+      const parsed = taskResult(raw);
+      const checked =
+        task.stage === 'review' ? guardMissionReview(parsed, evidence) : parsed;
       const result = {
-        ...taskResult(raw),
+        ...checked,
         evidence,
         capturedAt: snapshot.finished_at,
         ...agentBrainStatus(),

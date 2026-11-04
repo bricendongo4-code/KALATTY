@@ -17,7 +17,7 @@ jest.mock('../agent-ai/agent-budget', () => ({
 jest.mock('../agent-growth/platform-owner.guard', () => ({
   assertOwner: jest.fn().mockResolvedValue('owner'),
 }));
-function fixture(origin = 'manual', stage = 'analysis') {
+function fixture(origin = 'manual', stage = 'analysis', risk = false) {
   const task = {
     id: 'task',
     mission_id: 'mission',
@@ -49,6 +49,16 @@ function fixture(origin = 'manual', stage = 'analysis') {
                     {
                       finished_at: new Date().toISOString(),
                       evidence: [
+                        ...(risk
+                          ? [
+                              {
+                                department: 'developer',
+                                source: 'RLS',
+                                available: true,
+                                detail: 'risk: public access',
+                              },
+                            ]
+                          : []),
                         {
                           department: 'developer',
                           source: 'projects',
@@ -194,4 +204,28 @@ describe('Durable mission worker', () => {
       f.rpc.mock.calls.filter((c) => c[0] === 'finish_ai_agent_task'),
     ).toHaveLength(1);
   });
+});
+
+it('worker persists a blocked review when the provider dismisses an unresolved signal', async () => {
+  process.env.KALATTY_PLATFORM_ADMIN_EMAIL = 'owner@example.test';
+  (reserveAgentAiCall as jest.Mock).mockResolvedValue({ data: true });
+  (generateAgentText as jest.Mock).mockResolvedValue(
+    JSON.stringify({
+      outcome: 'no_change',
+      summary: 'Non critique',
+      recommendation: 'Aucun changement à réaliser.',
+    }),
+  );
+  const f = fixture('automatic', 'review', true);
+  await f.service.tick();
+  expect(f.rpc).toHaveBeenCalledWith(
+    'finish_ai_agent_task',
+    expect.objectContaining({
+      p_result: expect.objectContaining({
+        outcome: 'needs_information',
+        modelOutcome: 'no_change',
+        resolutionEvidenceMissing: true,
+      }),
+    }),
+  );
 });
