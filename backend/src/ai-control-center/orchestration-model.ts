@@ -122,7 +122,7 @@ export function taskResult(raw: string) {
   return {
     outcome: r.outcome as 'propose_change' | 'no_change' | 'needs_information',
     summary: r.summary,
-    recommendation: r.recommendation,
+    recommendation: r.recommendation.replace(/\\n/g, '\n'),
   };
 }
 /** Counts, including zero, are activity indicators and never sufficient evidence of a defect. */
@@ -187,4 +187,40 @@ export function financialAggregates(value: any) {
       )
       .map((k) => [k, value[k]]),
   );
+}
+
+/** A language model cannot dismiss a signal still present in the measured snapshot. */
+export function guardMissionReview<
+  T extends { outcome: string; summary: string; recommendation: string },
+>(result: T, evidence: MissionEvidence[]) {
+  const alerts = evidence.filter(
+    (e) =>
+      !e.available ||
+      /\/(failure|timed_out|cancelled)$/.test(e.detail ?? '') ||
+      e.detail?.startsWith('risk:'),
+  );
+  if (result.outcome !== 'no_change' || !alerts.length) return result;
+  const proof = alerts
+    .slice(0, 4)
+    .map(
+      (e) =>
+        `${e.source.slice(0, 120)} : ${(!e.available ? 'source inaccessible' : (e.detail ?? 'signal à vérifier')).slice(0, 350)}`,
+    )
+    .join('; ');
+  return {
+    ...result,
+    outcome: 'needs_information' as const,
+    modelOutcome: 'no_change',
+    resolutionEvidenceMissing: true,
+    summary:
+      'Conclusion suspendue : des alertes restent présentes dans les contrôles. Leur résolution doit être vérifiée avant de clôturer la mission.',
+    recommendation: [
+      '1. Constat\nLe modèle a conclu à aucun changement, mais les contrôles contiennent encore des alertes. Cette conclusion ne permet pas de clôturer la mission.',
+      '2. Preuves\n' + proof,
+      '3. Action proposée\nLe service responsable doit vérifier les sources signalées, puis rafraîchir la supervision pour obtenir une preuve de résolution. Les seuls compteurs d’activité ne suffisent pas à écarter un risque explicite.',
+      '4. Résultat attendu\nUn contrôle récent qui confirme la résolution, ou une proposition concrète à soumettre au propriétaire si le problème persiste.',
+      '5. Limites et risques\nAucune preuve de résolution n’a été fournie. Aucun changement, paiement ou message n’a été exécuté. La conclusion automatique du modèle est suspendue.',
+      '6. Décision demandée\nCompléter la mission avec les éléments de vérification, actualiser les contrôles puis relancer l’analyse et son contrôle. Aucune correction ne sera publiée sans validation.',
+    ].join('\n\n'),
+  };
 }

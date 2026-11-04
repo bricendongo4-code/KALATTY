@@ -1,5 +1,6 @@
 import {
   automaticMissions,
+  guardMissionReview,
   financialAggregates,
   missionInput,
   REVIEWERS,
@@ -142,4 +143,78 @@ it('rejects structured or ambiguous recommendations with a safe diagnosis', () =
   } catch (e) {
     expect(String(e)).not.toContain('private');
   }
+});
+
+describe('Unresolved evidence gate', () => {
+  const conclusion = {
+    outcome: 'no_change',
+    summary: 'Pas de risque critique',
+    recommendation: 'Aucun ajustement nécessaire.',
+  };
+  it('does not close an explicit risk merely because the model dismisses it', () => {
+    const result = guardMissionReview(conclusion, [
+      {
+        department: 'security',
+        source: 'RLS',
+        available: true,
+        count: 16,
+        detail: 'risk: public access without RLS',
+      },
+    ]);
+    expect(result).toMatchObject({
+      outcome: 'needs_information',
+      modelOutcome: 'no_change',
+      resolutionEvidenceMissing: true,
+    });
+    expect(result.recommendation).toContain('risk: public access without RLS');
+    expect(result.recommendation).toContain('6. Décision demandée');
+    expect(result.recommendation.length).toBeLessThanOrEqual(3500);
+  });
+  it('keeps inaccessible sources and failed checks unresolved', () => {
+    for (const e of [
+      { department: 'qa', source: 'GitHub', available: false },
+      {
+        department: 'qa',
+        source: 'CI',
+        available: true,
+        detail: 'completed/failure',
+      },
+    ])
+      expect(guardMissionReview(conclusion, [e]).outcome).toBe(
+        'needs_information',
+      );
+  });
+  it('preserves healthy no-change outcomes and proposed owner-reviewed changes', () => {
+    expect(
+      guardMissionReview(conclusion, [
+        {
+          department: 'finance',
+          source: 'payments',
+          available: true,
+          count: 0,
+        },
+      ]),
+    ).toBe(conclusion);
+    const proposal = { ...conclusion, outcome: 'propose_change' };
+    expect(
+      guardMissionReview(proposal, [
+        {
+          department: 'security',
+          source: 'RLS',
+          available: true,
+          detail: 'risk: access',
+        },
+      ]),
+    ).toBe(proposal);
+  });
+  it('renders provider double-escaped line breaks as readable paragraphs', () => {
+    expect(
+      taskResult(
+        JSON.stringify({
+          ...conclusion,
+          recommendation: 'Constat : preuve\\nAction : vérifier',
+        }),
+      ).recommendation,
+    ).toBe('Constat : preuve\nAction : vérifier');
+  });
 });
