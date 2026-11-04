@@ -1,3 +1,26 @@
+export const TASK_RESPONSE_SCHEMA = {
+  name: 'kalatty_mission_result',
+  schema: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['outcome', 'summary', 'recommendation'],
+    properties: {
+      outcome: {
+        type: 'string',
+        enum: ['propose_change', 'no_change', 'needs_information'],
+      },
+      summary: {
+        type: 'string',
+        description: 'Résumé en français, entre 3 et 900 caractères.',
+      },
+      recommendation: {
+        type: 'string',
+        description:
+          'Une chaîne de texte en français, six rubriques séparées par des retours à la ligne, entre 10 et 3000 caractères. Aucun objet ni tableau.',
+      },
+    },
+  },
+};
 import { BadRequestException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import { DEPARTMENTS, Department } from './department-planner';
@@ -79,7 +102,23 @@ export function taskResult(raw: string) {
     r.recommendation.length < 10 ||
     r.recommendation.length > 3500
   )
-    throw new Error('Réponse IA invalide : relancez la mission.');
+    throw new Error(
+      'Réponse IA invalide (' +
+        (!r || typeof r !== 'object'
+          ? 'structure absente'
+          : !['propose_change', 'no_change', 'needs_information'].includes(
+                r.outcome,
+              )
+            ? 'décision non reconnue'
+            : typeof r.summary !== 'string'
+              ? 'résumé non textuel'
+              : r.summary.length < 3 || r.summary.length > 1200
+                ? 'longueur du résumé'
+                : typeof r.recommendation !== 'string'
+                  ? 'explication non textuelle'
+                  : 'longueur de l’explication') +
+        ') : relancez la mission.',
+    );
   return {
     outcome: r.outcome as 'propose_change' | 'no_change' | 'needs_information',
     summary: r.summary,

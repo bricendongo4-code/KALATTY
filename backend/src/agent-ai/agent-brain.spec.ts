@@ -255,3 +255,25 @@ describe('All agent workflows use the selected provider and approval boundaries'
     expect(from).not.toHaveBeenCalled();
   });
 });
+
+it('sends the strict Responses schema only when explicitly requested', async () => {
+  const fetcher = jest.fn().mockResolvedValue(reply('ok'));
+  const responseSchema = {
+    name: 'mission_result',
+    schema: {
+      type: 'object',
+      properties: { outcome: { type: 'string', enum: ['no_change'] } },
+      required: ['outcome'],
+      additionalProperties: false,
+    },
+  };
+  await generateAgentText({ ...request, responseSchema }, fetcher);
+  const body = JSON.parse(fetcher.mock.calls[0][1].body);
+  expect(body.text.format).toEqual({
+    type: 'json_schema',
+    name: responseSchema.name,
+    strict: true,
+    schema: responseSchema.schema,
+  });
+  expect(body.tools).toBeUndefined();
+});
