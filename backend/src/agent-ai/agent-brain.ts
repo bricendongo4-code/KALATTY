@@ -5,6 +5,7 @@ type BrainRequest = {
   input: string;
   maxOutputTokens: number;
   timeoutMs?: number;
+  responseSchema?: { name: string; schema: Record<string, unknown> };
 };
 function config() {
   const provider =
@@ -65,6 +66,18 @@ export async function generateAgentText(
         store: false,
         instructions: request.instructions,
         input: request.input,
+        ...(request.responseSchema
+          ? {
+              text: {
+                format: {
+                  type: 'json_schema',
+                  name: request.responseSchema.name,
+                  strict: true,
+                  schema: request.responseSchema.schema,
+                },
+              },
+            }
+          : {}),
         // Reasoning models need a small extra budget before their visible answer.
         max_output_tokens:
           c.provider === 'groq'

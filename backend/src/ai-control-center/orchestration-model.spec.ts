@@ -111,3 +111,35 @@ describe('Orchestration contract', () => {
     expect(safeTaskError(new Error('api_key=secret'))).not.toContain('secret');
   });
 });
+
+it('rejects structured or ambiguous recommendations with a safe diagnosis', () => {
+  expect(() =>
+    taskResult(
+      JSON.stringify({
+        outcome: 'propose_change',
+        summary: 'Risque identifié',
+        recommendation: { constat: 'hidden private contents' },
+      }),
+    ),
+  ).toThrow('explication non textuelle');
+  expect(() =>
+    taskResult(
+      JSON.stringify({
+        outcome: 'propose_change|no_change|needs_information',
+        summary: 'Risque identifié',
+        recommendation: 'hidden private contents',
+      }),
+    ),
+  ).toThrow('décision non reconnue');
+  try {
+    taskResult(
+      JSON.stringify({
+        outcome: 'propose_change',
+        summary: 'secret',
+        recommendation: { secret: 'private' },
+      }),
+    );
+  } catch (e) {
+    expect(String(e)).not.toContain('private');
+  }
+});
