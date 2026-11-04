@@ -1,4 +1,5 @@
 "use client";
+import OrchestrationWorkspace from "./OrchestrationWorkspace";
 import SupportWorkspace from "../commerce/SupportWorkspace";
 import FinanceWorkspace from "../commerce/FinanceWorkspace";
 import { useCallback, useEffect, useState } from "react";
@@ -12,6 +13,7 @@ import GrowthWorkspace from "./GrowthWorkspace";
 import AgentCapabilities from "./AgentCapabilities";
 import styles from "./control-center.module.css";
 type Screen =
+  | "orchestration"
   | "overview"
   | "agents"
   | "analysis"
@@ -61,6 +63,7 @@ const missions: Record<string, string> = {
 };
 const nav: { id: Screen; name: string; icon: string }[] = [
   { id: "overview", name: "Vue générale", icon: "▦" },
+  { id: "orchestration", name: "Orchestration", icon: "orchestration" },
   { id: "agents", name: "Départements & agents", icon: "◈" },
   { id: "analysis", name: "Analyses IA", icon: "✦" },
   { id: "approvals", name: "Centre de validation", icon: "✓" },
@@ -75,6 +78,7 @@ function auth() {
   return localStorage.getItem("kalatty_token") ?? "";
 }
 export default function ControlCenterPage() {
+  const [reviewProposalId, setReviewProposalId] = useState<string>();
   const [screen, setScreen] = useState<Screen>("overview"),
     [mobileNav, setMobileNav] = useState(false),
     [selected, setSelected] = useState<string | null>(null),
@@ -737,6 +741,14 @@ export default function ControlCenterPage() {
               </div>
             </>
           )}
+          {screen === "orchestration" && (
+            <OrchestrationWorkspace
+              onReview={(id) => {
+                setReviewProposalId(id);
+                navigate("approvals");
+              }}
+            />
+          )}
           {screen === "approvals" && (
             <>
               <div className={styles.pageHeading}>
@@ -749,7 +761,11 @@ export default function ControlCenterPage() {
                   </p>
                 </div>
               </div>
-              <ApprovalCenter key={version} onChange={refresh} />
+              <ApprovalCenter
+                key={version}
+                onChange={refresh}
+                initialProposalId={reviewProposalId}
+              />
             </>
           )}
           {screen === "reports" && (

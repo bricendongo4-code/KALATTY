@@ -1,0 +1,56 @@
+-- Transactional acceptance: all fixtures and proposals are rolled back, no AI calls.
+begin;
+do $$
+declare owner_id uuid; mission uuid; second_mission uuid; task public.ai_agent_tasks;
+ worker uuid:=gen_random_uuid(); wrong_worker uuid:=gen_random_uuid(); result jsonb;
+begin
+ select id into owner_id from auth.users limit 1;
+ if owner_id is null then raise exception 'Requires an existing test user'; end if;
+ update public.ai_orchestrator_state set enabled=true,auto_assign=false,next_dispatch_at=now()-interval '1 minute',lease_owner=null,lease_until=null where id;
+ mission:=public.enqueue_ai_mission(owner_id,'acceptance:mission','Mission de validation','Contrôler le parcours de coordination.','developer','qa',2,'manual');
+ if mission<>public.enqueue_ai_mission(owner_id,'acceptance:mission','Mission de validation','Contrôler le parcours de coordination.','developer','qa',2,'manual') then raise exception 'Idempotency failed'; end if;
+ if (select count(*) from public.ai_agent_tasks where mission_id=mission)<>2 then raise exception 'Expected dependent tasks'; end if;
+ if exists(select 1 from public.claim_ai_agent_task(worker)) then raise exception 'Worker bypassed coordinator lease'; end if;
+ if not public.claim_ai_orchestrator(worker) then raise exception 'Coordinator claim failed'; end if;
+ if public.claim_ai_orchestrator(wrong_worker) then raise exception 'Duplicate coordinator lease'; end if;
+ select * into task from public.claim_ai_agent_task(worker);
+ if task.mission_id<>mission or task.stage<>'analysis' then raise exception 'Analysis must precede review'; end if;
+ result:='{"outcome":"no_change","summary":"Indicateurs normaux","recommendation":"Aucune modification justifiée par les preuves.","evidence":[],"executedActions":0}'::jsonb;
+ if public.finish_ai_agent_task(task.id,wrong_worker,result,null,null) then raise exception 'Wrong worker accepted'; end if;
+ if exists(select 1 from public.claim_ai_agent_task(worker) where mission_id=mission) then raise exception 'Review ran before dependency'; end if;
+ if not public.finish_ai_agent_task(task.id,worker,result,null,null) then raise exception 'Analysis completion failed'; end if;
+ select * into task from public.claim_ai_agent_task(worker);
+ if task.mission_id<>mission or task.stage<>'review' or task.department<>'qa' then raise exception 'Independent review missing'; end if;
+ perform public.finish_ai_agent_task(task.id,worker,result,null,null);
+ if (select status from public.ai_agent_missions where id=mission)<>'completed' or exists(select 1 from public.ai_agent_proposals where source_key='orchestration:'||mission) then raise exception 'No-change generated proposal'; end if;
+ second_mission:=public.enqueue_ai_mission(owner_id,'acceptance:change','Mission de correction','Expliquer une anomalie prouvée avant décision.','developer','qa',2,'manual');
+ select * into task from public.claim_ai_agent_task(worker);
+ result:=jsonb_set(result,'{outcome}','"propose_change"');
+ perform public.finish_ai_agent_task(task.id,worker,result,null,null);
+ select * into task from public.claim_ai_agent_task(worker);
+ perform public.finish_ai_agent_task(task.id,worker,result,null,null);
+ if (select status from public.ai_agent_missions where id=second_mission)<>'awaiting_approval' then raise exception 'Proposal not linked'; end if;
+ if (select count(*) from public.ai_agent_proposals where source_key='orchestration:'||second_mission and status='pending' and execution_authorized=false and patch is null)<>1 then raise exception 'Proposal must require owner decision'; end if;
+ if public.finish_ai_agent_task(task.id,worker,result,null,null) then raise exception 'Duplicate finish accepted'; end if;
+ mission:=public.enqueue_ai_mission(owner_id,'acceptance:cancel','Mission annulable','Contrôler annulation et reprise de la mission.','finance','analytics',2,'manual');
+ select * into task from public.claim_ai_agent_task(worker);
+ perform public.finish_ai_agent_task(task.id,worker,null,'Fournisseur indisponible',now()+interval '5 minutes');
+ if (select status from public.ai_agent_missions where id=mission)<>'blocked' then raise exception 'Missing blocked status'; end if;
+ if not public.control_ai_mission(mission,'retry','Précision du propriétaire') then raise exception 'Retry failed'; end if;
+ if exists(select 1 from public.ai_agent_tasks t where t.mission_id=mission and (t.attempts<>0 or t.result is not null)) then raise exception 'Retry did not reset chain'; end if;
+ select * into task from public.claim_ai_agent_task(worker);
+ if not public.control_ai_mission(mission,'cancel','') then raise exception 'Cancellation failed'; end if;
+ if public.finish_ai_agent_task(task.id,worker,result,null,null) then raise exception 'Late cancelled result accepted'; end if;
+ mission:=public.enqueue_ai_mission(owner_id,'acceptance:lease','Mission récupérable','Contrôler la reprise après une interruption.','developer','qa',2,'manual');
+ select * into task from public.claim_ai_agent_task(worker);
+ update public.ai_agent_tasks set lease_until=now()-interval '1 minute' where id=task.id;
+ select * into task from public.claim_ai_agent_task(worker);
+ if task.attempts<>2 then raise exception 'Expired task not reclaimed'; end if;
+ update public.ai_agent_tasks set attempts=3,lease_until=now()-interval '1 minute' where id=task.id;
+ perform public.claim_ai_agent_task(worker);
+ if (select status from public.ai_agent_missions where id=mission)<>'blocked' then raise exception 'Exhausted task not surfaced'; end if;
+ if has_table_privilege('anon','public.ai_agent_tasks','SELECT') or has_table_privilege('authenticated','public.ai_agent_missions','INSERT')
+ or has_function_privilege('anon','public.claim_ai_orchestrator(uuid)','EXECUTE') then raise exception 'Private queue exposed'; end if;
+ if (public.ai_orchestrator_status()->'missions') is null then raise exception 'Dashboard missing'; end if;
+end $$;
+rollback;

@@ -304,7 +304,10 @@ export class AgentSupervisionService implements OnModuleInit, OnModuleDestroy {
         .eq('status', 'completed')
         .order('created_at', { ascending: false })
         .limit(1);
-      for (const department of DEPARTMENTS) {
+      const orchestration = await this.db.from('ai_orchestrator_state').select('enabled').eq('id', true).single();
+      if (orchestration.error) throw new ServiceUnavailableException('Configuration d’orchestration indisponible');
+      // The dispatcher owns analyses while active; hourly probes still collect evidence.
+      for (const department of (orchestration.data ? [] : DEPARTMENTS)) {
         const rows = evidence.filter((e) => e.department === department);
         const last = (previous.data?.[0]?.evidence ?? []).filter(
           (e: Evidence) => e.department === department,

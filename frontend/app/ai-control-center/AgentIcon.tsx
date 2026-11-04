@@ -1,4 +1,5 @@
 const paths: Record<string, string[]> = {
+  orchestration: ["M9 3h6v6H9z M3 16h6v5H3z M15 16h6v5h-6z M12 9v4 M6 16v-3h12v3"],
   overview: ["M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z"],
   agents: ["M9 4h6l2 4h4v12H3V8h4z", "M3 12h18 M10 12v3h4v-3"],
   analysis: ["m12 3 2.6 6.4L21 12l-6.4 2.6L12 21l-2.6-6.4L3 12l6.4-2.6z"],
