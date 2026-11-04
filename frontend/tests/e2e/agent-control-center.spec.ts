@@ -441,6 +441,9 @@ for (const configured of [false, true])
           brainConfigured: configured,
           brainProvider: "groq",
           brainModel: "openai/gpt-oss-20b",
+          dailyAiCallLimit: 100,
+          automaticDailyAiCallLimit: 80,
+          reservedManualAiCalls: 20,
           githubConfigured: true,
           runs: [],
         },
@@ -472,6 +475,10 @@ for (const configured of [false, true])
     const automatic = page.getByRole("checkbox", {
       name: /Analyses IA automatiques/,
     });
+    await expect(automatic).toHaveAccessibleName(/80 appels\/jour/);
+    await expect(
+      page.getByText(/Budget partagé : 100 appels\/jour, dont 20 réservés/),
+    ).toBeVisible();
     await expect(automatic).not.toBeChecked();
     const check = page.getByRole("button", { name: "Tester la connexion IA" });
     if (configured) {

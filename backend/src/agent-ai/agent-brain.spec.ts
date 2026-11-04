@@ -102,13 +102,11 @@ describe('Agent provider isolation', () => {
   it.each([401, 403, 429, 500])(
     'fails once without fallback and redacts provider errors (%s)',
     async (status) => {
-      const fetcher = jest
-        .fn()
-        .mockResolvedValue({
-          ok: false,
-          status,
-          json: async () => ({ message: 'SECRET provider payload' }),
-        });
+      const fetcher = jest.fn().mockResolvedValue({
+        ok: false,
+        status,
+        json: async () => ({ message: 'SECRET provider payload' }),
+      });
       await expect(generateAgentText(request, fetcher)).rejects.not.toThrow(
         'SECRET',
       );
@@ -186,7 +184,10 @@ describe('All agent workflows use the selected provider and approval boundaries'
     expect(await (svc as any).brain('finance', [])).toMatchObject({
       patch: null,
     });
-    expect(rpc).toHaveBeenCalledWith('reserve_ai_call');
+    expect(rpc).toHaveBeenCalledWith(
+      'reserve_agent_ai_call',
+      expect.objectContaining({ p_provider: 'groq' }),
+    );
     expect(fetcher.mock.calls[0][0]).toContain('api.groq.com');
   });
   it('prepares commercial text without invoking a delivery provider', async () => {
@@ -217,7 +218,10 @@ describe('All agent workflows use the selected provider and approval boundaries'
         'Base',
       ),
     ).toContain('https://example.org');
-    expect(rpc).toHaveBeenCalledWith('reserve_ai_call');
+    expect(rpc).toHaveBeenCalledWith(
+      'reserve_agent_ai_call',
+      expect.objectContaining({ p_provider: 'groq' }),
+    );
     expect(fetcher).toHaveBeenCalledTimes(1);
     expect(fetcher.mock.calls[0][0]).toContain('api.groq.com');
   });

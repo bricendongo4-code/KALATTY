@@ -1,4 +1,5 @@
 import { assertAgentBrainConfigured } from '../agent-ai/agent-brain';
+import { reserveAgentAiCall } from '../agent-ai/agent-budget';
 import { AgentSupervisionService } from './agent-supervision.service';
 import { analyzeWithBrain } from './department-brain';
 import { planDepartments } from './department-planner';
@@ -350,7 +351,7 @@ export class AiControlCenterController {
     );
     if (!plan) throw new BadRequestException('Unknown department');
     if (plan.state === 'blocked') return analyzeWithBrain(plan);
-    const reserved = await (this.supabase.client as any).rpc('reserve_ai_call');
+    const reserved = await reserveAgentAiCall(this.supabase.client as any);
     if (reserved.error || !reserved.data)
       throw new HttpException(
         'Quota IA quotidien atteint ou indisponible',
