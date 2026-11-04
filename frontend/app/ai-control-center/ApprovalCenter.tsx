@@ -51,14 +51,16 @@ const execution: Record<string, string> = {
 const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
 export default function ApprovalCenter({
   onChange,
+  initialProposalId,
 }: {
   onChange?: () => Promise<void>;
+  initialProposalId?: string;
 }) {
   const [items, setItems] = useState<Proposal[]>([]),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [busy, setBusy] = useState<string | null>(null),
-    [filter, setFilter] = useState("pending"),
+    [filter, setFilter] = useState(initialProposalId ? "all" : "pending"),
     [note, setNote] = useState<Record<string, string>>({}),
     [ready, setReady] = useState(false);
   const load = useCallback(async () => {
@@ -93,6 +95,17 @@ export default function ApprovalCenter({
     }, 15000);
     return () => clearInterval(timer);
   }, [load]);
+  useEffect(() => {
+    if (!initialProposalId || !ready) return;
+    const timer = setTimeout(
+      () =>
+        document
+          .getElementById("proposal-" + initialProposalId)
+          ?.scrollIntoView({ behavior: "smooth", block: "center" }),
+      100,
+    );
+    return () => clearTimeout(timer);
+  }, [initialProposalId, ready]);
   async function action(
     p: Proposal,
     path: string,
