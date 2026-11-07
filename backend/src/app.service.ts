@@ -1,6 +1,8 @@
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { SupabaseService } from './supabase/supabase.service';
 
+const READINESS_TIMEOUT_MS = 3_000;
+
 @Injectable()
 export class AppService {
   constructor(private readonly supabaseService: SupabaseService) {}
@@ -21,17 +23,24 @@ export class AppService {
 
   async getReadiness() {
     const startedAt = Date.now();
-    const { error } = await this.supabaseService.client
-      .from('profiles')
-      .select('id')
-      .limit(1);
-    if (error) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), READINESS_TIMEOUT_MS);
+    try {
+      const { error } = await this.supabaseService.client
+        .from('profiles')
+        .select('id')
+        .limit(1)
+        .abortSignal(controller.signal);
+      if (error) throw error;
+    } catch {
       throw new ServiceUnavailableException({
         status: 'degraded',
         service: 'kalatty-backend',
         checks: { database: 'unavailable' },
         timestamp: new Date().toISOString(),
       });
+    } finally {
+      clearTimeout(timeout);
     }
     return {
       ...this.getLiveness(),
