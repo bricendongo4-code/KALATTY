@@ -48,7 +48,7 @@ export default function UsersPage({ section = "utilisateurs" }: { section?: "uti
 
   const [showForm, setShowForm] = useState(false);
   const [fullname, setFullname] = useState("");
-  const [role, setRole] = useState<"admin" | "teacher" | "student">("student");
+  const [role, setRole] = useState<"admin" | "pedagogy" | "teacher" | "student">("student");
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -152,6 +152,7 @@ export default function UsersPage({ section = "utilisateurs" }: { section?: "uti
                   <select className={styles.select} value={role} onChange={(e) => setRole(e.target.value as typeof role)}>
                     <option value="student">Étudiant</option>
                     <option value="teacher">Professeur</option>
+                    <option value="pedagogy">Responsable pédagogique</option>
                     <option value="admin">Administrateur</option>
                   </select>
                 </label> : null}
