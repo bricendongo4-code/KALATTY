@@ -21,7 +21,7 @@ type UploadedAsset = {
 
 type InstitutionRole = 'owner' | 'admin' | 'pedagogy' | 'teacher' | 'student';
 type RoomRole = 'teacher' | 'student' | 'assistant';
-type ManagedInstitutionRole = 'admin' | 'teacher' | 'student';
+type ManagedInstitutionRole = Exclude<InstitutionRole, 'owner'>;
 
 // This project targets French/Cameroonian school schedules, so
 // weekday/time-of-day computations must use this fixed timezone rather
@@ -503,9 +503,25 @@ export class InstitutionsService {
     }
 
     const role = payload.role;
-    if (!['admin', 'teacher', 'student'].includes(role)) {
+    if (!['admin', 'pedagogy', 'teacher', 'student'].includes(role)) {
       throw new BadRequestException('Le role fourni est invalide.');
     }
+
+    const roomIds = Array.isArray(payload.room_ids)
+      ? payload.room_ids.filter((roomId) => String(roomId ?? '').trim())
+      : [];
+
+    // Pedagogy is an institution membership, not a classroom assistant role.
+    if (role === 'pedagogy' && roomIds.length > 0) {
+      throw new BadRequestException(
+        'Le responsable pedagogique est rattache a l etablissement, sans affectation directe a une salle.',
+      );
+    }
+
+    // Use the existing non-owner global role for campus users. The dashboard
+    // resolves their actual campus permissions from institution_members.
+    const globalRole =
+      role === 'teacher' ? 'teacher' : role === 'admin' ? 'institution' : 'student';
 
     const loginEmail = await this.buildManagedLoginEmail(
       institution,
@@ -528,12 +544,7 @@ export class InstitutionsService {
         email_confirm: true,
         user_metadata: {
           fullname,
-          role:
-            role === 'teacher'
-              ? 'teacher'
-              : role === 'admin'
-                ? 'institution'
-                : 'student',
+          role: globalRole,
           country: institution.country ?? 'Cameroun',
           level: payload.level?.trim() || null,
           school_name: institution.name ?? null,
@@ -551,13 +562,6 @@ export class InstitutionsService {
     }
 
     const userId = createdUser.user.id;
-    const globalRole =
-      role === 'teacher'
-        ? 'teacher'
-        : role === 'admin'
-          ? 'institution'
-          : 'student';
-
     const { error: profileError } = await this.supabaseService.client
       .from('profiles')
       .upsert(
@@ -582,16 +586,13 @@ export class InstitutionsService {
       );
     }
 
-    const institutionMemberRole: InstitutionRole =
-      role === 'admin' ? 'admin' : role === 'teacher' ? 'teacher' : 'student';
-
     const { error: institutionMemberError } = await this.supabaseService.client
       .from('institution_members')
       .upsert(
         {
           institution_id: institutionId,
           user_id: userId,
-          role: institutionMemberRole,
+          role,
         },
         { onConflict: 'institution_id,user_id' },
       );
@@ -612,10 +613,6 @@ export class InstitutionsService {
       createdBy: user.id,
       source: 'manual',
     });
-
-    const roomIds = Array.isArray(payload.room_ids)
-      ? payload.room_ids.filter((roomId) => String(roomId ?? '').trim())
-      : [];
 
     if (roomIds.length > 0) {
       for (const roomId of roomIds) {
