@@ -62,11 +62,9 @@ export class AgentSupervisionService implements OnModuleInit, OnModuleDestroy {
   onModuleInit() {
     // Database lease prevents multiple Railway replicas from executing the same cycle.
     this.timer = setInterval(() => {
-      void this.prepareRecommendation().catch(() => undefined);
       void this.tick().catch(() => undefined);
     }, 60000);
     this.timer.unref();
-    void this.prepareRecommendation().catch(() => undefined);
     void this.tick().catch(() => undefined);
   }
   onModuleDestroy() {
