@@ -1,5 +1,22 @@
 import { AgentSupervisionService } from './agent-supervision.service';
 describe('durable autonomous supervision', () => {
+  it('does not poll the preparation queue separately when supervision is not due', async () => {
+    jest.useFakeTimers();
+    const rpc = jest.fn().mockResolvedValue({ data: false, error: null });
+    const service = new AgentSupervisionService({ client: { rpc } } as never);
+    try {
+      service.onModuleInit();
+      await jest.advanceTimersByTimeAsync(120000);
+      expect(rpc.mock.calls.map(([name]) => name)).toEqual([
+        'claim_ai_supervision',
+        'claim_ai_supervision',
+        'claim_ai_supervision',
+      ]);
+    } finally {
+      service.onModuleDestroy();
+      jest.useRealTimers();
+    }
+  });
   it('does not execute when the database lease is held or a run is not due', async () => {
     const rpc = jest.fn().mockResolvedValue({ data: false, error: null });
     const from = jest.fn();
