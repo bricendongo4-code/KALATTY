@@ -1,3 +1,4 @@
+import { AgentGithub } from './agent-github';
 import { AgentOrchestratorService } from './agent-orchestrator.service';
 import { generateAgentText } from '../agent-ai/agent-brain';
 import { reserveAgentAiCall } from '../agent-ai/agent-budget';
@@ -17,7 +18,12 @@ jest.mock('../agent-ai/agent-budget', () => ({
 jest.mock('../agent-growth/platform-owner.guard', () => ({
   assertOwner: jest.fn().mockResolvedValue('owner'),
 }));
-function fixture(origin = 'manual', stage = 'analysis', risk = false) {
+function fixture(
+  origin = 'manual',
+  stage = 'analysis',
+  risk = false,
+  objective = 'Examiner la situation',
+) {
   const task = {
     id: 'task',
     mission_id: 'mission',
@@ -75,7 +81,7 @@ function fixture(origin = 'manual', stage = 'analysis', risk = false) {
                       origin,
                       department: 'developer',
                       title: 'Diagnostic',
-                      objective: 'Examiner la situation',
+                      objective,
                       context_note: '',
                     }
                   : {
@@ -150,6 +156,37 @@ describe('Durable mission worker', () => {
     expect(f.updates).toContainEqual(
       expect.objectContaining({ lease_owner: null, last_error: null }),
     );
+  });
+  it('uses one budgeted model call with matched code and saves provenance without the excerpt', async () => {
+    const sha = 'b'.repeat(40);
+    const api = jest
+      .spyOn(AgentGithub.prototype, 'api')
+      .mockResolvedValue({ object: { sha } });
+    const source = jest
+      .spyOn(AgentGithub.prototype, 'source')
+      .mockResolvedValue('actual source excerpt');
+    try {
+      const f = fixture('manual', 'analysis', false, 'Vérifier la messagerie');
+      await f.service.tick();
+      expect(reserveAgentAiCall).toHaveBeenCalledTimes(1);
+      expect(generateAgentText).toHaveBeenCalledTimes(1);
+      const request = (generateAgentText as jest.Mock).mock.calls[0][0];
+      expect(JSON.parse(request.input).code).toMatchObject({
+        revision: sha,
+        files: [
+          expect.objectContaining({ excerpt: 'actual source excerpt' }),
+          expect.any(Object),
+        ],
+      });
+      const saved = f.rpc.mock.calls.find(
+        (c) => c[0] === 'finish_ai_agent_task',
+      );
+      expect(JSON.stringify(saved)).toContain(sha);
+      expect(JSON.stringify(saved)).not.toContain('actual source excerpt');
+    } finally {
+      api.mockRestore();
+      source.mockRestore();
+    }
   });
   it('charges automatic missions to the automatic bucket, including their review', async () => {
     const f = fixture('automatic', 'review');
