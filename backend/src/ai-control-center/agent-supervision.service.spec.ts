@@ -63,3 +63,42 @@ describe('durable autonomous supervision', () => {
     );
   });
 });
+
+describe('TRUNCATE monitoring', () => {
+  it.each([
+    [['course_reviews'], true, 1],
+    [[], true, 0],
+    [undefined, false, undefined],
+  ])(
+    'distinguishes measured grants, absence of grants, and a missing audit field',
+    async (tables, available, count) => {
+      const service = new AgentSupervisionService({
+        client: {
+          from: () => ({ select: async () => ({ count: 0 }) }),
+          rpc: async () => ({
+            data: { unprotected_tables: [], client_truncate_tables: tables },
+          }),
+        },
+      } as never);
+      const github = (service as any).github;
+      const original = github.api;
+      github.api = async () => ({ object: { sha: 'test' }, check_runs: [] });
+      const fetchMock = jest
+        .spyOn(global, 'fetch')
+        .mockResolvedValue({ ok: true, status: 200 } as Response);
+      try {
+        const evidence = await (service as any).evidence();
+        const signal = evidence.find(
+          (e: { source: string }) =>
+            e.source === 'Droits TRUNCATE des rôles clients',
+        );
+        expect(signal.available).toBe(available);
+        expect(signal.count).toBe(count);
+        expect(signal.detail?.startsWith('risk:') ?? false).toBe(count === 1);
+      } finally {
+        fetchMock.mockRestore();
+        github.api = original;
+      }
+    },
+  );
+});
