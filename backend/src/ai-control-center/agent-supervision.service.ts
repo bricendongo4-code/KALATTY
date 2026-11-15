@@ -213,6 +213,28 @@ export class AgentSupervisionService implements OnModuleInit, OnModuleDestroy {
           ? 'risk: ' + tables.join(', ').slice(0, 1000)
           : 'RLS active sur les tables accessibles',
       });
+      const truncateTables = audit.data.client_truncate_tables;
+      if (
+        Array.isArray(truncateTables) &&
+        truncateTables.every((table) => typeof table === 'string')
+      ) {
+        result.push({
+          department: 'security',
+          source: 'Droits TRUNCATE des rôles clients',
+          available: true,
+          count: truncateTables.length,
+          detail: truncateTables.length
+            ? 'risk: TRUNCATE pour anon ou authenticated : ' +
+              truncateTables.join(', ').slice(0, 900)
+            : 'Aucun privilège TRUNCATE pour les rôles clients',
+        });
+      } else {
+        result.push({
+          department: 'security',
+          source: 'Droits TRUNCATE des rôles clients',
+          available: false,
+        });
+      }
     } catch {
       result.push({
         department: 'security',
@@ -302,10 +324,17 @@ export class AgentSupervisionService implements OnModuleInit, OnModuleDestroy {
         .eq('status', 'completed')
         .order('created_at', { ascending: false })
         .limit(1);
-      const orchestration = await this.db.from('ai_orchestrator_state').select('enabled').eq('id', true).single();
-      if (orchestration.error) throw new ServiceUnavailableException('Configuration d’orchestration indisponible');
+      const orchestration = await this.db
+        .from('ai_orchestrator_state')
+        .select('enabled')
+        .eq('id', true)
+        .single();
+      if (orchestration.error)
+        throw new ServiceUnavailableException(
+          'Configuration d’orchestration indisponible',
+        );
       // The dispatcher owns analyses while active; hourly probes still collect evidence.
-      for (const department of (orchestration.data ? [] : DEPARTMENTS)) {
+      for (const department of orchestration.data ? [] : DEPARTMENTS) {
         const rows = evidence.filter((e) => e.department === department);
         const last = (previous.data?.[0]?.evidence ?? []).filter(
           (e: Evidence) => e.department === department,
