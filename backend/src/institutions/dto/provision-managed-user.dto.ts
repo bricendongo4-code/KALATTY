@@ -4,8 +4,8 @@ export class ProvisionManagedUserDto {
   @IsString()
   fullname: string;
 
-  @IsIn(['admin', 'teacher', 'student'])
-  role: 'admin' | 'teacher' | 'student';
+  @IsIn(['admin', 'pedagogy', 'teacher', 'student'])
+  role: 'admin' | 'pedagogy' | 'teacher' | 'student';
 
   @IsOptional()
   @IsString()

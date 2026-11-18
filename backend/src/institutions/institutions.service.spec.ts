@@ -54,6 +54,7 @@ function createFakeClient(db: Db) {
 
     const builder: Record<string, unknown> = {
       select: () => builder,
+      limit: () => builder,
       eq: (key: string, value: unknown) => {
         filters.push([key, value]);
         return builder;
@@ -92,6 +93,78 @@ function buildService(db: Db) {
   const supabaseService = { client: createFakeClient(db) };
   return new InstitutionsService(supabaseService as never);
 }
+
+describe('InstitutionsService - compte responsable pedagogique', () => {
+  const owner = { id: 'owner-1' };
+  const payload = {
+    fullname: 'Responsable QA',
+    email: 'qa@example.test',
+    role: 'pedagogy' as const,
+  };
+  let db: Db;
+  let createUser: jest.Mock;
+  let service: InstitutionsService;
+
+  beforeEach(() => {
+    db = {
+      institutions: [{ id: 'inst-1', owner_user_id: owner.id }],
+      institution_members: [
+        { institution_id: 'inst-1', user_id: 'staff-1', role: 'pedagogy' },
+      ],
+    };
+    createUser = jest.fn().mockResolvedValue({
+      data: { user: { id: 'new-user' } },
+      error: null,
+    });
+    service = new InstitutionsService({
+      client: { ...createFakeClient(db), auth: { admin: { createUser } } },
+    } as never);
+  });
+
+  it('conserve le role pedagogique dans le campus sans accorder le role global institution', async () => {
+    await expect(
+      service.provisionManagedUser(owner, 'inst-1', payload),
+    ).resolves.toMatchObject({ userId: 'new-user', role: 'pedagogy' });
+    expect(createUser).toHaveBeenCalledWith(
+      expect.objectContaining({
+        user_metadata: expect.objectContaining({ role: 'student' }),
+      }),
+    );
+    expect(db.profiles).toEqual([
+      expect.objectContaining({ id: 'new-user', role: 'student' }),
+    ]);
+    expect(db.institution_members).toContainEqual({
+      institution_id: 'inst-1',
+      user_id: 'new-user',
+      role: 'pedagogy',
+    });
+    expect(db.institution_managed_users).toEqual([
+      expect.objectContaining({
+        institution_id: 'inst-1',
+        user_id: 'new-user',
+        managed_role: 'pedagogy',
+      }),
+    ]);
+    expect(db.room_members).toBeUndefined();
+  });
+
+  it('refuse la creation par un responsable pedagogique avant tout appel Auth', async () => {
+    await expect(
+      service.provisionManagedUser({ id: 'staff-1' }, 'inst-1', payload),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(createUser).not.toHaveBeenCalled();
+  });
+
+  it('refuse une affectation directe a une salle avant tout appel Auth', async () => {
+    await expect(
+      service.provisionManagedUser(owner, 'inst-1', {
+        ...payload,
+        room_ids: ['room-1'],
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(createUser).not.toHaveBeenCalled();
+  });
+});
 
 describe('InstitutionsService - remise de devoir', () => {
   let db: Db;
@@ -153,19 +226,38 @@ describe('InstitutionsService - remise de devoir', () => {
     await service.submitAssignment(STUDENT, 'room-1', 'assign-1', {
       content: 'Version 1',
     });
-    await expect(service.submitAssignment(STUDENT, 'room-1', 'assign-1', {
-      content: 'Version 2',
-    })).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(
+      service.submitAssignment(STUDENT, 'room-1', 'assign-1', {
+        content: 'Version 2',
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
 
     expect(db.assignment_submissions).toHaveLength(1);
     expect(db.assignment_submissions[0].content).toBe('Version 1');
   });
 
   it('autorise la correction d une remise retournee et retire l ancienne note', async () => {
-    db.assignment_submissions = [{ id: 'sub-1', assignment_id: 'assign-1', student_id: STUDENT.id, status: 'returned', content: 'Ancienne version', score: 8, published: true }];
-    await buildService(db).submitAssignment(STUDENT, 'room-1', 'assign-1', { content: 'Nouvelle version' });
+    db.assignment_submissions = [
+      {
+        id: 'sub-1',
+        assignment_id: 'assign-1',
+        student_id: STUDENT.id,
+        status: 'returned',
+        content: 'Ancienne version',
+        score: 8,
+        published: true,
+      },
+    ];
+    await buildService(db).submitAssignment(STUDENT, 'room-1', 'assign-1', {
+      content: 'Nouvelle version',
+    });
     expect(db.assignment_submissions).toHaveLength(1);
-    expect(db.assignment_submissions[0]).toMatchObject({ content: 'Nouvelle version', status: 'submitted', score: null, published: false });
+    expect(db.assignment_submissions[0]).toMatchObject({
+      content: 'Nouvelle version',
+      status: 'submitted',
+      score: null,
+      published: false,
+    });
   });
 });
 
